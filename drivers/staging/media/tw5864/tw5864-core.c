@@ -43,7 +43,7 @@
 #include "tw68.h"
 #include "tw68-reg.h"
 
-MODULE_DESCRIPTION("v4l2 driver module for tw6800 based video capture cards");
+MODULE_DESCRIPTION("v4l2 driver module for tw5864 based video capture cards");
 MODULE_AUTHOR("William M. Brack");
 MODULE_AUTHOR("Hans Verkuil <hverkuil@xs4all.nl>");
 MODULE_LICENSE("GPL");
@@ -257,18 +257,6 @@ static int tw68_initdev(struct pci_dev *pci_dev,
 	}
 
 	switch (pci_id->device) {
-	case PCI_DEVICE_ID_6800:	/* TW6800 */
-		dev->vdecoder = TW6800;
-		dev->board_virqmask = TW68_VID_INTS;
-		break;
-	case PCI_DEVICE_ID_6801:	/* Video decoder for TW6802 */
-		dev->vdecoder = TW6801;
-		dev->board_virqmask = TW68_VID_INTS | TW68_VID_INTSX;
-		break;
-	case PCI_DEVICE_ID_6804:	/* Video decoder for TW6804 */
-		dev->vdecoder = TW6804;
-		dev->board_virqmask = TW68_VID_INTS | TW68_VID_INTSX;
-		break;
 	default:
 		dev->vdecoder = TWXXXX;	/* To be announced */
 		dev->board_virqmask = TW68_VID_INTS | TW68_VID_INTSX;

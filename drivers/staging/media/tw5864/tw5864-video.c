@@ -287,9 +287,6 @@ static int tw68_set_scale(struct tw68_dev *dev, unsigned int width,
 		norm->video_v_stop);
 
 	switch (dev->vdecoder) {
-	case TW6800:
-		hdelay = norm->h_delay0;
-		break;
 	default:
 		hdelay = norm->h_delay;
 		break;
@@ -1026,10 +1023,6 @@ void tw68_irq_video_done(struct tw68_dev *dev, unsigned long status)
 		dev_err(&dev->pci->dev, "PABORT interrupt\n");
 	if (status & TW68_DMAPERR)
 		dev_err(&dev->pci->dev, "DMAPERR interrupt\n");
-	/*
-	 * On TW6800, FDMIS is apparently generated if video input is switched
-	 * during operation.  Therefore, it is not enabled for that chip.
-	 */
 	if (status & TW68_FDMIS)
 		dev_dbg(&dev->pci->dev, "FDMIS interrupt\n");
 	if (status & TW68_FFOF) {

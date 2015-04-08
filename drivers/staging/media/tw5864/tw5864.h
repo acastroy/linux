@@ -54,16 +54,12 @@
 
 #define	TW68_VID_INTS	(TW68_FFERR | TW68_PABORT | TW68_DMAPERR | \
 			 TW68_FFOF   | TW68_DMAPI)
-/* TW6800 chips have trouble with these, so we don't set them for that chip */
 #define	TW68_VID_INTSX	(TW68_FDMIS | TW68_HLOCK | TW68_VLOCK)
 
 #define	TW68_I2C_INTS	(TW68_SBERR | TW68_SBDONE | TW68_SBERR2  | \
 			 TW68_SBDONE2)
 
 enum tw68_decoder_type {
-	TW6800,
-	TW6801,
-	TW6804,
 	TWXXXX,
 };
 
@@ -84,7 +80,6 @@ struct tw68_tvnorm {
 
 	/* video scaler */
 	u32	h_delay;
-	u32	h_delay0;	/* for TW6800 */
 	u32	h_start;
 	u32	h_stop;
 	u32	v_delay;
@@ -110,7 +105,6 @@ struct tw68_format {
 
 #define TW68_BOARD_NOAUTO		UNSET
 #define TW68_BOARD_UNKNOWN		0
-#define	TW68_BOARD_GENERIC_6802		1
 
 #define	TW68_MAXBOARDS			16
 #define	TW68_INPUT_MAX			4
