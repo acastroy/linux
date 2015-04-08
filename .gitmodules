@@ -1,0 +1,3 @@
+[submodule "drivers/staging/media/tw5864/h264bitstream"]
+	path = drivers/staging/media/tw5864/h264bitstream
+	url = https://github.com/krieger-od/h264bitstream.git
