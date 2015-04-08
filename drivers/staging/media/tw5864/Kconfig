@@ -1,9 +1,9 @@
-config VIDEO_TW68
-	tristate "Techwell tw68x Video For Linux"
+config VIDEO_TW5864
+	tristate "Techwell TW5864 video/audio grabber and encoder"
 	depends on VIDEO_DEV && PCI && VIDEO_V4L2
 	select VIDEOBUF2_DMA_SG
 	---help---
-	  Support for Techwell tw68xx based frame grabber boards.
+	  Support for Techwell TW5864-based video/audio grabber boards.
 
 	  To compile this driver as a module, choose M here: the
-	  module will be called tw68.
+	  module will be called tw5864.

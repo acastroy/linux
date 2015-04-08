@@ -1,3 +1,3 @@
-tw68-objs := tw68-core.o tw68-video.o tw68-risc.o
+tw5864-objs := tw5864-core.o tw5864-video.o tw5864-risc.o
 
-obj-$(CONFIG_VIDEO_TW68) += tw68.o
+obj-$(CONFIG_VIDEO_TW5864) += tw5864.o
