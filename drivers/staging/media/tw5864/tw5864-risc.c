@@ -1,6 +1,6 @@
 /*
- *  tw68_risc.c
- *  Part of the device driver for Techwell 68xx based cards
+ *  tw5864_risc.c
+ *  Part of the device driver for Techwell 5864 based cards
  *
  *  Much of this code is derived from the cx88 and sa7134 drivers, which
  *  were in turn derived from the bt87x driver.  The original work was by
@@ -26,7 +26,7 @@
  *  GNU General Public License for more details.
  */
 
-#include "tw68.h"
+#include "tw5864.h"
 
 /**
  *  @rp		pointer to current risc program position
@@ -38,7 +38,7 @@
  *  @lines	number of lines in field
  *  @jump	insert a jump at the start
  */
-static __le32 *tw68_risc_field(__le32 *rp, struct scatterlist *sglist,
+static __le32 *tw5864_risc_field(__le32 *rp, struct scatterlist *sglist,
 			    unsigned int offset, u32 sync_line,
 			    unsigned int bpl, unsigned int padding,
 			    unsigned int lines, bool jump)
@@ -114,9 +114,9 @@ static __le32 *tw68_risc_field(__le32 *rp, struct scatterlist *sglist,
 }
 
 /**
- * tw68_risc_buffer
+ * tw5864_risc_buffer
  *
- *	This routine is called by tw68-video.  It allocates
+ *	This routine is called by tw5864-video.  It allocates
  *	memory for the dma controller "program" and then fills in that
  *	memory with the appropriate "instructions".
  *
@@ -133,8 +133,8 @@ static __le32 *tw68_risc_field(__le32 *rp, struct scatterlist *sglist,
  *	@padding	number of extra bytes to add at end of line
  *	@lines		number of scan lines
  */
-int tw68_risc_buffer(struct pci_dev *pci,
-			struct tw68_buf *buf,
+int tw5864_risc_buffer(struct pci_dev *pci,
+			struct tw5864_buf *buf,
 			struct scatterlist *sglist,
 			unsigned int top_offset,
 			unsigned int bottom_offset,
@@ -166,10 +166,10 @@ int tw68_risc_buffer(struct pci_dev *pci,
 	/* write risc instructions */
 	rp = buf->cpu;
 	if (UNSET != top_offset)	/* generates SYNCO */
-		rp = tw68_risc_field(rp, sglist, top_offset, 1,
+		rp = tw5864_risc_field(rp, sglist, top_offset, 1,
 				     bpl, padding, lines, true);
 	if (UNSET != bottom_offset)	/* generates SYNCE */
-		rp = tw68_risc_field(rp, sglist, bottom_offset, 2,
+		rp = tw5864_risc_field(rp, sglist, bottom_offset, 2,
 				     bpl, padding, lines, top_offset == UNSET);
 
 	/* save pointer to jmp instruction address */
@@ -184,7 +184,7 @@ int tw68_risc_buffer(struct pci_dev *pci,
 /* ------------------------------------------------------------------ */
 /* debug helper code                                                  */
 
-static void tw68_risc_decode(u32 risc, u32 addr)
+static void tw5864_risc_decode(u32 risc, u32 addr)
 {
 #define	RISC_OP(reg)	(((reg) >> 28) & 7)
 	static struct instr_details {
@@ -218,13 +218,13 @@ static void tw68_risc_decode(u32 risc, u32 addr)
 	pr_debug("\n");
 }
 
-void tw68_risc_program_dump(struct tw68_core *core, struct tw68_buf *buf)
+void tw5864_risc_program_dump(struct tw5864_core *core, struct tw5864_buf *buf)
 {
 	const __le32 *addr;
 
 	pr_debug("%s: risc_program_dump: risc=%p, buf->cpu=0x%p, buf->jmp=0x%p\n",
 		  core->name, buf, buf->cpu, buf->jmp);
 	for (addr = buf->cpu; addr <= buf->jmp; addr += 2)
-		tw68_risc_decode(*addr, *(addr+1));
+		tw5864_risc_decode(*addr, *(addr+1));
 }
 #endif

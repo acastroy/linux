@@ -1,5 +1,5 @@
 /*
- *  tw68 driver common header file
+ *  tw5864 driver common header file
  *
  *  Much of this code is derived from the cx88 and sa7134 drivers, which
  *  were in turn derived from the bt87x driver.  The original work was by
@@ -38,7 +38,7 @@
 #include <media/v4l2-device.h>
 #include <media/videobuf2-dma-sg.h>
 
-#include "tw68-reg.h"
+#include "tw5864-reg.h"
 
 #define	UNSET	(-1U)
 
@@ -48,25 +48,25 @@
 /* tw5864 based cards */
 #define	PCI_DEVICE_ID_5864     0x5864
 
-#define TW68_NORMS ( \
+#define TW5864_NORMS ( \
 	V4L2_STD_NTSC    | V4L2_STD_PAL       | V4L2_STD_SECAM    | \
 	V4L2_STD_PAL_M   | V4L2_STD_PAL_Nc    | V4L2_STD_PAL_60)
 
-#define	TW68_VID_INTS	(TW68_FFERR | TW68_PABORT | TW68_DMAPERR | \
-			 TW68_FFOF   | TW68_DMAPI)
-#define	TW68_VID_INTSX	(TW68_FDMIS | TW68_HLOCK | TW68_VLOCK)
+#define	TW5864_VID_INTS	(TW5864_FFERR | TW5864_PABORT | TW5864_DMAPERR | \
+			 TW5864_FFOF   | TW5864_DMAPI)
+#define	TW5864_VID_INTSX	(TW5864_FDMIS | TW5864_HLOCK | TW5864_VLOCK)
 
-#define	TW68_I2C_INTS	(TW68_SBERR | TW68_SBDONE | TW68_SBERR2  | \
-			 TW68_SBDONE2)
+#define	TW5864_I2C_INTS	(TW5864_SBERR | TW5864_SBDONE | TW5864_SBERR2  | \
+			 TW5864_SBDONE2)
 
-enum tw68_decoder_type {
+enum tw5864_decoder_type {
 	TWXXXX,
 };
 
 /* ----------------------------------------------------------- */
 /* static data                                                 */
 
-struct tw68_tvnorm {
+struct tw5864_tvnorm {
 	char		*name;
 	v4l2_std_id	id;
 
@@ -93,7 +93,7 @@ struct tw68_tvnorm {
 	u32	format;
 };
 
-struct tw68_format {
+struct tw5864_format {
 	char	*name;
 	u32	fourcc;
 	u32	depth;
@@ -103,21 +103,21 @@ struct tw68_format {
 /* ----------------------------------------------------------- */
 /* card configuration					  */
 
-#define TW68_BOARD_NOAUTO		UNSET
-#define TW68_BOARD_UNKNOWN		0
+#define TW5864_BOARD_NOAUTO		UNSET
+#define TW5864_BOARD_UNKNOWN		0
 
-#define	TW68_MAXBOARDS			16
-#define	TW68_INPUT_MAX			4
+#define	TW5864_MAXBOARDS			16
+#define	TW5864_INPUT_MAX			4
 
 /* ----------------------------------------------------------- */
 /* device / file handle status                                 */
 
 #define	BUFFER_TIMEOUT	msecs_to_jiffies(500)	/* 0.5 seconds */
 
-struct tw68_dev;	/* forward delclaration */
+struct tw5864_dev;	/* forward delclaration */
 
 /* buffer for one video/vbi/ts frame */
-struct tw68_buf {
+struct tw5864_buf {
 	struct vb2_buffer vb;
 	struct list_head list;
 
@@ -127,7 +127,7 @@ struct tw68_buf {
 	dma_addr_t     dma;
 };
 
-struct tw68_fmt {
+struct tw5864_fmt {
 	char			*name;
 	u32			fourcc;	/* v4l2 format id */
 	int			depth;
@@ -136,14 +136,14 @@ struct tw68_fmt {
 };
 
 /* global device status */
-struct tw68_dev {
+struct tw5864_dev {
 	struct mutex		lock;
 	spinlock_t		slock;
 	u16			instance;
 	struct v4l2_device	v4l2_dev;
 
 	/* various device info */
-	enum tw68_decoder_type	vdecoder;
+	enum tw5864_decoder_type	vdecoder;
 	struct video_device	vdev;
 	struct v4l2_ctrl_handler hdl;
 
@@ -158,7 +158,7 @@ struct tw68_dev {
 	u32			board_virqmask;
 
 	/* video capture */
-	const struct tw68_format *fmt;
+	const struct tw5864_format *fmt;
 	unsigned		width, height;
 	unsigned		seqnr;
 	unsigned		field;
@@ -167,7 +167,7 @@ struct tw68_dev {
 	void			*alloc_ctx;
 
 	/* various v4l controls */
-	const struct tw68_tvnorm *tvnorm;	/* video */
+	const struct tw5864_tvnorm *tvnorm;	/* video */
 
 	int			input;
 };
@@ -197,19 +197,19 @@ struct tw68_dev {
 #define tw_wait(us) { udelay(us); }
 
 /* ----------------------------------------------------------- */
-/* tw68-video.c                                                */
+/* tw5864-video.c                                                */
 
-void tw68_set_tvnorm_hw(struct tw68_dev *dev);
+void tw5864_set_tvnorm_hw(struct tw5864_dev *dev);
 
-int tw68_video_init1(struct tw68_dev *dev);
-int tw68_video_init2(struct tw68_dev *dev, int video_nr);
-void tw68_irq_video_done(struct tw68_dev *dev, unsigned long status);
-int tw68_video_start_dma(struct tw68_dev *dev, struct tw68_buf *buf);
+int tw5864_video_init1(struct tw5864_dev *dev);
+int tw5864_video_init2(struct tw5864_dev *dev, int video_nr);
+void tw5864_irq_video_done(struct tw5864_dev *dev, unsigned long status);
+int tw5864_video_start_dma(struct tw5864_dev *dev, struct tw5864_buf *buf);
 
 /* ----------------------------------------------------------- */
-/* tw68-risc.c                                                 */
+/* tw5864-risc.c                                                 */
 
-int tw68_risc_buffer(struct pci_dev *pci, struct tw68_buf *buf,
+int tw5864_risc_buffer(struct pci_dev *pci, struct tw5864_buf *buf,
 	struct scatterlist *sglist, unsigned int top_offset,
 	unsigned int bottom_offset, unsigned int bpl,
 	unsigned int padding, unsigned int lines);
