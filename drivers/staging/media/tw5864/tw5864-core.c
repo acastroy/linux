@@ -256,12 +256,14 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 		goto fail1;
 	}
 
+#if 0
 	switch (pci_id->device) {
 	default:
 		dev->vdecoder = TWXXXX;	/* To be announced */
 		dev->board_virqmask = TW5864_VID_INTS | TW5864_VID_INTSX;
 		break;
 	}
+#endif
 
 	/* get mmio */
 	if (!request_mem_region(pci_resource_start(pci_dev, 0),
