@@ -99,7 +99,6 @@ static const struct tw5864_format formats[] = {
 
 #define NORM_625_50			\
 		.h_delay	= 3,	\
-		.h_delay0	= 133,	\
 		.h_start	= 0,	\
 		.h_stop		= 719,	\
 		.v_delay	= 24,	\
@@ -111,7 +110,6 @@ static const struct tw5864_format formats[] = {
 
 #define NORM_525_60			\
 		.h_delay	= 8,	\
-		.h_delay0	= 138,	\
 		.h_start	= 0,	\
 		.h_stop		= 719,	\
 		.v_delay	= 22,	\
