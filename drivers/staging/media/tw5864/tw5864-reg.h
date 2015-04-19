@@ -835,7 +835,7 @@ channel (total of 16 channels). Four bits for each channel. */
 
 #define TW5864_MPI_DDR_SEL_REG     0xFC04
 /* Define controls in register TW5864_MPI_DDR_SEL_REG */
-#define TW5864_MPI_DDR_SEL      (1 << 15)  /* SW configure register
+#define TW5864_MPI_DDR_SEL2     (1 << 15)  /* SW configure register
                                               0 MV is saved in internal DPR
                                               1 MV is saved in DDR */
 
