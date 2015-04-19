@@ -622,6 +622,22 @@ SYSPLL charge pump current selection
                                               Bit[10]: AD interrupt
                                               Bit[11:15]: Reserved */
 
+/* Defines of interrupt bits, united for both low and high word registers */
+#define TW5864_INTR_VLC_RAM      (1 << 0)
+#define TW5864_INTR_BURST        (1 << 1)
+#define TW5864_INTR_MV_DSP       (1 << 2)
+#define TW5864_INTR_VIN_LOST     (1 << 3)
+#define TW5864_INTR_GPIO(n)      (1 << (4 + n))  /* n belongs to [0; 7] */
+#define TW5864_INTR_JPEG         (1 << 0)
+#define TW5864_INTR_VLC_DONE    (1 << 17)
+#define TW5864_INTR_AD_VSYNC    (1 << 19)
+#define TW5864_INTR_PV_EOF      (1 << 20)
+#define TW5864_INTR_PV_OVERFLOW (1 << 21)
+#define TW5864_INTR_TIMER       (1 << 22)
+#define TW5864_INTR_AUD_EOF     (1 << 24)
+#define TW5864_INTR_I2C_DONE    (1 << 25)
+#define TW5864_INTR_AD          (1 << 26)
+
 /* 0x9000 ~ 0x920C -- Video Capture (VIF) Register Map */
 #define TW5864_H264EN_CH_STATUS    0x9000  /* H264EN_CH_STATUS[n] Status of
                                               Vsync synchronized H264EN_CH_EN

@@ -43,9 +43,8 @@
 #include "tw5864.h"
 #include "tw5864-reg.h"
 
-MODULE_DESCRIPTION("v4l2 driver module for tw5864 based video capture cards");
-MODULE_AUTHOR("William M. Brack");
-MODULE_AUTHOR("Hans Verkuil <hverkuil@xs4all.nl>");
+MODULE_DESCRIPTION("v4l2 driver module for tw5864 based video capture & encoding cards");
+MODULE_AUTHOR("Andrey Utkin <andrey.utkin@corp.bluecherry.net>");
 MODULE_LICENSE("GPL");
 
 static unsigned int latency = UNSET;
@@ -76,137 +75,18 @@ static const struct pci_device_id tw5864_pci_tbl[] = {
 
 /* ------------------------------------------------------------------ */
 
-
-/*
- * The device is given a "soft reset". According to the specifications,
- * after this "all register content remain unchanged", so we also write
- * to all specified registers manually as well (mostly to manufacturer's
- * specified reset values)
- */
-static int tw5864_hw_init1(struct tw5864_dev *dev)
-{
-	/* Assure all interrupts are disabled */
-	tw_writel(TW5864_INTMASK, 0);		/* 020 */
-	/* Clear any pending interrupts */
-	tw_writel(TW5864_INTSTAT, 0xffffffff);	/* 01C */
-	/* Stop risc processor, set default buffer level */
-	tw_writel(TW5864_DMAC, 0x1600);
-
-	tw_writeb(TW5864_ACNTL, 0x80);	/* 218	soft reset */
-	msleep(100);
-
-	tw_writeb(TW5864_INFORM, 0x40);	/* 208	mux0, 27mhz xtal */
-	tw_writeb(TW5864_OPFORM, 0x04);	/* 20C	analog line-lock */
-	tw_writeb(TW5864_HSYNC, 0);	/* 210	color-killer high sens */
-	tw_writeb(TW5864_ACNTL, 0x42);	/* 218	int vref #2, chroma adc off */
-
-	tw_writeb(TW5864_CROP_HI, 0x02);	/* 21C	Hactive m.s. bits */
-	tw_writeb(TW5864_VDELAY_LO, 0x12);/* 220	Mfg specified reset value */
-	tw_writeb(TW5864_VACTIVE_LO, 0xf0);
-	tw_writeb(TW5864_HDELAY_LO, 0x0f);
-	tw_writeb(TW5864_HACTIVE_LO, 0xd0);
-
-	tw_writeb(TW5864_CNTRL1, 0xcd);	/* 230	Wide Chroma BPF B/W
-					 *	Secam reduction, Adap comb for
-					 *	NTSC, Op Mode 1 */
-
-	tw_writeb(TW5864_VSCALE_LO, 0);	/* 234 */
-	tw_writeb(TW5864_SCALE_HI, 0x11);	/* 238 */
-	tw_writeb(TW5864_HSCALE_LO, 0);	/* 23c */
-	tw_writeb(TW5864_BRIGHT, 0);	/* 240 */
-	tw_writeb(TW5864_CONTRAST, 0x5c);	/* 244 */
-	tw_writeb(TW5864_SHARPNESS, 0x51);/* 248 */
-	tw_writeb(TW5864_SAT_U, 0x80);	/* 24C */
-	tw_writeb(TW5864_SAT_V, 0x80);	/* 250 */
-	tw_writeb(TW5864_HUE, 0x00);	/* 254 */
-
-	/* TODO - Check that none of these are set by control defaults */
-	tw_writeb(TW5864_SHARP2, 0x53);	/* 258	Mfg specified reset val */
-	tw_writeb(TW5864_VSHARP, 0x80);	/* 25C	Sharpness Coring val 8 */
-	tw_writeb(TW5864_CORING, 0x44);	/* 260	CTI and Vert Peak coring */
-	tw_writeb(TW5864_CNTRL2, 0x00);	/* 268	No power saving enabled */
-	tw_writeb(TW5864_SDT, 0x07);	/* 270	Enable shadow reg, auto-det */
-	tw_writeb(TW5864_SDTR, 0x7f);	/* 274	All stds recog, don't start */
-	tw_writeb(TW5864_CLMPG, 0x50);	/* 280	Clamp end at 40 sys clocks */
-	tw_writeb(TW5864_IAGC, 0x22);	/* 284	Mfg specified reset val */
-	tw_writeb(TW5864_AGCGAIN, 0xf0);	/* 288	AGC gain when loop disabled */
-	tw_writeb(TW5864_PEAKWT, 0xd8);	/* 28C	White peak threshold */
-	tw_writeb(TW5864_CLMPL, 0x3c);	/* 290	Y channel clamp level */
-/*	tw_writeb(TW5864_SYNCT, 0x38);*/	/* 294	Sync amplitude */
-	tw_writeb(TW5864_SYNCT, 0x30);	/* 294	Sync amplitude */
-	tw_writeb(TW5864_MISSCNT, 0x44);	/* 298	Horiz sync, VCR detect sens */
-	tw_writeb(TW5864_PCLAMP, 0x28);	/* 29C	Clamp pos from PLL sync */
-	/* Bit DETV of VCNTL1 helps sync multi cams/chip board */
-	tw_writeb(TW5864_VCNTL1, 0x04);	/* 2A0 */
-	tw_writeb(TW5864_VCNTL2, 0);	/* 2A4 */
-	tw_writeb(TW5864_CKILL, 0x68);	/* 2A8	Mfg specified reset val */
-	tw_writeb(TW5864_COMB, 0x44);	/* 2AC	Mfg specified reset val */
-	tw_writeb(TW5864_LDLY, 0x30);	/* 2B0	Max positive luma delay */
-	tw_writeb(TW5864_MISC1, 0x14);	/* 2B4	Mfg specified reset val */
-	tw_writeb(TW5864_LOOP, 0xa5);	/* 2B8	Mfg specified reset val */
-	tw_writeb(TW5864_MISC2, 0xe0);	/* 2BC	Enable colour killer */
-	tw_writeb(TW5864_MVSN, 0);	/* 2C0 */
-	tw_writeb(TW5864_CLMD, 0x05);	/* 2CC	slice level auto, clamp med. */
-	tw_writeb(TW5864_IDCNTL, 0);	/* 2D0	Writing zero to this register
-					 *	selects NTSC ID detection,
-					 *	but doesn't change the
-					 *	sensitivity (which has a reset
-					 *	value of 1E).  Since we are
-					 *	not doing auto-detection, it
-					 *	has no real effect */
-	tw_writeb(TW5864_CLCNTL1, 0);	/* 2D4 */
-	tw_writel(TW5864_VBIC, 0x03);	/* 010 */
-	tw_writel(TW5864_CAP_CTL, 0x03);	/* 040	Enable both even & odd flds */
-	tw_writel(TW5864_DMAC, 0x2000);	/* patch set had 0x2080 */
-	tw_writel(TW5864_TESTREG, 0);	/* 02C */
-
-	/*
-	 * Some common boards, especially inexpensive single-chip models,
-	 * use the GPIO bits 0-3 to control an on-board video-output mux.
-	 * For these boards, we need to set up the GPIO register into
-	 * "normal" mode, set bits 0-3 as output, and then set those bits
-	 * zero.
-	 *
-	 * Eventually, it would be nice if we could identify these boards
-	 * uniquely, and only do this initialisation if the board has been
-	 * identify.  For the moment, however, it shouldn't hurt anything
-	 * to do these steps.
-	 */
-	tw_writel(TW5864_GPIOC, 0);	/* Set the GPIO to "normal", no ints */
-	tw_writel(TW5864_GPOE, 0x0f);	/* Set bits 0-3 to "output" */
-	tw_writel(TW5864_GPDATA, 0);	/* Set all bits to low state */
-
-	/* Initialize the device control structures */
-	mutex_init(&dev->lock);
-	spin_lock_init(&dev->slock);
-
-	/* Initialize any subsystems */
-	tw5864_video_init1(dev);
-	return 0;
-}
-
 static irqreturn_t tw5864_irq(int irq, void *dev_id)
 {
 	struct tw5864_dev *dev = dev_id;
-	u32 status, orig;
-	int loop;
+	u32 status;
 
-	status = orig = tw_readl(TW5864_INTSTAT) & dev->pci_irqmask;
-	/* Check if anything to do */
-	if (0 == status)
-		return IRQ_NONE;	/* Nope - return */
-	for (loop = 0; loop < 10; loop++) {
-		if (status & dev->board_virqmask)	/* video interrupt */
-			tw5864_irq_video_done(dev, status);
-		status = tw_readl(TW5864_INTSTAT) & dev->pci_irqmask;
-		if (0 == status)
-			return IRQ_HANDLED;
-	}
-	dev_dbg(&dev->pci->dev, "%s: **** INTERRUPT NOT HANDLED - clearing mask (orig 0x%08x, cur 0x%08x)",
-			dev->name, orig, tw_readl(TW5864_INTSTAT));
-	dev_dbg(&dev->pci->dev, "%s: pci_irqmask 0x%08x; board_virqmask 0x%08x ****\n",
-			dev->name, dev->pci_irqmask, dev->board_virqmask);
-	tw_clearl(TW5864_INTMASK, dev->pci_irqmask);
+	status = tw_readw(TW5864_INTR_STATUS_L)
+		| (tw_readw(TW5864_INTR_STATUS_H) << 16);
+	if (!status)
+		return IRQ_NONE;
+	// TODO Save status for debug printout
+	// TODO Handle
+
 	return IRQ_HANDLED;
 }
 
@@ -256,15 +136,6 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 		goto fail1;
 	}
 
-#if 0
-	switch (pci_id->device) {
-	default:
-		dev->vdecoder = TWXXXX;	/* To be announced */
-		dev->board_virqmask = TW5864_VID_INTS | TW5864_VID_INTSX;
-		break;
-	}
-#endif
-
 	/* get mmio */
 	if (!request_mem_region(pci_resource_start(pci_dev, 0),
 				pci_resource_len(pci_dev, 0),
@@ -275,18 +146,18 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 			(unsigned long long)pci_resource_start(pci_dev, 0));
 		goto fail1;
 	}
-	dev->lmmio = ioremap(pci_resource_start(pci_dev, 0),
+	dev->mmio = ioremap(pci_resource_start(pci_dev, 0),
 			     pci_resource_len(pci_dev, 0));
-	dev->bmmio = (__u8 __iomem *)dev->lmmio;
-	if (NULL == dev->lmmio) {
+	if (NULL == dev->mmio) {
 		err = -EIO;
 		pr_err("%s: can't ioremap() MMIO memory\n",
 		       dev->name);
 		goto fail2;
 	}
-	/* initialize hardware #1 */
-	/* Then do any initialisation wanted before interrupts are on */
-	tw5864_hw_init1(dev);
+
+	/* Initialize the device control structures */
+	mutex_init(&dev->lock);
+	spin_lock_init(&dev->slock);
 
 	dev->alloc_ctx = vb2_dma_sg_init_ctx(&pci_dev->dev);
 	if (IS_ERR(dev->alloc_ctx)) {
@@ -328,7 +199,7 @@ fail5:
 fail4:
 	vb2_dma_sg_cleanup_ctx(dev->alloc_ctx);
 fail3:
-	iounmap(dev->lmmio);
+	iounmap(dev->mmio);
 fail2:
 	release_mem_region(pci_resource_start(pci_dev, 0),
 			   pci_resource_len(pci_dev, 0));
@@ -353,7 +224,7 @@ static void tw5864_finidev(struct pci_dev *pci_dev)
 	vb2_dma_sg_cleanup_ctx(dev->alloc_ctx);
 
 	/* release resources */
-	iounmap(dev->lmmio);
+	iounmap(dev->mmio);
 	release_mem_region(pci_resource_start(pci_dev, 0),
 			   pci_resource_len(pci_dev, 0));
 

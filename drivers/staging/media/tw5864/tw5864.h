@@ -151,8 +151,7 @@ struct tw5864_dev {
 	char			*name;
 	struct pci_dev		*pci;
 	unsigned char		pci_rev, pci_lat;
-	u32			__iomem *lmmio;
-	u8			__iomem *bmmio;
+	void                    __iomem *mmio;
 	u32			pci_irqmask;
 	/* The irq mask to be used will depend upon the chip type */
 	u32			board_virqmask;
@@ -174,11 +173,15 @@ struct tw5864_dev {
 
 /* ----------------------------------------------------------- */
 
-#define tw_readl(reg)		readl(dev->lmmio + ((reg) >> 2))
-#define	tw_readb(reg)		readb(dev->bmmio + (reg))
-#define tw_writel(reg, value)	writel((value), dev->lmmio + ((reg) >> 2))
-#define	tw_writeb(reg, value)	writeb((value), dev->bmmio + (reg))
+#define tw_readl(reg) readl(dev->mmio + reg)
+#define tw_readw(reg) readw(dev->mmio + reg)
+#define	tw_readb(reg) readb(dev->mmio + reg)
 
+#define tw_writel(reg, value) writel((value), dev->mmio + reg)
+#define tw_writew(reg, value) writew((value), dev->mmio + reg)
+#define	tw_writeb(reg, value) writeb((value), dev->mmio + reg)
+
+#if 0  /* not fixed yet for *mmio, not sure if it is needed at all */
 #define tw_andorl(reg, mask, value) \
 		writel((readl(dev->lmmio+((reg)>>2)) & ~(mask)) |\
 		((value) & (mask)), dev->lmmio+((reg)>>2))
@@ -193,7 +196,7 @@ struct tw5864_dev {
 #define	tw_clearb(reg, bit)	\
 		writeb((readb(dev->bmmio+(reg)) & ~(bit)), \
 		dev->bmmio + (reg))
-
+#endif
 #define tw_wait(us) { udelay(us); }
 
 /* ----------------------------------------------------------- */
@@ -201,7 +204,7 @@ struct tw5864_dev {
 
 void tw5864_set_tvnorm_hw(struct tw5864_dev *dev);
 
-int tw5864_video_init1(struct tw5864_dev *dev);
+//int tw5864_video_init1(struct tw5864_dev *dev);
 int tw5864_video_init2(struct tw5864_dev *dev, int video_nr);
 void tw5864_irq_video_done(struct tw5864_dev *dev, unsigned long status);
 int tw5864_video_start_dma(struct tw5864_dev *dev, struct tw5864_buf *buf);
