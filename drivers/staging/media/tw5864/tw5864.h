@@ -59,10 +59,6 @@
 #define	TW5864_I2C_INTS	(TW5864_SBERR | TW5864_SBDONE | TW5864_SBERR2  | \
 			 TW5864_SBDONE2)
 
-enum tw5864_decoder_type {
-	TWXXXX,
-};
-
 /* ----------------------------------------------------------- */
 /* static data                                                 */
 
@@ -106,8 +102,7 @@ struct tw5864_format {
 #define TW5864_BOARD_NOAUTO		UNSET
 #define TW5864_BOARD_UNKNOWN		0
 
-#define	TW5864_MAXBOARDS			16
-#define	TW5864_INPUT_MAX			4
+#define	TW5864_INPUTS 4
 
 /* ----------------------------------------------------------- */
 /* device / file handle status                                 */
@@ -135,40 +130,34 @@ struct tw5864_fmt {
 	u32			twformat;
 };
 
-/* global device status */
-struct tw5864_dev {
+struct tw5864_input {
 	struct mutex		lock;
 	spinlock_t		slock;
-	u16			instance;
-	struct v4l2_device	v4l2_dev;
-
-	/* various device info */
-	enum tw5864_decoder_type	vdecoder;
 	struct video_device	vdev;
 	struct v4l2_ctrl_handler hdl;
-
-	/* pci i/o */
-	char			*name;
-	struct pci_dev		*pci;
-	unsigned char		pci_rev, pci_lat;
-	void                    __iomem *mmio;
-	u32			pci_irqmask;
-	/* The irq mask to be used will depend upon the chip type */
-	u32			board_virqmask;
-
-	/* video capture */
+	const struct tw5864_tvnorm *tvnorm;
+	void			*alloc_ctx;
+	struct vb2_queue	vidq;
+	struct list_head	active;
 	const struct tw5864_format *fmt;
 	unsigned		width, height;
 	unsigned		seqnr;
 	unsigned		field;
-	struct vb2_queue	vidq;
-	struct list_head	active;
-	void			*alloc_ctx;
+};
 
-	/* various v4l controls */
-	const struct tw5864_tvnorm *tvnorm;	/* video */
+/* global device status */
+struct tw5864_dev {
+	struct mutex		lock;
+	spinlock_t		slock;
+	struct tw5864_input     inputs;
+	struct v4l2_device	v4l2_dev;
+	struct tw5864_input     inputs[TW5864_INPUTS];
 
-	int			input;
+	/* pci i/o */
+	char			*name;
+	struct pci_dev		*pci;
+	void                    __iomem *mmio;
+	u32			irqmask;
 };
 
 /* ----------------------------------------------------------- */

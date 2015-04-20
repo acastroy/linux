@@ -929,6 +929,16 @@ int tw5864_video_init1(struct tw5864_dev *dev)
 {
 	struct v4l2_ctrl_handler *hdl = &dev->hdl;
 
+	/* Initialize the device control structures */
+	mutex_init(&dev->lock);
+	spin_lock_init(&dev->slock);
+
+	dev->alloc_ctx = vb2_dma_sg_init_ctx(&pci_dev->dev);
+	if (IS_ERR(dev->alloc_ctx)) {
+		err = PTR_ERR(dev->alloc_ctx);
+		goto fail3;
+	}
+
 	v4l2_ctrl_handler_init(hdl, 6);
 	v4l2_ctrl_new_std(hdl, &tw5864_ctrl_ops,
 			V4L2_CID_BRIGHTNESS, -128, 127, 1, 20);
@@ -955,7 +965,16 @@ int tw5864_video_init1(struct tw5864_dev *dev)
 int tw5864_video_init2(struct tw5864_dev *dev, int video_nr)
 {
 	int ret;
+	int i;
 
+	for (i = 0; i < TW5864_INPUTS; i++) {
+		err = tw5864_video_input_init(dev, video_nr[dev->instance]);
+		if (err < 0) {
+			pr_err("%s: can't register video device\n",
+			       dev->name);
+			goto fail5;
+		}
+	}
 	set_tvnorm(dev, &tvnorms[0]);
 
 	dev->fmt      = format_by_fourcc(V4L2_PIX_FMT_BGR24);
@@ -983,6 +1002,18 @@ int tw5864_video_init2(struct tw5864_dev *dev, int video_nr)
 	dev->vdev.queue = &dev->vidq;
 	video_set_drvdata(&dev->vdev, dev);
 	return video_register_device(&dev->vdev, VFL_TYPE_GRABBER, video_nr);
+}
+
+void tw5864_video_fini(struct tw5864_dev *dev)
+{
+	int i;
+
+	for (i = 0; i < TW5864_INPUTS; i++) {
+		// FIXME
+		video_unregister_device(&dev->vdev);
+		v4l2_ctrl_handler_free(&dev->hdl);
+		vb2_dma_sg_cleanup_ctx(dev->alloc_ctx);
+	}
 }
 
 /*
