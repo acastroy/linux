@@ -370,6 +370,7 @@ static int tw5864_buffer_count(unsigned int size, unsigned int count)
 	return count;
 }
 
+#endif
 /* ------------------------------------------------------------- */
 /* vb2 queue operations                                          */
 
@@ -377,11 +378,20 @@ static int tw5864_queue_setup(struct vb2_queue *q, const struct v4l2_format *fmt
 			   unsigned int *num_buffers, unsigned int *num_planes,
 			   unsigned int sizes[], void *alloc_ctxs[])
 {
-	struct tw5864_dev *dev = vb2_get_drv_priv(q);
+	struct tw5864_input *dev = vb2_get_drv_priv(q);
+#if 0
 	unsigned tot_bufs = q->num_buffers + *num_buffers;
+#endif
 
-	sizes[0] = (dev->fmt->depth * dev->width * dev->height) >> 3;
+	// TODO FIXME Estimate max needed H264 frame size from board buffers size and so on
+	sizes[0] = 1024 * 1024;  // 1 megabyte
 	alloc_ctxs[0] = dev->alloc_ctx;
+	*num_planes = 1;
+
+	if (*num_buffers < 2)
+		*num_buffers = 2;
+#if 0
+	// Seems overly complex
 	/*
 	 * We allow create_bufs, but only if the sizeimage is the same as the
 	 * current sizeimage. The tw5864_buffer_count calculation becomes quite
@@ -389,137 +399,51 @@ static int tw5864_queue_setup(struct vb2_queue *q, const struct v4l2_format *fmt
 	 */
 	if (fmt && fmt->fmt.pix.sizeimage < sizes[0])
 		return -EINVAL;
-	*num_planes = 1;
 	if (tot_bufs < 2)
 		tot_bufs = 2;
 	tot_bufs = tw5864_buffer_count(sizes[0], tot_bufs);
 	*num_buffers = tot_bufs - q->num_buffers;
+#endif
 
 	return 0;
 }
 
-/*
- * The risc program for each buffers works as follows: it starts with a simple
- * 'JUMP to addr + 8', which is effectively a NOP. Then the program to DMA the
- * buffer follows and at the end we have a JUMP back to the start + 8 (skipping
- * the initial JUMP).
- *
- * This is the program of the first buffer to be queued if the active list is
- * empty and it just keeps DMAing this buffer without generating any interrupts.
- *
- * If a new buffer is added then the initial JUMP in the program generates an
- * interrupt as well which signals that the previous buffer has been DMAed
- * successfully and that it can be returned to userspace.
- *
- * It also sets the final jump of the previous buffer to the start of the new
- * buffer, thus chaining the new buffer into the DMA chain. This is a single
- * atomic u32 write, so there is no race condition.
- *
- * The end-result of all this that you only get an interrupt when a buffer
- * is ready, so the control flow is very easy.
- */
 static void tw5864_buf_queue(struct vb2_buffer *vb)
 {
 	struct vb2_queue *vq = vb->vb2_queue;
-	struct tw5864_dev *dev = vb2_get_drv_priv(vq);
+	struct tw5864_input *dev = vb2_get_drv_priv(vq);
 	struct tw5864_buf *buf = container_of(vb, struct tw5864_buf, vb);
-	struct tw5864_buf *prev;
 	unsigned long flags;
 
-	spin_lock_irqsave(&dev->slock, flags);
-
-	/* append a 'JUMP to start of buffer' to the buffer risc program */
-	buf->jmp[0] = cpu_to_le32(RISC_JUMP);
-	buf->jmp[1] = cpu_to_le32(buf->dma + 8);
-
-	if (!list_empty(&dev->active)) {
-		prev = list_entry(dev->active.prev, struct tw5864_buf, list);
-		buf->cpu[0] |= cpu_to_le32(RISC_INT_BIT);
-		prev->jmp[1] = cpu_to_le32(buf->dma);
-	}
+	spin_lock_irqsave(&dev->slock, flags);  // TODO FIXME which locking is minimal and sufficient?
 	list_add_tail(&buf->list, &dev->active);
 	spin_unlock_irqrestore(&dev->slock, flags);
-}
-
-/*
- * buffer_prepare
- *
- * Set the ancilliary information into the buffer structure.  This
- * includes generating the necessary risc program if it hasn't already
- * been done for the current buffer format.
- * The structure fh contains the details of the format requested by the
- * user - type, width, height and #fields.  This is compared with the
- * last format set for the current buffer.  If they differ, the risc
- * code (which controls the filling of the buffer) is (re-)generated.
- */
-static int tw5864_buf_prepare(struct vb2_buffer *vb)
-{
-	struct vb2_queue *vq = vb->vb2_queue;
-	struct tw5864_dev *dev = vb2_get_drv_priv(vq);
-	struct tw5864_buf *buf = container_of(vb, struct tw5864_buf, vb);
-	struct sg_table *dma = vb2_dma_sg_plane_desc(vb, 0);
-	unsigned size, bpl;
-
-	size = (dev->width * dev->height * dev->fmt->depth) >> 3;
-	if (vb2_plane_size(vb, 0) < size)
-		return -EINVAL;
-	vb2_set_plane_payload(vb, 0, size);
-
-	bpl = (dev->width * dev->fmt->depth) >> 3;
-	switch (dev->field) {
-	case V4L2_FIELD_TOP:
-		tw5864_risc_buffer(dev->pci, buf, dma->sgl,
-				 0, UNSET, bpl, 0, dev->height);
-		break;
-	case V4L2_FIELD_BOTTOM:
-		tw5864_risc_buffer(dev->pci, buf, dma->sgl,
-				 UNSET, 0, bpl, 0, dev->height);
-		break;
-	case V4L2_FIELD_SEQ_TB:
-		tw5864_risc_buffer(dev->pci, buf, dma->sgl,
-				 0, bpl * (dev->height >> 1),
-				 bpl, 0, dev->height >> 1);
-		break;
-	case V4L2_FIELD_SEQ_BT:
-		tw5864_risc_buffer(dev->pci, buf, dma->sgl,
-				 bpl * (dev->height >> 1), 0,
-				 bpl, 0, dev->height >> 1);
-		break;
-	case V4L2_FIELD_INTERLACED:
-	default:
-		tw5864_risc_buffer(dev->pci, buf, dma->sgl,
-				 0, bpl, bpl, bpl, dev->height >> 1);
-		break;
-	}
-	return 0;
 }
 
 static void tw5864_buf_finish(struct vb2_buffer *vb)
 {
 	struct vb2_queue *vq = vb->vb2_queue;
-	struct tw5864_dev *dev = vb2_get_drv_priv(vq);
+	struct tw5864_input *dev = vb2_get_drv_priv(vq);
 	struct tw5864_buf *buf = container_of(vb, struct tw5864_buf, vb);
-
-	pci_free_consistent(dev->pci, buf->size, buf->cpu, buf->dma);
+	// What TODO?
 }
 
 static int tw5864_start_streaming(struct vb2_queue *q, unsigned int count)
 {
-	struct tw5864_dev *dev = vb2_get_drv_priv(q);
+	struct tw5864_input *dev = vb2_get_drv_priv(q);
 	struct tw5864_buf *buf =
 		container_of(dev->active.next, struct tw5864_buf, list);
 
 	dev->seqnr = 0;
-	tw5864_video_start_dma(dev, buf);
+	// TODO Kick hardware part to enable this encoder
 	return 0;
 }
 
 static void tw5864_stop_streaming(struct vb2_queue *q)
 {
-	struct tw5864_dev *dev = vb2_get_drv_priv(q);
+	struct tw5864_input *dev = vb2_get_drv_priv(q);
 
-	/* Stop risc & fifo */
-	tw_clearl(TW5864_DMAC, TW5864_DMAP_EN | TW5864_FIFO_EN);
+	// TODO Kick hardware part to disable this encoder
 	while (!list_empty(&dev->active)) {
 		struct tw5864_buf *buf =
 			container_of(dev->active.next, struct tw5864_buf, list);
@@ -532,7 +456,6 @@ static void tw5864_stop_streaming(struct vb2_queue *q)
 static struct vb2_ops tw5864_video_qops = {
 	.queue_setup	= tw5864_queue_setup,
 	.buf_queue	= tw5864_buf_queue,
-	.buf_prepare	= tw5864_buf_prepare,
 	.buf_finish	= tw5864_buf_finish,
 	.start_streaming = tw5864_start_streaming,
 	.stop_streaming = tw5864_stop_streaming,
@@ -541,12 +464,13 @@ static struct vb2_ops tw5864_video_qops = {
 };
 
 /* ------------------------------------------------------------------ */
-
 static int tw5864_s_ctrl(struct v4l2_ctrl *ctrl)
 {
-	struct tw5864_dev *dev =
-		container_of(ctrl->handler, struct tw5864_dev, hdl);
+	struct tw5864_input *dev =
+		container_of(ctrl->handler, struct tw5864_input, hdl);
 
+	// TODO
+#if 0
 	switch (ctrl->id) {
 	case V4L2_CID_BRIGHTNESS:
 		tw_writeb(TW5864_BRIGHT, ctrl->val);
@@ -574,9 +498,10 @@ static int tw5864_s_ctrl(struct v4l2_ctrl *ctrl)
 			tw_andorb(TW5864_LOOP, 0x30, 0x00);
 		break;
 	}
+#endif
 	return 0;
 }
-
+#if 0
 /* ------------------------------------------------------------------ */
 
 /*
@@ -871,6 +796,7 @@ static int vidioc_s_register(struct file *file, void *priv,
 }
 #endif
 
+#endif
 static const struct v4l2_ctrl_ops tw5864_ctrl_ops = {
 	.s_ctrl = tw5864_s_ctrl,
 };
@@ -885,6 +811,7 @@ static const struct v4l2_file_operations video_fops = {
 	.unlocked_ioctl		= video_ioctl2,
 };
 
+#if 0
 static const struct v4l2_ioctl_ops video_ioctl_ops = {
 	.vidioc_querycap		= tw5864_querycap,
 	.vidioc_enum_fmt_vid_cap	= tw5864_enum_fmt_vid_cap,
@@ -911,7 +838,7 @@ static const struct v4l2_ioctl_ops video_ioctl_ops = {
 	.vidioc_s_register              = vidioc_s_register,
 #endif
 };
-
+#endif
 static struct video_device tw5864_video_template = {
 	.name			= "tw5864_video",
 	.fops			= &video_fops,
@@ -919,7 +846,7 @@ static struct video_device tw5864_video_template = {
 	.release		= video_device_release_empty,
 	.tvnorms		= TW5864_NORMS,
 };
-
+#if 0
 /* ------------------------------------------------------------------ */
 /* exported stuff                                                     */
 void tw5864_set_tvnorm_hw(struct tw5864_dev *dev)
