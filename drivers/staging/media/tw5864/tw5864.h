@@ -131,6 +131,8 @@ struct tw5864_fmt {
 };
 
 struct tw5864_input {
+	int                     input_number;
+	struct tw5864_dev       *root;
 	struct mutex		lock;
 	spinlock_t		slock;
 	struct video_device	vdev;
@@ -152,6 +154,8 @@ struct tw5864_dev {
 	struct tw5864_input     inputs;
 	struct v4l2_device	v4l2_dev;
 	struct tw5864_input     inputs[TW5864_INPUTS];
+
+	/* TODO audio stuff */
 
 	/* pci i/o */
 	char			*name;
