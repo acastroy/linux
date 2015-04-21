@@ -501,18 +501,19 @@ static int tw5864_s_ctrl(struct v4l2_ctrl *ctrl)
 #endif
 	return 0;
 }
-#if 0
 /* ------------------------------------------------------------------ */
 
+static int tw5864_g_fmt_vid_cap(struct file *file, void *priv,
+				struct v4l2_format *f)
+{
+	struct tw5864_input *dev = video_drvdata(file);
+
+	// TODO get info from registers
+#if 0
 /*
  * Note that this routine returns what is stored in the fh structure, and
  * does not interrogate any of the device registers.
  */
-static int tw5864_g_fmt_vid_cap(struct file *file, void *priv,
-				struct v4l2_format *f)
-{
-	struct tw5864_dev *dev = video_drvdata(file);
-
 	f->fmt.pix.width        = dev->width;
 	f->fmt.pix.height       = dev->height;
 	f->fmt.pix.field        = dev->field;
@@ -523,13 +524,16 @@ static int tw5864_g_fmt_vid_cap(struct file *file, void *priv,
 		f->fmt.pix.height * f->fmt.pix.bytesperline;
 	f->fmt.pix.colorspace	= V4L2_COLORSPACE_SMPTE170M;
 	f->fmt.pix.priv = 0;
+#endif
 	return 0;
 }
 
 static int tw5864_try_fmt_vid_cap(struct file *file, void *priv,
 						struct v4l2_format *f)
 {
-	struct tw5864_dev *dev = video_drvdata(file);
+	// TODO
+#if 0
+	struct tw5864_input *dev = video_drvdata(file);
 	const struct tw5864_format *fmt;
 	enum v4l2_field field;
 	unsigned int maxh;
@@ -572,6 +576,7 @@ static int tw5864_try_fmt_vid_cap(struct file *file, void *priv,
 	f->fmt.pix.sizeimage =
 		f->fmt.pix.height * f->fmt.pix.bytesperline;
 	f->fmt.pix.colorspace = V4L2_COLORSPACE_SMPTE170M;
+#endif
 	return 0;
 }
 
@@ -584,14 +589,14 @@ static int tw5864_try_fmt_vid_cap(struct file *file, void *priv,
 static int tw5864_s_fmt_vid_cap(struct file *file, void *priv,
 					struct v4l2_format *f)
 {
-	struct tw5864_dev *dev = video_drvdata(file);
+	struct tw5864_input *dev = video_drvdata(file);
 	int err;
 
 	err = tw5864_try_fmt_vid_cap(file, priv, f);
 	if (0 != err)
 		return err;
 
-	dev->fmt = format_by_fourcc(f->fmt.pix.pixelformat);
+	//dev->fmt = format_by_fourcc(f->fmt.pix.pixelformat);  // TODO FIXME
 	dev->width = f->fmt.pix.width;
 	dev->height = f->fmt.pix.height;
 	dev->field = f->fmt.pix.field;
@@ -601,16 +606,18 @@ static int tw5864_s_fmt_vid_cap(struct file *file, void *priv,
 static int tw5864_enum_input(struct file *file, void *priv,
 					struct v4l2_input *i)
 {
-	struct tw5864_dev *dev = video_drvdata(file);
-	unsigned int n;
+	struct tw5864_input *dev = video_drvdata(file);
 
-	n = i->index;
-	if (n >= TW5864_INPUT_MAX)
+	if (i->index)
 		return -EINVAL;
-	i->index = n;
-	i->type = V4L2_INPUT_TYPE_CAMERA;
-	snprintf(i->name, sizeof(i->name), "Composite %d", n);
 
+	i->type = V4L2_INPUT_TYPE_CAMERA;
+	snprintf(i->name, sizeof(i->name), "Encoder %d", dev->input_number);
+
+	// TODO Fill i->std
+	i->std = V4L2_STD_NTSC_M;
+	// TODO Fill i->status
+#if 0
 	/* If the query is for the current input, get live data */
 	if (n == dev->input) {
 		int v1 = tw_readb(TW5864_STATUS1);
@@ -628,37 +635,32 @@ static int tw5864_enum_input(struct file *file, void *priv,
 			i->status |= V4L2_IN_ST_MACROVISION;
 	}
 	i->std = video_devdata(file)->tvnorms;
+#endif
 	return 0;
 }
 
 static int tw5864_g_input(struct file *file, void *priv, unsigned int *i)
 {
-	struct tw5864_dev *dev = video_drvdata(file);
-
-	*i = dev->input;
+	*i = 0;
 	return 0;
 }
 
 static int tw5864_s_input(struct file *file, void *priv, unsigned int i)
 {
-	struct tw5864_dev *dev = video_drvdata(file);
-
-	if (i >= TW5864_INPUT_MAX)
+	if (i)
 		return -EINVAL;
-	dev->input = i;
-	tw_andorb(TW5864_INFORM, 0x03 << 2, dev->input << 2);
 	return 0;
 }
 
 static int tw5864_querycap(struct file *file, void  *priv,
 					struct v4l2_capability *cap)
 {
-	struct tw5864_dev *dev = video_drvdata(file);
+	struct tw5864_input *dev = video_drvdata(file);
 
 	strcpy(cap->driver, "tw5864");
-	strlcpy(cap->card, "Techwell Capture Card",
-		sizeof(cap->card));
-	sprintf(cap->bus_info, "PCI:%s", pci_name(dev->pci));
+	snprintf(cap->card, sizeof(cap->card), "TW5864 Encoder %d",
+			dev->input_number);
+	sprintf(cap->bus_info, "PCI:%s", pci_name(dev->root->pci));
 	cap->device_caps =
 		V4L2_CAP_VIDEO_CAPTURE |
 		V4L2_CAP_READWRITE |
@@ -670,12 +672,14 @@ static int tw5864_querycap(struct file *file, void  *priv,
 
 static int tw5864_s_std(struct file *file, void *priv, v4l2_std_id id)
 {
-	struct tw5864_dev *dev = video_drvdata(file);
+	struct tw5864_input *dev = video_drvdata(file);
 	unsigned int i;
 
 	if (vb2_is_busy(&dev->vidq))
 		return -EBUSY;
 
+	// TODO FIXME
+#if 0
 	/* Look for match on complete norm id (may have mult bits) */
 	for (i = 0; i < TVNORMS; i++) {
 		if (id == tvnorms[i].id)
@@ -693,31 +697,32 @@ static int tw5864_s_std(struct file *file, void *priv, v4l2_std_id id)
 		return -EINVAL;
 
 	set_tvnorm(dev, &tvnorms[i]);	/* do the actual setting */
+#endif
 	return 0;
 }
 
 static int tw5864_g_std(struct file *file, void *priv, v4l2_std_id *id)
 {
-	struct tw5864_dev *dev = video_drvdata(file);
+	struct tw5864_input *dev = video_drvdata(file);
 
-	*id = dev->tvnorm->id;
+	// TODO FIXME get from registers
+	//*id = dev->tvnorm->id;
 	return 0;
 }
 
 static int tw5864_enum_fmt_vid_cap(struct file *file, void  *priv,
 					struct v4l2_fmtdesc *f)
 {
-	if (f->index >= FORMATS)
+	if (f->index)
 		return -EINVAL;
 
-	strlcpy(f->description, formats[f->index].name,
-		sizeof(f->description));
-
-	f->pixelformat = formats[f->index].fourcc;
+	f->pixelformat = V4L2_PIX_FMT_H264;
+	strcpy(f->description, "H.264");
 
 	return 0;
 }
 
+#if 0
 /*
  * Used strictly for internal development and debugging, this routine
  * prints out the current register contents for the tw5864xx device.
@@ -764,7 +769,7 @@ static void tw5864_dump_regs(struct tw5864_dev *dev)
 
 static int vidioc_log_status(struct file *file, void *priv)
 {
-	struct tw5864_dev *dev = video_drvdata(file);
+	struct tw5864_input *dev = video_drvdata(file);
 
 	tw5864_dump_regs(dev);
 	return v4l2_ctrl_log_status(file, priv);
@@ -774,7 +779,7 @@ static int vidioc_log_status(struct file *file, void *priv)
 static int vidioc_g_register(struct file *file, void *priv,
 			      struct v4l2_dbg_register *reg)
 {
-	struct tw5864_dev *dev = video_drvdata(file);
+	struct tw5864_input *dev = video_drvdata(file);
 
 	if (reg->size == 1)
 		reg->val = tw_readb(reg->reg);
@@ -786,7 +791,7 @@ static int vidioc_g_register(struct file *file, void *priv,
 static int vidioc_s_register(struct file *file, void *priv,
 				const struct v4l2_dbg_register *reg)
 {
-	struct tw5864_dev *dev = video_drvdata(file);
+	struct tw5864_input *dev = video_drvdata(file);
 
 	if (reg->size == 1)
 		tw_writeb(reg->reg, reg->val);
@@ -811,7 +816,6 @@ static const struct v4l2_file_operations video_fops = {
 	.unlocked_ioctl		= video_ioctl2,
 };
 
-#if 0
 static const struct v4l2_ioctl_ops video_ioctl_ops = {
 	.vidioc_querycap		= tw5864_querycap,
 	.vidioc_enum_fmt_vid_cap	= tw5864_enum_fmt_vid_cap,
@@ -830,7 +834,7 @@ static const struct v4l2_ioctl_ops video_ioctl_ops = {
 	.vidioc_g_fmt_vid_cap		= tw5864_g_fmt_vid_cap,
 	.vidioc_try_fmt_vid_cap		= tw5864_try_fmt_vid_cap,
 	.vidioc_s_fmt_vid_cap		= tw5864_s_fmt_vid_cap,
-	.vidioc_log_status		= vidioc_log_status,
+	.vidioc_log_status		= v4l2_ctrl_log_status,
 	.vidioc_subscribe_event		= v4l2_ctrl_subscribe_event,
 	.vidioc_unsubscribe_event	= v4l2_event_unsubscribe,
 #ifdef CONFIG_VIDEO_ADV_DEBUG
@@ -838,7 +842,6 @@ static const struct v4l2_ioctl_ops video_ioctl_ops = {
 	.vidioc_s_register              = vidioc_s_register,
 #endif
 };
-#endif
 static struct video_device tw5864_video_template = {
 	.name			= "tw5864_video",
 	.fops			= &video_fops,
