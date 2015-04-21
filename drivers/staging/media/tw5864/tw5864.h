@@ -48,6 +48,7 @@
 /* tw5864 based cards */
 #define	PCI_DEVICE_ID_5864     0x5864
 
+#if 0
 #define TW5864_NORMS ( \
 	V4L2_STD_NTSC    | V4L2_STD_PAL       | V4L2_STD_SECAM    | \
 	V4L2_STD_PAL_M   | V4L2_STD_PAL_Nc    | V4L2_STD_PAL_60)
@@ -58,6 +59,7 @@
 
 #define	TW5864_I2C_INTS	(TW5864_SBERR | TW5864_SBDONE | TW5864_SBERR2  | \
 			 TW5864_SBDONE2)
+#endif
 
 /* ----------------------------------------------------------- */
 /* static data                                                 */
@@ -99,15 +101,10 @@ struct tw5864_format {
 /* ----------------------------------------------------------- */
 /* card configuration					  */
 
-#define TW5864_BOARD_NOAUTO		UNSET
-#define TW5864_BOARD_UNKNOWN		0
-
 #define	TW5864_INPUTS 4
 
 /* ----------------------------------------------------------- */
 /* device / file handle status                                 */
-
-#define	BUFFER_TIMEOUT	msecs_to_jiffies(500)	/* 0.5 seconds */
 
 struct tw5864_dev;	/* forward delclaration */
 
@@ -151,7 +148,6 @@ struct tw5864_input {
 struct tw5864_dev {
 	struct mutex		lock;
 	spinlock_t		slock;
-	struct tw5864_input     inputs;
 	struct v4l2_device	v4l2_dev;
 	struct tw5864_input     inputs[TW5864_INPUTS];
 
@@ -197,9 +193,10 @@ struct tw5864_dev {
 
 void tw5864_set_tvnorm_hw(struct tw5864_dev *dev);
 
-//int tw5864_video_init1(struct tw5864_dev *dev);
-int tw5864_video_init2(struct tw5864_dev *dev, int video_nr);
-void tw5864_irq_video_done(struct tw5864_dev *dev, unsigned long status);
+int tw5864_video_init(struct tw5864_dev *dev, int *video_nr);
+void tw5864_video_fini(struct tw5864_dev *dev);
+int tw5864_video_irq(struct tw5864_dev *dev, unsigned long status);
+#if 0
 int tw5864_video_start_dma(struct tw5864_dev *dev, struct tw5864_buf *buf);
 
 /* ----------------------------------------------------------- */
@@ -209,3 +206,4 @@ int tw5864_risc_buffer(struct pci_dev *pci, struct tw5864_buf *buf,
 	struct scatterlist *sglist, unsigned int top_offset,
 	unsigned int bottom_offset, unsigned int bpl,
 	unsigned int padding, unsigned int lines);
+#endif

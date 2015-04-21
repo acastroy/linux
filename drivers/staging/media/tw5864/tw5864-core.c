@@ -67,7 +67,7 @@ static const struct pci_device_id tw5864_pci_tbl[] = {
 
 /* ------------------------------------------------------------------ */
 
-static int tw5864_interrupts_enable(struct tw5864_dev *dev)
+static void tw5864_interrupts_enable(struct tw5864_dev *dev)
 {
 	// TODO
 }
@@ -156,12 +156,9 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	/* Enable interrupts */
 	tw5864_interrupts_enable(dev);
 
-	pr_info("%s: registered device %s\n",
-			dev->name, video_device_node_name(&dev->vdev));
-
 	return 0;
 
-fail_video_init:
+video_init_fail:
 	tw5864_video_fini(dev);
 irq_req_fail:
 	iounmap(dev->mmio);
@@ -173,7 +170,7 @@ req_mem_fail:
 pci_enable_fail:
 	v4l2_device_unregister(&dev->v4l2_dev);
 v4l2_reg_fail:
-	devm_kfree(dev)
+	devm_kfree(&pci_dev->dev, dev);
 	return err;
 }
 
@@ -195,6 +192,7 @@ static void tw5864_finidev(struct pci_dev *pci_dev)
 			   pci_resource_len(pci_dev, 0));
 
 	v4l2_device_unregister(&dev->v4l2_dev);
+	devm_kfree(&pci_dev->dev, dev);
 }
 
 #ifdef CONFIG_PM
@@ -211,7 +209,7 @@ static int tw5864_suspend(struct pci_dev *pci_dev, pm_message_t state)
 
 	pci_save_state(pci_dev);
 	pci_set_power_state(pci_dev, pci_choose_state(pci_dev, state));
-	vb2_discard_done(&dev->vidq);
+	// vb2_discard_done(&dev->vidq);  // TODO replace with a new tw5864_video_suspend(dev);
 
 	return 0;
 }

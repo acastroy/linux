@@ -33,6 +33,8 @@
 #include "tw5864.h"
 #include "tw5864-reg.h"
 
+#if 0
+
 /* ------------------------------------------------------------------ */
 /* data structs for video                                             */
 /*
@@ -924,8 +926,11 @@ void tw5864_set_tvnorm_hw(struct tw5864_dev *dev)
 {
 	tw_andorb(TW5864_SDT, 0x07, dev->tvnorm->format);
 }
+#endif
+static int tw5864_video_input_init(struct tw5864_input *dev, int video_nr);
+static void tw5864_video_input_fini(struct tw5864_input *dev);
 
-int tw5864_video_init(struct tw5864_dev *dev, int video_nr*)
+int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 {
 	int i;
 	int ret;
@@ -990,9 +995,9 @@ static int tw5864_video_input_init(struct tw5864_input *dev, int video_nr)
 
 
 	/* Initialize the device control structures */
-	dev->alloc_ctx = vb2_dma_sg_init_ctx(dev->root);
+	dev->alloc_ctx = vb2_dma_sg_init_ctx(&dev->root->pci->dev);
 	if (IS_ERR(dev->alloc_ctx)) {
-		err = PTR_ERR(dev->alloc_ctx);
+		ret = PTR_ERR(dev->alloc_ctx);
 		goto vb2_dma_sg_init_ctx_fail;
 	}
 
@@ -1014,7 +1019,7 @@ static int tw5864_video_input_init(struct tw5864_input *dev, int video_nr)
 		ret = hdl->error;
 		goto v4l2_ctrl_fail;
 	}
-	dev->v4l2_dev.ctrl_handler = hdl;
+	dev->vdev.ctrl_handler = hdl;
 	v4l2_ctrl_handler_setup(hdl);
 
 
@@ -1055,7 +1060,7 @@ void tw5864_video_fini(struct tw5864_dev *dev)
 
 int tw5864_video_irq(struct tw5864_dev *dev, unsigned long status)
 {
-
+	return 0;
 #if 0
 	__u32 reg;
 
