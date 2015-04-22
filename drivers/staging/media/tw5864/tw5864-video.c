@@ -532,6 +532,8 @@ static int tw5864_try_fmt_vid_cap(struct file *file, void *priv,
 						struct v4l2_format *f)
 {
 	// TODO
+	f->fmt.pix.width = 720;
+	f->fmt.pix.height = 480;
 #if 0
 	struct tw5864_input *dev = video_drvdata(file);
 	const struct tw5864_format *fmt;
@@ -706,7 +708,7 @@ static int tw5864_g_std(struct file *file, void *priv, v4l2_std_id *id)
 	struct tw5864_input *dev = video_drvdata(file);
 
 	// TODO FIXME get from registers
-	//*id = dev->tvnorm->id;
+	*id = V4L2_STD_NTSC_M;
 	return 0;
 }
 
