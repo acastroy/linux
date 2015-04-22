@@ -95,11 +95,14 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 				     const struct pci_device_id *pci_id)
 {
 	struct tw5864_dev *dev;
+	char irq_owner_display_name[64];
 	int err;
 
 	dev = devm_kzalloc(&pci_dev->dev, sizeof(*dev), GFP_KERNEL);
 	if (!dev)
 		return -ENOMEM;
+
+	snprintf(dev->name, sizeof(dev->name), "tw5864:%s", pci_name(pci_dev));
 
 	err = v4l2_device_register(&pci_dev->dev, &dev->v4l2_dev);
 	if (err)
@@ -141,26 +144,28 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	mutex_init(&dev->lock);
 	spin_lock_init(&dev->slock);
 
+	err = tw5864_video_init(dev, video_nr);
+	if (err)
+		goto video_init_fail;
+
 	/* get irq */
+	snprintf(irq_owner_display_name, sizeof(irq_owner_display_name),
+			"tw5864:/dev/%s", video_device_node_name(&dev->inputs[0].vdev));
 	err = devm_request_irq(&pci_dev->dev, pci_dev->irq, tw5864_irq,
-			IRQF_SHARED, dev->name, dev);
+			IRQF_SHARED, irq_owner_display_name, dev);
 	if (err < 0) {
 		pr_err("%s: can't get IRQ %d\n", dev->name, pci_dev->irq);
 		goto irq_req_fail;
 	}
-
-	err = tw5864_video_init(dev, video_nr);
-	if (err)
-		goto video_init_fail;
 
 	/* Enable interrupts */
 	tw5864_interrupts_enable(dev);
 
 	return 0;
 
-video_init_fail:
-	tw5864_video_fini(dev);
 irq_req_fail:
+	tw5864_video_fini(dev);
+video_init_fail:
 	iounmap(dev->mmio);
 ioremap_fail:
 	release_mem_region(pci_resource_start(pci_dev, 0),

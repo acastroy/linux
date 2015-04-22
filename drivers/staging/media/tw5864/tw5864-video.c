@@ -959,6 +959,9 @@ static int tw5864_video_input_init(struct tw5864_input *dev, int video_nr)
 	if (ret)
 		goto v4l2_ctrl_fail;
 
+	pr_info("%s (IRQ %d): registered video device %s\n", dev->root->name,
+			dev->root->pci->irq, video_device_node_name(&dev->inputs[0].vdev));
+
 	return 0;
 
 v4l2_ctrl_fail:

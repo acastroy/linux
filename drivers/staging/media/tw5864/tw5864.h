@@ -154,7 +154,7 @@ struct tw5864_dev {
 	/* TODO audio stuff */
 
 	/* pci i/o */
-	char			*name;
+	char			name[64];
 	struct pci_dev		*pci;
 	void                    __iomem *mmio;
 	u32			irqmask;
