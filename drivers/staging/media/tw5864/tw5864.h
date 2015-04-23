@@ -170,22 +170,21 @@ struct tw5864_dev {
 #define tw_writew(reg, value) writew((value), dev->mmio + reg)
 #define	tw_writeb(reg, value) writeb((value), dev->mmio + reg)
 
-#if 0  /* not fixed yet for *mmio, not sure if it is needed at all */
 #define tw_andorl(reg, mask, value) \
-		writel((readl(dev->lmmio+((reg)>>2)) & ~(mask)) |\
-		((value) & (mask)), dev->lmmio+((reg)>>2))
-#define	tw_andorb(reg, mask, value) \
-		writeb((readb(dev->bmmio + (reg)) & ~(mask)) |\
-		((value) & (mask)), dev->bmmio+(reg))
-#define tw_setl(reg, bit)	tw_andorl((reg), (bit), (bit))
-#define	tw_setb(reg, bit)	tw_andorb((reg), (bit), (bit))
-#define	tw_clearl(reg, bit)	\
-		writel((readl(dev->lmmio + ((reg) >> 2)) & ~(bit)), \
-		dev->lmmio + ((reg) >> 2))
-#define	tw_clearb(reg, bit)	\
-		writeb((readb(dev->bmmio+(reg)) & ~(bit)), \
-		dev->bmmio + (reg))
-#endif
+		tw_writel((reg), (tw_readl(reg) & ~(mask)) |\
+		((value) & (mask)))
+#define tw_andorw(reg, mask, value) \
+		tw_writew((reg), (tw_readw(reg) & ~(mask)) |\
+		((value) & (mask)))
+#define tw_andorw(reg, mask, value) \
+		tw_writeb((reg), (tw_readb(reg) & ~(mask)) |\
+		((value) & (mask)))
+#define	tw_setl(reg, bit)	tw_writel((reg), tw_readl(reg) | (bit))
+#define	tw_setw(reg, bit)	tw_writew((reg), tw_readw(reg) | (bit))
+#define	tw_setb(reg, bit)	tw_writeb((reg), tw_readb(reg) | (bit))
+#define	tw_clearl(reg, bit)	tw_writel((reg), tw_readl(reg) & ~(bit))
+#define	tw_clearw(reg, bit)	tw_writew((reg), tw_readw(reg) & ~(bit))
+#define	tw_clearb(reg, bit)	tw_writeb((reg), tw_readb(reg) & ~(bit))
 #define tw_wait(us) { udelay(us); }
 
 /* ----------------------------------------------------------- */

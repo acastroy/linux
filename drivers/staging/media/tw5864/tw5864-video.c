@@ -877,6 +877,13 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 
 	// TODO Setup a mask of interrupts needed for video subsystem
 
+	/* Hardware configuration */
+	tw_setw(TW5864_VLC, TW5864_VLC_PCI_SEL);
+	tw_setw(TW5864_PCI_INTR_CTL, TW5864_PCI_MAST_ENB | TW5864_MVD_VLC_MAST_ENB);
+
+	dev->h264_dma_addr = dma_map_single(&dev->pci->dev, 
+
+
 	return 0;
 
 input_init_fail:
@@ -909,7 +916,7 @@ static int tw5864_video_input_init(struct tw5864_input *dev, int video_nr)
 	dev->vidq.timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
 	dev->vidq.io_modes = VB2_MMAP | VB2_USERPTR | VB2_READ | VB2_DMABUF;
 	dev->vidq.ops = &tw5864_video_qops;
-	dev->vidq.mem_ops = &vb2_dma_sg_memops;
+	dev->vidq.mem_ops = &vb2_dma_contig_memops;
 	dev->vidq.drv_priv = dev;
 	dev->vidq.gfp_flags = __GFP_DMA32;
 	dev->vidq.buf_struct_size = sizeof(struct tw5864_buf);
@@ -927,10 +934,10 @@ static int tw5864_video_input_init(struct tw5864_input *dev, int video_nr)
 
 
 	/* Initialize the device control structures */
-	dev->alloc_ctx = vb2_dma_sg_init_ctx(&dev->root->pci->dev);
+	dev->alloc_ctx = vb2_dma_contig_init_ctx(&dev->root->pci->dev);
 	if (IS_ERR(dev->alloc_ctx)) {
 		ret = PTR_ERR(dev->alloc_ctx);
-		goto vb2_dma_sg_init_ctx_fail;
+		goto vb2_dma_contig_init_ctx_fail;
 	}
 
 	v4l2_ctrl_handler_init(hdl, 6);
@@ -966,8 +973,8 @@ static int tw5864_video_input_init(struct tw5864_input *dev, int video_nr)
 
 v4l2_ctrl_fail:
 	v4l2_ctrl_handler_free(hdl);
-	vb2_dma_sg_cleanup_ctx(dev->alloc_ctx);
-vb2_dma_sg_init_ctx_fail:
+	vb2_dma_contig_cleanup_ctx(dev->alloc_ctx);
+vb2_dma_contig_init_ctx_fail:
 	vb2_queue_release(&dev->vidq);
 vb2_q_init_fail:
 	mutex_destroy(&dev->lock);
@@ -980,7 +987,7 @@ static void tw5864_video_input_fini(struct tw5864_input *dev)
 {
 	video_unregister_device(&dev->vdev);
 	v4l2_ctrl_handler_free(&dev->hdl);
-	vb2_dma_sg_cleanup_ctx(dev->alloc_ctx);
+	vb2_dma_contig_cleanup_ctx(dev->alloc_ctx);
 	vb2_queue_release(&dev->vidq);
 	mutex_destroy(&dev->lock);
 }

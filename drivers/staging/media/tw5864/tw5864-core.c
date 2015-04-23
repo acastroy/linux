@@ -70,11 +70,24 @@ static const struct pci_device_id tw5864_pci_tbl[] = {
 static void tw5864_interrupts_enable(struct tw5864_dev *dev)
 {
 	// TODO
+	// TODO locking
+	dev->irqmask |= TW5864_INTR_BURST;
+	tw_writew(TW5864_INTR_ENABLE_L, dev->irqmask & 0xffff);
+	//tw_writew(TW5864_INTR_ENABLE_H, dev->irqmask >> 16);  // high word is not used yet
+	/* Use Level-triggered mode, not edge-triggered */
+	tw_clearw(TW5864_TRIGGER_MODE_L, dev->irqmask & 0xffff);
+	//tw_clearw(TW5864_TRIGGER_MODE_H, dev->irqmask >> 16);
+
 }
 
 static void tw5864_interrupts_disable(struct tw5864_dev *dev)
 {
 	// TODO
+	// TODO locking
+	dev->irqmask &= ~TW5864_INTR_BURST;
+	// TODO deduplicate writing to register(s) with _enable
+	tw_writew(TW5864_INTR_ENABLE_L, dev->irqmask & 0xffff);
+	//tw_writew(TW5864_INTR_ENABLE_H, (dev->irqmask >> 16));  // high word is not used yet
 }
 
 static irqreturn_t tw5864_irq(int irq, void *dev_id)
@@ -83,10 +96,22 @@ static irqreturn_t tw5864_irq(int irq, void *dev_id)
 	u32 status;
 
 	status = tw_readw(TW5864_INTR_STATUS_L)
-		| (tw_readw(TW5864_INTR_STATUS_H) << 16);
+		/* | (tw_readw(TW5864_INTR_STATUS_H) << 16) */;
 	if (!status)
 		return IRQ_NONE;
 	// TODO Handle
+	if (status & TW5864_INTR_BURST) {
+		// TODO Figure out what is the new data, and what to do
+		int pci_intr_status = tw_readw(TW5864_PCI_INTR_STATUS);
+		if (pci_intr_status & TW5864_VLC_DONE_INTR) {
+			// TODO Grab encoded video data
+			// TODO Move this block to -video.c
+
+		}
+
+	}
+	tw_writew(TW5864_INTR_CLR_L, status & 0xffff);
+	tw_writew(TW5864_INTR_CLR_H, status >> 16);
 
 	return IRQ_HANDLED;
 }
