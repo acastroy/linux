@@ -71,7 +71,7 @@ static void tw5864_interrupts_enable(struct tw5864_dev *dev)
 {
 	// TODO
 	// TODO locking
-	dev->irqmask |= TW5864_INTR_BURST;
+	dev->irqmask |= TW5864_INTR_BURST /*| TW5864_INTR_MV_DSP | TW5864_INTR_VLC_DONE */;
 	tw_writew(TW5864_INTR_ENABLE_L, dev->irqmask & 0xffff);
 	//tw_writew(TW5864_INTR_ENABLE_H, dev->irqmask >> 16);  // high word is not used yet
 	/* Use Level-triggered mode, not edge-triggered */
@@ -84,13 +84,13 @@ static void tw5864_interrupts_disable(struct tw5864_dev *dev)
 {
 	// TODO
 	// TODO locking
-	dev->irqmask &= ~TW5864_INTR_BURST;
+	dev->irqmask &= ~(TW5864_INTR_BURST/* | TW5864_INTR_MV_DSP | TW5864_INTR_VLC_DONE*/);
 	// TODO deduplicate writing to register(s) with _enable
 	tw_writew(TW5864_INTR_ENABLE_L, dev->irqmask & 0xffff);
 	//tw_writew(TW5864_INTR_ENABLE_H, (dev->irqmask >> 16));  // high word is not used yet
 }
 
-static irqreturn_t tw5864_irq(int irq, void *dev_id)
+static irqreturn_t tw5864_isr(int irq, void *dev_id)
 {
 	struct tw5864_dev *dev = dev_id;
 	u32 status;
@@ -100,16 +100,19 @@ static irqreturn_t tw5864_irq(int irq, void *dev_id)
 	if (!status)
 		return IRQ_NONE;
 	// TODO Handle
-	if (status & TW5864_INTR_BURST) {
+	//if (status & TW5864_INTR_BURST) {
+		// Figure out the channel id of currently encoded frame
+		int channel = tw_readb(TW5864_DSP) & TW5864_DSP_ENC_CHN;
+
 		// TODO Figure out what is the new data, and what to do
 		int pci_intr_status = tw_readw(TW5864_PCI_INTR_STATUS);
+		dev_dbg(&dev->pci->dev, "tw5864_isr: status: 0x%08x, channel 0x%08x, pci_intr_status 0x%08x\n", status, channel, pci_intr_status);
 		if (pci_intr_status & TW5864_VLC_DONE_INTR) {
 			// TODO Grab encoded video data
 			// TODO Move this block to -video.c
-
 		}
 
-	}
+	//}
 	tw_writew(TW5864_INTR_CLR_L, status & 0xffff);
 	tw_writew(TW5864_INTR_CLR_H, status >> 16);
 
@@ -176,7 +179,7 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	/* get irq */
 	snprintf(irq_owner_display_name, sizeof(irq_owner_display_name),
 			"tw5864:/dev/%s", video_device_node_name(&dev->inputs[0].vdev));
-	err = devm_request_irq(&pci_dev->dev, pci_dev->irq, tw5864_irq,
+	err = devm_request_irq(&pci_dev->dev, pci_dev->irq, tw5864_isr,
 			IRQF_SHARED, irq_owner_display_name, dev);
 	if (err < 0) {
 		pr_err("%s: can't get IRQ %d\n", dev->name, pci_dev->irq);

@@ -127,6 +127,12 @@ struct tw5864_fmt {
 	u32			twformat;
 };
 
+struct tw5864_buf {
+	unsigned long addr;
+	dma_addr_t dma_addr;
+};
+
+
 struct tw5864_input {
 	int                     input_number;
 	struct tw5864_dev       *root;
@@ -150,6 +156,9 @@ struct tw5864_dev {
 	spinlock_t		slock;
 	struct v4l2_device	v4l2_dev;
 	struct tw5864_input     inputs[TW5864_INPUTS];
+#define H264_BUF_CNT 2
+	struct tw5864_buf       h264_vlc_buf[H264_BUF_CNT];
+	struct tw5864_buf       h264_mv_buf[H264_BUF_CNT];
 
 	/* TODO audio stuff */
 

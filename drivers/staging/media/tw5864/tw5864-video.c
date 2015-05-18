@@ -428,14 +428,24 @@ static void tw5864_buf_finish(struct vb2_buffer *vb)
 	// What TODO?
 }
 
+static int tw5864_enable_input(tw5864_dev *dev, int input_number) {
+	mutex_lock(&dev->lock);
+	tw5864_setw(TW5864_H264EN_CH_EN, 1 << input_number);
+	mutex_unlock(&dev->lock);
+}
+
+static int tw5864_disable_input(tw5864_dev *dev, int input_number) {
+	mutex_lock(&dev->lock);
+	tw5864_clearw(TW5864_H264EN_CH_EN, 1 << input_number);
+	mutex_unlock(&dev->lock);
+}
+
 static int tw5864_start_streaming(struct vb2_queue *q, unsigned int count)
 {
 	struct tw5864_input *dev = vb2_get_drv_priv(q);
-	struct tw5864_buf *buf =
-		container_of(dev->active.next, struct tw5864_buf, list);
 
 	dev->seqnr = 0;
-	// TODO Kick hardware part to enable this encoder
+	tw5864_enable_input(dev->root, dev->input_number);
 	return 0;
 }
 
@@ -443,7 +453,8 @@ static void tw5864_stop_streaming(struct vb2_queue *q)
 {
 	struct tw5864_input *dev = vb2_get_drv_priv(q);
 
-	// TODO Kick hardware part to disable this encoder
+	tw5864_disable_input(dev->root, dev->input_number);
+
 	while (!list_empty(&dev->active)) {
 		struct tw5864_buf *buf =
 			container_of(dev->active.next, struct tw5864_buf, list);
@@ -875,14 +886,23 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 			goto input_init_fail;
 	}
 
+	for (i = 0; i < H264_BUF_CNT; i++) {
+#define H264_VLC_BUF_SIZE 0x80000
+		dev->h264_vlc_buf[i].addr = __get_free_pages(GFP_KERNEL, get_order(H264_VLC_BUF_SIZE));
+		dev->h264_vlc_buf[i].dma_addr = dma_map_single(&dev->pci->dev, dev->h264_vlc_buf[i].addr, H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
+#define H264_MV_BUF_SIZE 0x40000
+		dev->h264_mv_buf[i].addr = __get_free_pages(GFP_KERNEL, get_order(H264_MV_BUF_SIZE));
+		dev->h264_mv_buf[i].dma_addr = dma_map_single(&dev->pci->dev, dev->h264_vlc_buf[i].addr, H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
+	}
+
 	// TODO Setup a mask of interrupts needed for video subsystem
 
 	/* Hardware configuration */
 	tw_setw(TW5864_VLC, TW5864_VLC_PCI_SEL);
 	tw_setw(TW5864_PCI_INTR_CTL, TW5864_PCI_MAST_ENB | TW5864_MVD_VLC_MAST_ENB);
 
-	dev->h264_dma_addr = dma_map_single(&dev->pci->dev, 
-
+	tw_setw(TW5864_VLC_STREAM_BASE_ADDR, dev->h264_vlc_buf[0].dma_addr);
+	tw_setw(TW5864_MV_STREAM_BASE_ADDR, dev->h264_mv_buf[0].dma_addr);
 
 	return 0;
 
@@ -895,6 +915,7 @@ input_init_fail:
 
 static int tw5864_video_input_init(struct tw5864_input *dev, int video_nr)
 {
+	int i;
 	int ret;
 	struct v4l2_ctrl_handler *hdl = &dev->hdl;
 
@@ -909,6 +930,7 @@ static int tw5864_video_input_init(struct tw5864_input *dev, int video_nr)
 	dev->height   = 576;
 	dev->field    = V4L2_FIELD_INTERLACED;
 #endif
+
 
 	/* setup video buffers queue */
 	INIT_LIST_HEAD(&dev->active);

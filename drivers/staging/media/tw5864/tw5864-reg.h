@@ -822,7 +822,7 @@ channel (total of 16 channels). Four bits for each channel. */
 #define TW5864_PCI_PV_CH_STATUS    0xC000  /* [15:0] Status of Vsync Synchronized PCI_PV_CH_EN (Read Only)
                                               1 Channel Enabled
                                               0 Channel Disabled */
-#define TW5864_PCI_PV _CH_EN       0xC004  /* [15:0] PCI Preview Path Enable for channel n
+#define TW5864_PCI_PV_CH_EN       0xC004  /* [15:0] PCI Preview Path Enable for channel n
                                               1 Channel Enable
                                               0 Channel Disable */
 
@@ -938,7 +938,7 @@ channel (total of 16 channels). Four bits for each channel. */
 #define TW5864_VLC_INTRA_CRC_I_REG 0x18028  /* vlc original crc value */
 #define TW5864_VLC_INTRA_CRC_O_REG 0x1802C  /* vlc original crc value */
 #define TW5864_VLC_PAR_CRC_REG    0x18030  /* mv stream crc value, it is calculated in pci module */
-#define TW5864_VLC_PAR _LENGTH_REG 0x18034  /* mv length */
+#define TW5864_VLC_PAR_LENGTH_REG 0x18034  /* mv length */
 #define TW5864_VLC_PAR_I_REG      0x18038  /* mv original crc value */
 #define TW5864_VLC_PAR_O_REG      0x1803C  /* mv original crc value */
 
