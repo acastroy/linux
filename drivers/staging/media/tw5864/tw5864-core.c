@@ -180,7 +180,7 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 
 	/* get irq */
 	snprintf(irq_owner_display_name, sizeof(irq_owner_display_name),
-			"tw5864:/dev/%s", video_device_node_name(&dev->inputs[0].vdev));
+			"tw5864:irq%d", pci_dev->irq);
 	err = devm_request_irq(&pci_dev->dev, pci_dev->irq, tw5864_isr,
 			IRQF_SHARED, irq_owner_display_name, dev);
 	if (err < 0) {
