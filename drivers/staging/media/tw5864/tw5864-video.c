@@ -522,22 +522,20 @@ static int tw5864_g_fmt_vid_cap(struct file *file, void *priv,
 	struct tw5864_input *dev = video_drvdata(file);
 
 	// TODO get info from registers
-#if 0
 /*
  * Note that this routine returns what is stored in the fh structure, and
  * does not interrogate any of the device registers.
  */
-	f->fmt.pix.width        = dev->width;
-	f->fmt.pix.height       = dev->height;
-	f->fmt.pix.field        = dev->field;
-	f->fmt.pix.pixelformat  = dev->fmt->fourcc;
-	f->fmt.pix.bytesperline =
-		(f->fmt.pix.width * (dev->fmt->depth)) >> 3;
-	f->fmt.pix.sizeimage =
-		f->fmt.pix.height * f->fmt.pix.bytesperline;
-	f->fmt.pix.colorspace	= V4L2_COLORSPACE_SMPTE170M;
-	f->fmt.pix.priv = 0;
-#endif
+	f->fmt.pix.width        = 720; //dev->width;
+	f->fmt.pix.height       = 480; //dev->height;
+	//f->fmt.pix.field        = dev->field;
+	f->fmt.pix.pixelformat  = V4L2_PIX_FMT_H264; //dev->fmt->fourcc;
+	//f->fmt.pix.bytesperline =
+	//	(f->fmt.pix.width * (dev->fmt->depth)) >> 3;
+	//f->fmt.pix.sizeimage =
+	//	f->fmt.pix.height * f->fmt.pix.bytesperline;
+	//f->fmt.pix.colorspace	= V4L2_COLORSPACE_SMPTE170M;
+	//f->fmt.pix.priv = 0;
 	return 0;
 }
 
