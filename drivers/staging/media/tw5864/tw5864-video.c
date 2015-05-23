@@ -28,7 +28,7 @@
 #include <linux/module.h>
 #include <media/v4l2-common.h>
 #include <media/v4l2-event.h>
-#include <media/videobuf2-dma-sg.h>
+#include <media/videobuf2-dma-contig.h>
 
 #include "tw5864.h"
 #include "tw5864-reg.h"
@@ -428,16 +428,18 @@ static void tw5864_buf_finish(struct vb2_buffer *vb)
 	// What TODO?
 }
 
-static int tw5864_enable_input(tw5864_dev *dev, int input_number) {
+static int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	mutex_lock(&dev->lock);
-	tw5864_setw(TW5864_H264EN_CH_EN, 1 << input_number);
+	tw_setw(TW5864_H264EN_CH_EN, 1 << input_number);
 	mutex_unlock(&dev->lock);
+	return 0;
 }
 
-static int tw5864_disable_input(tw5864_dev *dev, int input_number) {
+static int tw5864_disable_input(struct tw5864_dev *dev, int input_number) {
 	mutex_lock(&dev->lock);
-	tw5864_clearw(TW5864_H264EN_CH_EN, 1 << input_number);
+	tw_clearw(TW5864_H264EN_CH_EN, 1 << input_number);
 	mutex_unlock(&dev->lock);
+	return 0;
 }
 
 static int tw5864_start_streaming(struct vb2_queue *q, unsigned int count)
@@ -850,9 +852,11 @@ static const struct v4l2_ioctl_ops video_ioctl_ops = {
 	.vidioc_log_status		= v4l2_ctrl_log_status,
 	.vidioc_subscribe_event		= v4l2_ctrl_subscribe_event,
 	.vidioc_unsubscribe_event	= v4l2_event_unsubscribe,
+#if 0
 #ifdef CONFIG_VIDEO_ADV_DEBUG
 	.vidioc_g_register              = vidioc_g_register,
 	.vidioc_s_register              = vidioc_s_register,
+#endif
 #endif
 };
 static struct video_device tw5864_video_template = {
@@ -889,10 +893,10 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 	for (i = 0; i < H264_BUF_CNT; i++) {
 #define H264_VLC_BUF_SIZE 0x80000
 		dev->h264_vlc_buf[i].addr = __get_free_pages(GFP_KERNEL, get_order(H264_VLC_BUF_SIZE));
-		dev->h264_vlc_buf[i].dma_addr = dma_map_single(&dev->pci->dev, dev->h264_vlc_buf[i].addr, H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
+		dev->h264_vlc_buf[i].dma_addr = dma_map_single(&dev->pci->dev, (void *)dev->h264_vlc_buf[i].addr, H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
 #define H264_MV_BUF_SIZE 0x40000
 		dev->h264_mv_buf[i].addr = __get_free_pages(GFP_KERNEL, get_order(H264_MV_BUF_SIZE));
-		dev->h264_mv_buf[i].dma_addr = dma_map_single(&dev->pci->dev, dev->h264_vlc_buf[i].addr, H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
+		dev->h264_mv_buf[i].dma_addr = dma_map_single(&dev->pci->dev, (void *)dev->h264_vlc_buf[i].addr, H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
 	}
 
 	// TODO Setup a mask of interrupts needed for video subsystem
@@ -989,7 +993,7 @@ static int tw5864_video_input_init(struct tw5864_input *dev, int video_nr)
 		goto v4l2_ctrl_fail;
 
 	pr_info("%s (IRQ %d): registered video device %s\n", dev->root->name,
-			dev->root->pci->irq, video_device_node_name(&dev->inputs[0].vdev));
+			dev->root->pci->irq, video_device_node_name(&dev->vdev));
 
 	return 0;
 

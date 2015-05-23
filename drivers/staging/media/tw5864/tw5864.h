@@ -114,9 +114,11 @@ struct tw5864_buf {
 	struct list_head list;
 
 	unsigned int   size;
+#if 0
 	__le32         *cpu;
 	__le32         *jmp;
 	dma_addr_t     dma;
+#endif
 };
 
 struct tw5864_fmt {
@@ -127,7 +129,8 @@ struct tw5864_fmt {
 	u32			twformat;
 };
 
-struct tw5864_buf {
+/* bad name, TODO improve */
+struct tw5864_recv_buf {
 	unsigned long addr;
 	dma_addr_t dma_addr;
 };
@@ -157,8 +160,8 @@ struct tw5864_dev {
 	struct v4l2_device	v4l2_dev;
 	struct tw5864_input     inputs[TW5864_INPUTS];
 #define H264_BUF_CNT 2
-	struct tw5864_buf       h264_vlc_buf[H264_BUF_CNT];
-	struct tw5864_buf       h264_mv_buf[H264_BUF_CNT];
+	struct tw5864_recv_buf       h264_vlc_buf[H264_BUF_CNT];
+	struct tw5864_recv_buf       h264_mv_buf[H264_BUF_CNT];
 
 	/* TODO audio stuff */
 
@@ -178,16 +181,17 @@ struct tw5864_dev {
 #define tw_writel(reg, value) writel((value), dev->mmio + reg)
 #define tw_writew(reg, value) writew((value), dev->mmio + reg)
 #define	tw_writeb(reg, value) writeb((value), dev->mmio + reg)
-
+#if 0
 #define tw_andorl(reg, mask, value) \
 		tw_writel((reg), (tw_readl(reg) & ~(mask)) |\
 		((value) & (mask)))
 #define tw_andorw(reg, mask, value) \
 		tw_writew((reg), (tw_readw(reg) & ~(mask)) |\
 		((value) & (mask)))
-#define tw_andorw(reg, mask, value) \
+#define tw_andorb(reg, mask, value) \
 		tw_writeb((reg), (tw_readb(reg) & ~(mask)) |\
 		((value) & (mask)))
+#endif
 #define	tw_setl(reg, bit)	tw_writel((reg), tw_readl(reg) | (bit))
 #define	tw_setw(reg, bit)	tw_writew((reg), tw_readw(reg) | (bit))
 #define	tw_setb(reg, bit)	tw_writeb((reg), tw_readb(reg) | (bit))
