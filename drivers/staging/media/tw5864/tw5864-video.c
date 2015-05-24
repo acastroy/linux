@@ -916,11 +916,14 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 	// TODO Setup a mask of interrupts needed for video subsystem
 
 	/* Hardware configuration */
-	tw_setw(TW5864_VLC, TW5864_VLC_PCI_SEL);
-	tw_setw(TW5864_PCI_INTR_CTL, TW5864_PCI_MAST_ENB | TW5864_MVD_VLC_MAST_ENB);
 
 	tw_setw(TW5864_VLC_STREAM_BASE_ADDR, dev->h264_vlc_buf[0].dma_addr);
 	tw_setw(TW5864_MV_STREAM_BASE_ADDR, dev->h264_mv_buf[0].dma_addr);
+
+	tw_setw(TW5864_VLC, TW5864_VLC_PCI_SEL | (1 << 23) /* ENABLE_VLC_MVD */ );
+	tw_setw(TW5864_PCI_INTR_CTL, TW5864_PCI_MAST_ENB | TW5864_MVD_VLC_MAST_ENB);
+	tw_setw(TW5864_MASTER_ENB_REG, TW5864_PCI_VLC_INTR_ENB);
+
 
 	return 0;
 
