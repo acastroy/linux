@@ -948,7 +948,7 @@ channel (total of 16 channels). Four bits for each channel. */
                                               PREV_PCI_ENB_CHN[1] Enable 10th preview channel */
 #define TW5864_PREV_FRAME_FORMAT_IN 0x18044  /* Description skipped. TODO */
 #define TW5864_IIC_ENB            0x18048  /* IIC enable */
-#define TW5864_PC I_INTTM_SCALE   0x1804C  /* PCI Interrupt interval scale
+#define TW5864_PCI_INTTM_SCALE    0x1804C  /* PCI Interrupt interval scale
                                               0 1ms INTRRUPT
                                               1 2ms INTRRUPT
                                               2 4ms INTRRUPT
