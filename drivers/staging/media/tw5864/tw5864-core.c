@@ -69,25 +69,24 @@ static const struct pci_device_id tw5864_pci_tbl[] = {
 
 static void tw5864_interrupts_enable(struct tw5864_dev *dev)
 {
-	// TODO
-	// TODO locking
-	dev->irqmask |= TW5864_INTR_BURST /*| TW5864_INTR_MV_DSP | TW5864_INTR_VLC_DONE */;
+	mutex_lock(&dev->lock);
+	dev->irqmask |= TW5864_INTR_BURST | TW5864_INTR_MV_DSP | TW5864_INTR_VLC_DONE;
 	tw_writew(TW5864_INTR_ENABLE_L, dev->irqmask & 0xffff);
 	//tw_writew(TW5864_INTR_ENABLE_H, dev->irqmask >> 16);  // high word is not used yet
 	/* Use Level-triggered mode, not edge-triggered */
 	tw_clearw(TW5864_TRIGGER_MODE_L, dev->irqmask & 0xffff);
 	//tw_clearw(TW5864_TRIGGER_MODE_H, dev->irqmask >> 16);
-
+	mutex_unlock(&dev->lock);
 }
 
 static void tw5864_interrupts_disable(struct tw5864_dev *dev)
 {
-	// TODO
-	// TODO locking
-	dev->irqmask &= ~(TW5864_INTR_BURST/* | TW5864_INTR_MV_DSP | TW5864_INTR_VLC_DONE*/);
+	mutex_lock(&dev->lock);
+	dev->irqmask &= ~(TW5864_INTR_BURST | TW5864_INTR_MV_DSP | TW5864_INTR_VLC_DONE);
 	// TODO deduplicate writing to register(s) with _enable
 	tw_writew(TW5864_INTR_ENABLE_L, dev->irqmask & 0xffff);
 	//tw_writew(TW5864_INTR_ENABLE_H, (dev->irqmask >> 16));  // high word is not used yet
+	mutex_unlock(&dev->lock);
 }
 
 static irqreturn_t tw5864_isr(int irq, void *dev_id)
