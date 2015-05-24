@@ -436,7 +436,8 @@ static int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	dev_dbg(&dev->pci->dev, "enabling channel %d\n", input_number);
 	mutex_lock(&dev->lock);
 	tw_setw(TW5864_H264EN_CH_EN, 1 << input_number);
-	tw_setw(TW5864_H264EN_CH_EN, 0xffff);
+	tw_setw(TW5864_SEN_EN_CH, 1 << input_number);
+	//tw_setw(TW5864_H264EN_CH_EN, 0xffff);
 	mutex_unlock(&dev->lock);
 	dev_dbg(&dev->pci->dev, "status: 0x%04x\n", tw_readw(TW5864_H264EN_CH_STATUS));
 	return 0;
@@ -445,6 +446,7 @@ static int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 static int tw5864_disable_input(struct tw5864_dev *dev, int input_number) {
 	dev_dbg(&dev->pci->dev, "disabling channel %d\n", input_number);
 	mutex_lock(&dev->lock);
+	tw_clearw(TW5864_SEN_EN_CH, 1 << input_number);
 	tw_clearw(TW5864_H264EN_CH_EN, 1 << input_number);
 	mutex_unlock(&dev->lock);
 	dev_dbg(&dev->pci->dev, "status: 0x%04x\n", tw_readw(TW5864_H264EN_CH_STATUS));
@@ -935,6 +937,8 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 	tw_writeb(TW5864_EMU_EN_VARIOUS_ETC, (TW5864_DSP_FRAME_TYPE & (1 << 6)) | 0x1f);
 	tw_writew(0x0008, 0x0800);
 	tw_setw(TW5864_SLICE, TW5864_START_NSLICE);
+	tw_setb(TW5864_IIC_ENB, 1);
+	tw_writeb(TW5864_I2C_PHASE_CFG, 1);
 
 
 	return 0;
