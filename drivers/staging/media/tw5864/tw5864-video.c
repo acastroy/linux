@@ -429,16 +429,20 @@ static void tw5864_buf_finish(struct vb2_buffer *vb)
 }
 
 static int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
+	dev_dbg(&dev->pci->dev, "enabling channel %d\n", input_number);
 	mutex_lock(&dev->lock);
 	tw_setw(TW5864_H264EN_CH_EN, 1 << input_number);
 	mutex_unlock(&dev->lock);
+	dev_dbg(&dev->pci->dev, "status: 0x%04x\n", tw_readw(TW5864_H264EN_CH_STATUS));
 	return 0;
 }
 
 static int tw5864_disable_input(struct tw5864_dev *dev, int input_number) {
+	dev_dbg(&dev->pci->dev, "disabling channel %d\n", input_number);
 	mutex_lock(&dev->lock);
 	tw_clearw(TW5864_H264EN_CH_EN, 1 << input_number);
 	mutex_unlock(&dev->lock);
+	dev_dbg(&dev->pci->dev, "status: 0x%04x\n", tw_readw(TW5864_H264EN_CH_STATUS));
 	return 0;
 }
 
