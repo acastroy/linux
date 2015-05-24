@@ -133,7 +133,7 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 		return -ENOMEM;
 
 	snprintf(dev->name, sizeof(dev->name), "tw5864:%s", pci_name(pci_dev));
-	dev_set_name(&pci_dev->dev, "tw5864:%s", pci_name(pci_dev));
+	//dev_set_name(&pci_dev->dev, "tw5864:%s", pci_name(pci_dev));
 
 	err = v4l2_device_register(&pci_dev->dev, &dev->v4l2_dev);
 	if (err)
