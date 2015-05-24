@@ -76,8 +76,8 @@ static void tw5864_interrupts_enable(struct tw5864_dev *dev)
 	tw_writew(TW5864_INTR_ENABLE_L, dev->irqmask & 0xffff);
 	tw_writew(TW5864_INTR_ENABLE_H, dev->irqmask >> 16);  // high word is not used yet
 	/* Use Level-triggered mode, not edge-triggered */
-	tw_clearw(TW5864_TRIGGER_MODE_L, dev->irqmask & 0xffff);
-	tw_clearw(TW5864_TRIGGER_MODE_H, dev->irqmask >> 16);
+	tw_setw(TW5864_TRIGGER_MODE_L, dev->irqmask & 0xffff);
+	tw_setw(TW5864_TRIGGER_MODE_H, dev->irqmask >> 16);
 	mutex_unlock(&dev->lock);
 }
 
