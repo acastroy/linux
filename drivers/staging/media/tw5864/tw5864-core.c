@@ -26,6 +26,8 @@
  *  GNU General Public License for more details.
  */
 
+#define DEBUG 1
+
 #include <linux/init.h>
 #include <linux/list.h>
 #include <linux/module.h>
@@ -190,6 +192,9 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 
 	/* Enable interrupts */
 	tw5864_interrupts_enable(dev);
+
+	dev_info(&dev->pci->dev, "hi everybody, it's info\n");
+	dev_dbg(&dev->pci->dev, "hi everybody, it's debug\n");
 
 	return 0;
 
