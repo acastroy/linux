@@ -448,6 +448,7 @@ static int tw5864_disable_input(struct tw5864_dev *dev, int input_number) {
 	tw_clearw(TW5864_H264EN_CH_EN, 1 << input_number);
 	mutex_unlock(&dev->lock);
 	dev_dbg(&dev->pci->dev, "status: 0x%04x\n", tw_readw(TW5864_H264EN_CH_STATUS));
+	dev_dbg(&dev->pci->dev, "TW5864_PCI_INTR_STATUS: 0x%04x, irq status: 0x%04x%04x, TW5864_VLC_DSP_INTR: 0x%04x\n", tw_readw(TW5864_PCI_INTR_STATUS), tw_readw(TW5864_INTR_STATUS_H), tw_readw(TW5864_INTR_STATUS_L), tw_readw(TW5864_VLC_DSP_INTR));
 	return 0;
 }
 
