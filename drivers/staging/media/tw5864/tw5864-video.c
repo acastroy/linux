@@ -921,12 +921,12 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 	tw_writew(TW5864_VLC_STREAM_BASE_ADDR, dev->h264_vlc_buf[0].dma_addr);
 	tw_writew(TW5864_MV_STREAM_BASE_ADDR, dev->h264_mv_buf[0].dma_addr);
 
-	tw_setw(TW5864_VLC, TW5864_VLC_PCI_SEL | (1 << 23) /* ENABLE_VLC_MVD */ );
-	tw_setw(TW5864_VLC, 0xffff);
+	tw_writew(TW5864_VLC, TW5864_VLC_PCI_SEL | (1 << 23) /* ENABLE_VLC_MVD */ | TW5864_VLC_OVFL_CNTL | /* QP */0x0001 );
+	//tw_setw(TW5864_VLC, 0xffff);
 	tw_setw(TW5864_PCI_INTR_CTL, TW5864_PCI_MAST_ENB | TW5864_MVD_VLC_MAST_ENB);
-	tw_setw(TW5864_PCI_INTR_CTL, 0xffff);
+	//tw_setw(TW5864_PCI_INTR_CTL, 0xffff);
 	tw_setw(TW5864_MASTER_ENB_REG, TW5864_PCI_VLC_INTR_ENB);
-	tw_setw(TW5864_MASTER_ENB_REG, 0xffff);
+	//tw_setw(TW5864_MASTER_ENB_REG, 0xffff);
 #if 0
 	tw_writew(0x0008, 0);
 	tw_writeb(TW5864_EMU_EN_VARIOUS_ETC, (TW5864_DSP_FRAME_TYPE & (1 << 6)) | 0x1f);

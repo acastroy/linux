@@ -73,7 +73,8 @@ static void tw5864_interrupts_enable(struct tw5864_dev *dev)
 {
 	mutex_lock(&dev->lock);
 	//dev->irqmask |= TW5864_INTR_BURST | TW5864_INTR_MV_DSP | TW5864_INTR_VLC_DONE | TW5864_INTR_VLC_RAM;
-	dev->irqmask = 0xffffffff & (~TW5864_INTR_TIMER);
+	//dev->irqmask = 0xffffffff & (~TW5864_INTR_TIMER);
+	dev->irqmask |= TW5864_INTR_BURST | TW5864_INTR_MV_DSP | TW5864_INTR_VLC_DONE | TW5864_INTR_VLC_RAM | TW5864_INTR_VIN_LOST;
 	tw_writew(TW5864_INTR_ENABLE_L, dev->irqmask & 0xffff);
 	tw_writew(TW5864_INTR_ENABLE_H, dev->irqmask >> 16);
 
@@ -102,7 +103,7 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 	int pci_intr_status;
 
 	status = tw_readw(TW5864_INTR_STATUS_L)
-		/* | (tw_readw(TW5864_INTR_STATUS_H) << 16) */;
+		 | (tw_readw(TW5864_INTR_STATUS_H) << 16);
 	if (!status)
 		return IRQ_NONE;
 	// TODO Handle
