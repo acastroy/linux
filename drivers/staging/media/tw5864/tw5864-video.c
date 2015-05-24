@@ -833,6 +833,15 @@ static const struct v4l2_file_operations video_fops = {
 	.unlocked_ioctl		= video_ioctl2,
 };
 
+static int vb2_ioctl_dqbuf_proxy(struct file *file, void *priv, struct v4l2_buffer *p) {
+	int ret;
+	struct tw5864_input *dev = video_drvdata(file);
+	dev_dbg(&dev->root->pci->dev, "calling vb2_ioctl_dqbuf\n");
+	ret = vb2_ioctl_dqbuf(file, priv, p);
+	dev_dbg(&dev->root->pci->dev, "vb2_ioctl_dqbuf ret %d\n", ret);
+	return ret;
+}
+
 static const struct v4l2_ioctl_ops video_ioctl_ops = {
 	.vidioc_querycap		= tw5864_querycap,
 	.vidioc_enum_fmt_vid_cap	= tw5864_enum_fmt_vid_cap,
@@ -840,7 +849,7 @@ static const struct v4l2_ioctl_ops video_ioctl_ops = {
 	.vidioc_create_bufs		= vb2_ioctl_create_bufs,
 	.vidioc_querybuf		= vb2_ioctl_querybuf,
 	.vidioc_qbuf			= vb2_ioctl_qbuf,
-	.vidioc_dqbuf			= vb2_ioctl_dqbuf,
+	.vidioc_dqbuf			= vb2_ioctl_dqbuf_proxy,
 	.vidioc_s_std			= tw5864_s_std,
 	.vidioc_g_std			= tw5864_g_std,
 	.vidioc_enum_input		= tw5864_enum_input,
