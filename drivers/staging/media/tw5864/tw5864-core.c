@@ -73,8 +73,8 @@ static void tw5864_interrupts_enable(struct tw5864_dev *dev)
 {
 	mutex_lock(&dev->lock);
 	//dev->irqmask |= TW5864_INTR_BURST | TW5864_INTR_MV_DSP | TW5864_INTR_VLC_DONE | TW5864_INTR_VLC_RAM;
-	//dev->irqmask = 0xffffffff & (~TW5864_INTR_TIMER);
-	dev->irqmask |= TW5864_INTR_BURST | TW5864_INTR_MV_DSP | TW5864_INTR_VLC_DONE | TW5864_INTR_VLC_RAM | TW5864_INTR_VIN_LOST;
+	dev->irqmask = 0xfffff00f /* no GPIO */ & (~TW5864_INTR_TIMER);
+	//dev->irqmask |= TW5864_INTR_BURST | TW5864_INTR_MV_DSP | TW5864_INTR_VLC_DONE | TW5864_INTR_VLC_RAM | TW5864_INTR_VIN_LOST;
 	tw_writew(TW5864_INTR_ENABLE_L, dev->irqmask & 0xffff);
 	tw_writew(TW5864_INTR_ENABLE_H, dev->irqmask >> 16);
 
