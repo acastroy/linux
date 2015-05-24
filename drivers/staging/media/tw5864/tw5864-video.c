@@ -33,6 +33,8 @@
 #include "tw5864.h"
 #include "tw5864-reg.h"
 
+#define H264_VLC_BUF_SIZE 0x80000
+
 #if 0
 
 /* ------------------------------------------------------------------ */
@@ -536,10 +538,10 @@ static int tw5864_g_fmt_vid_cap(struct file *file, void *priv,
 	f->fmt.pix.pixelformat  = V4L2_PIX_FMT_H264; //dev->fmt->fourcc;
 	//f->fmt.pix.bytesperline =
 	//	(f->fmt.pix.width * (dev->fmt->depth)) >> 3;
-	//f->fmt.pix.sizeimage =
+	f->fmt.pix.sizeimage = H264_VLC_BUF_SIZE;
 	//	f->fmt.pix.height * f->fmt.pix.bytesperline;
-	//f->fmt.pix.colorspace	= V4L2_COLORSPACE_SMPTE170M;
-	//f->fmt.pix.priv = 0;
+	f->fmt.pix.colorspace	= V4L2_COLORSPACE_SMPTE170M;
+	f->fmt.pix.priv = 0;
 	return 0;
 }
 
@@ -902,7 +904,6 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 	}
 
 	for (i = 0; i < H264_BUF_CNT; i++) {
-#define H264_VLC_BUF_SIZE 0x80000
 		dev->h264_vlc_buf[i].addr = __get_free_pages(GFP_KERNEL, get_order(H264_VLC_BUF_SIZE));
 		dev->h264_vlc_buf[i].dma_addr = dma_map_single(&dev->pci->dev, (void *)dev->h264_vlc_buf[i].addr, H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
 #define H264_MV_BUF_SIZE 0x40000
