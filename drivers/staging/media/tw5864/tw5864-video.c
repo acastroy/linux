@@ -448,7 +448,7 @@ static int tw5864_disable_input(struct tw5864_dev *dev, int input_number) {
 	tw_clearw(TW5864_H264EN_CH_EN, 1 << input_number);
 	mutex_unlock(&dev->lock);
 	dev_dbg(&dev->pci->dev, "status: 0x%04x\n", tw_readw(TW5864_H264EN_CH_STATUS));
-	dev_dbg(&dev->pci->dev, "TW5864_PCI_INTR_STATUS: 0x%04x, irq status: 0x%04x%04x, TW5864_VLC_DSP_INTR: 0x%04x\n", tw_readw(TW5864_PCI_INTR_STATUS), tw_readw(TW5864_INTR_STATUS_H), tw_readw(TW5864_INTR_STATUS_L), tw_readw(TW5864_VLC_DSP_INTR));
+	dev_dbg(&dev->pci->dev, "TW5864_PCI_INTR_STATUS: 0x%04x, irqmask: 0x%04x%04x, irq status: 0x%04x%04x, TW5864_VLC_BUF: 0x%04x, TW5864_VLC_DSP_INTR: 0x%04x\n", tw_readw(TW5864_PCI_INTR_STATUS), tw_readw(TW5864_INTR_ENABLE_H), tw_readw(TW5864_INTR_ENABLE_L), tw_readw(TW5864_INTR_STATUS_H), tw_readw(TW5864_INTR_STATUS_L), tw_readw(TW5864_VLC_BUF), tw_readw(TW5864_VLC_DSP_INTR));
 	return 0;
 }
 
@@ -921,6 +921,8 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 
 	tw_writel(TW5864_VLC_STREAM_BASE_ADDR, dev->h264_vlc_buf[0].dma_addr);
 	tw_writel(TW5864_MV_STREAM_BASE_ADDR, dev->h264_mv_buf[0].dma_addr);
+
+	tw_writel(TW5864_VLC_MAX_LENGTH, H264_VLC_BUF_SIZE);
 
 	tw_writel(TW5864_VLC, TW5864_VLC_PCI_SEL | (1 << 23) /* ENABLE_VLC_MVD */ | TW5864_VLC_OVFL_CNTL | /* QP */0x0001 );
 	tw_setw(TW5864_VLC, 0xffff);

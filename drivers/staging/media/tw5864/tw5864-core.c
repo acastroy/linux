@@ -72,6 +72,9 @@ static const struct pci_device_id tw5864_pci_tbl[] = {
 static void tw5864_interrupts_enable(struct tw5864_dev *dev)
 {
 	mutex_lock(&dev->lock);
+
+	tw_writeb(TW5864_RST_AND_IF_INFO, TW5864_APP_SOFT_RST);
+
 	//dev->irqmask |= TW5864_INTR_BURST | TW5864_INTR_MV_DSP | TW5864_INTR_VLC_DONE | TW5864_INTR_VLC_RAM;
 	dev->irqmask = 0xfffff00f /* no GPIO */ & (~TW5864_INTR_TIMER);
 	//dev->irqmask |= TW5864_INTR_BURST | TW5864_INTR_MV_DSP | TW5864_INTR_VLC_DONE | TW5864_INTR_VLC_RAM | TW5864_INTR_VIN_LOST;
