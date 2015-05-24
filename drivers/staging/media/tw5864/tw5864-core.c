@@ -106,6 +106,8 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		 | (tw_readw(TW5864_INTR_STATUS_H) << 16);
 	if (!status)
 		return IRQ_NONE;
+	tw_writew(TW5864_INTR_CLR_L, status & 0xffff);
+	tw_writew(TW5864_INTR_CLR_H, status >> 16);
 	// TODO Handle
 	//if (status & TW5864_INTR_BURST) {
 		// Figure out the channel id of currently encoded frame
@@ -120,8 +122,6 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		}
 
 	//}
-	tw_writew(TW5864_INTR_CLR_L, status & 0xffff);
-	tw_writew(TW5864_INTR_CLR_H, status >> 16);
 
 	return IRQ_HANDLED;
 }
