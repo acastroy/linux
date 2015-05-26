@@ -628,7 +628,7 @@ SYSPLL charge pump current selection
 #define TW5864_INTR_MV_DSP       (1 << 2)
 #define TW5864_INTR_VIN_LOST     (1 << 3)
 #define TW5864_INTR_GPIO(n)      (1 << (4 + n))  /* n belongs to [0; 7] */
-#define TW5864_INTR_JPEG         (1 << 0)
+#define TW5864_INTR_JPEG        (1 << 12)
 #define TW5864_INTR_VLC_DONE    (1 << 17)
 #define TW5864_INTR_AD_VSYNC    (1 << 19)
 #define TW5864_INTR_PV_EOF      (1 << 20)

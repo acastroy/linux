@@ -73,10 +73,10 @@ static void tw5864_interrupts_enable(struct tw5864_dev *dev)
 {
 	mutex_lock(&dev->lock);
 
-	tw_writeb(TW5864_RST_AND_IF_INFO, TW5864_APP_SOFT_RST);
+	tw_setw(TW5864_DDR, TW5864_DDR_BRST_EN | TW5864_DDR_MODE);
 
 	//dev->irqmask |= TW5864_INTR_BURST | TW5864_INTR_MV_DSP | TW5864_INTR_VLC_DONE | TW5864_INTR_VLC_RAM;
-	dev->irqmask = 0xfffff00f /* no GPIO */ & (~TW5864_INTR_TIMER);
+	dev->irqmask = 0xfffff00f /* no GPIO */ & (~(TW5864_INTR_TIMER | TW5864_INTR_JPEG));
 	//dev->irqmask |= TW5864_INTR_BURST | TW5864_INTR_MV_DSP | TW5864_INTR_VLC_DONE | TW5864_INTR_VLC_RAM | TW5864_INTR_VIN_LOST;
 	tw_writew(TW5864_INTR_ENABLE_L, dev->irqmask & 0xffff);
 	tw_writew(TW5864_INTR_ENABLE_H, dev->irqmask >> 16);
@@ -185,6 +185,8 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 
 	mutex_init(&dev->lock);
 	spin_lock_init(&dev->slock);
+
+	tw_writeb(TW5864_RST_AND_IF_INFO, TW5864_APP_SOFT_RST);
 
 	err = tw5864_video_init(dev, video_nr);
 	if (err)
