@@ -433,12 +433,27 @@ static void tw5864_buf_finish(struct vb2_buffer *vb)
 }
 
 static int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
+	int i, j;
 	dev_dbg(&dev->pci->dev, "enabling channel %d\n", input_number);
 	mutex_lock(&dev->lock);
 	//tw_setw(TW5864_H264EN_CH_EN, 1 << input_number);
 	//tw_setw(TW5864_SEN_EN_CH, 1 << input_number);
 	tw_setw(TW5864_H264EN_CH_EN, 0xffff);
 	tw_setw(TW5864_SEN_EN_CH, 0xffff);
+
+	for (i = 0; i < 4; i++) {
+		for (j = 0; j < 4; j++) {
+			// NTSC_MAP[1] as we have 1 FPS
+			tw_writew(TW5864_H264EN_RATE_CNTL_LO_WORD(i, i * 4 + j), 0x20000000 & 0xffff);
+			tw_writew(TW5864_H264EN_RATE_CNTL_HI_WORD(i, i * 4 + j), 0x20000000 >> 16);
+		}
+	}
+
+	tw_writew(TW5864_H264EN_BUS0_MAP, 0x3210);
+	tw_writew(TW5864_H264EN_BUS1_MAP, 0x7654);
+	tw_writew(TW5864_H264EN_BUS2_MAP, 0xBA98);
+	tw_writew(TW5864_H264EN_BUS3_MAP, 0xFEDC);
+
 	mutex_unlock(&dev->lock);
 	dev_dbg(&dev->pci->dev, "status: 0x%04x\n", tw_readw(TW5864_H264EN_CH_STATUS));
 	return 0;
@@ -943,7 +958,7 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 	tw_setb(TW5864_IIC_ENB, 1);
 	tw_writeb(TW5864_I2C_PHASE_CFG, 1);
 
-#define FPS 30
+#define FPS 1
 	tw_writew(TW5864_H264EN_RATE_MAX_LINE_REG1, (FPS << TW5864_H264EN_RATE_MAX_LINE_ODD_SHIFT) | FPS);
 	tw_writew(TW5864_H264EN_RATE_MAX_LINE_REG2, (FPS << TW5864_H264EN_RATE_MAX_LINE_ODD_SHIFT) | FPS);
 
