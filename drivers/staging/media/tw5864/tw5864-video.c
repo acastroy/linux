@@ -435,9 +435,10 @@ static void tw5864_buf_finish(struct vb2_buffer *vb)
 static int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	dev_dbg(&dev->pci->dev, "enabling channel %d\n", input_number);
 	mutex_lock(&dev->lock);
-	tw_setw(TW5864_H264EN_CH_EN, 1 << input_number);
-	tw_setw(TW5864_SEN_EN_CH, 1 << input_number);
-	//tw_setw(TW5864_H264EN_CH_EN, 0xffff);
+	//tw_setw(TW5864_H264EN_CH_EN, 1 << input_number);
+	//tw_setw(TW5864_SEN_EN_CH, 1 << input_number);
+	tw_setw(TW5864_H264EN_CH_EN, 0xffff);
+	tw_setw(TW5864_SEN_EN_CH, 0xffff);
 	mutex_unlock(&dev->lock);
 	dev_dbg(&dev->pci->dev, "status: 0x%04x\n", tw_readw(TW5864_H264EN_CH_STATUS));
 	return 0;
@@ -446,8 +447,10 @@ static int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 static int tw5864_disable_input(struct tw5864_dev *dev, int input_number) {
 	dev_dbg(&dev->pci->dev, "disabling channel %d\n", input_number);
 	mutex_lock(&dev->lock);
-	tw_clearw(TW5864_SEN_EN_CH, 1 << input_number);
-	tw_clearw(TW5864_H264EN_CH_EN, 1 << input_number);
+	//tw_clearw(TW5864_SEN_EN_CH, 1 << input_number);
+	//tw_clearw(TW5864_H264EN_CH_EN, 1 << input_number);
+	tw_clearw(TW5864_H264EN_CH_EN, 0xffff);
+	tw_clearw(TW5864_SEN_EN_CH, 0xffff);
 	mutex_unlock(&dev->lock);
 	dev_dbg(&dev->pci->dev, "status: 0x%04x\n", tw_readw(TW5864_H264EN_CH_STATUS));
 	dev_dbg(&dev->pci->dev, "TW5864_PCI_INTR_STATUS: 0x%04x, irqmask: 0x%04x%04x, irq status: 0x%04x%04x, TW5864_VLC_BUF: 0x%04x, TW5864_VLC_DSP_INTR: 0x%04x\n", tw_readw(TW5864_PCI_INTR_STATUS), tw_readw(TW5864_INTR_ENABLE_H), tw_readw(TW5864_INTR_ENABLE_L), tw_readw(TW5864_INTR_STATUS_H), tw_readw(TW5864_INTR_STATUS_L), tw_readw(TW5864_VLC_BUF), tw_readw(TW5864_VLC_DSP_INTR));
@@ -939,6 +942,12 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 	tw_setw(TW5864_SLICE, TW5864_START_NSLICE);
 	tw_setb(TW5864_IIC_ENB, 1);
 	tw_writeb(TW5864_I2C_PHASE_CFG, 1);
+
+#define FPS 30
+	tw_writew(TW5864_H264EN_RATE_MAX_LINE_REG1, (FPS << TW5864_H264EN_RATE_MAX_LINE_ODD_SHIFT) | FPS);
+	tw_writew(TW5864_H264EN_RATE_MAX_LINE_REG2, (FPS << TW5864_H264EN_RATE_MAX_LINE_ODD_SHIFT) | FPS);
+
+
 
 
 	return 0;
