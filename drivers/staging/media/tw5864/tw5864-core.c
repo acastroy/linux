@@ -84,6 +84,39 @@ static void tw5864_interrupts_enable(struct tw5864_dev *dev)
 	tw_writew(TW5864_INTR_ASSERT_L, 0xffff);
 	tw_writew(TW5864_INTR_ASSERT_H, 0xffff);
 
+	// TODO express meaningfully
+	tw_writew(TW5864_SYSPLL1, 0xd000 + ( (185 << 1) - 1 ));
+	tw_writew(TW5864_SYSPLL3, 0x284);
+	tw_writew(TW5864_SYSPLL5, 0x20);
+	tw_writew(TW5864_PLL_CFG, 0x0d);
+	mdelay(10);
+
+	// TODO indirect ops
+#if 0
+	/*reset*/
+	mpb_write(chip, ISIL_VI_SYSTEM_RESET, 0x00);/*reset*/
+	mpb_write(chip, ISIL_VI_SYSTEM_RESET, 0xe0);/*unreset*/
+	mdelay(10);
+	mpb_write(chip, ISIL_VI_SYSTEM_CLOCK, 0xf0);
+	mpb_write(chip, ISIL_VI_SYSTEM_CLOCK_REVERSE, 0xf0);/*155 set to 0xff, 330 set to 0xf0*/
+#endif
+
+	tw_writew(TW5864_CS2DAT_CNT, 1);
+	tw_writew(TW5864_DATA_VLD_WIDTH, 3);
+	mdelay(10);
+
+	tw_writeb(0xA000, 0xc5); // only [2:0] is defined
+	tw_writeb(0xA800, 0xc5); // same
+
+	tw_writeb(TW5864_IIC_ENB, 1);
+	tw_writeb(TW5864_I2C_PHASE_CFG, 1);
+
+	tw_writeb(0x8028, 0x15);
+	tw_writeb(0x801c, 0x18);
+	mdelay(5);
+	tw_writeb(0x801c, 0x00);
+
+	
 	///* Use Level-triggered mode, not edge-triggered */
 	//tw_setw(TW5864_TRIGGER_MODE_L, 0xffff);
 	//tw_setw(TW5864_TRIGGER_MODE_H, 0xffff);
