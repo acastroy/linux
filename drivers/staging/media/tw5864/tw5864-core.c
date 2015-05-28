@@ -219,6 +219,9 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 
 	//tw_writeb(TW5864_RST_AND_IF_INFO, TW5864_APP_SOFT_RST);
 
+	/* Enable interrupts */
+	tw5864_interrupts_enable(dev);
+
 	err = tw5864_video_init(dev, video_nr);
 	if (err)
 		goto video_init_fail;
@@ -232,9 +235,6 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 		pr_err("%s: can't get IRQ %d\n", dev->name, pci_dev->irq);
 		goto irq_req_fail;
 	}
-
-	/* Enable interrupts */
-	tw5864_interrupts_enable(dev);
 
 	dev_info(&dev->pci->dev, "hi everybody, it's info\n");
 	dev_dbg(&dev->pci->dev, "hi everybody, it's debug\n");
