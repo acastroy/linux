@@ -81,8 +81,10 @@ static void tw5864_interrupts_enable(struct tw5864_dev *dev)
 	tw_writew(TW5864_INTR_ENABLE_L, dev->irqmask & 0xffff);
 	tw_writew(TW5864_INTR_ENABLE_H, dev->irqmask >> 16);
 
-	tw_writew(TW5864_INTR_ASSERT_L, 0xffff);
-	tw_writew(TW5864_INTR_ASSERT_H, 0xffff);
+	dev_dbg(&dev->pci->dev, "TW5864_PCI_INTR_STATUS: 0x%04x, irqmask: 0x%04x%04x, irq status: 0x%04x%04x, TW5864_VLC_BUF: 0x%04x, TW5864_VLC_DSP_INTR: 0x%04x\n", tw_readw(TW5864_PCI_INTR_STATUS), tw_readw(TW5864_INTR_ENABLE_H), tw_readw(TW5864_INTR_ENABLE_L), tw_readw(TW5864_INTR_STATUS_H), tw_readw(TW5864_INTR_STATUS_L), tw_readw(TW5864_VLC_BUF), tw_readw(TW5864_VLC_DSP_INTR));
+
+	//tw_writew(TW5864_INTR_ASSERT_L, 0xffff);
+	//tw_writew(TW5864_INTR_ASSERT_H, 0xffff);
 
 	// TODO express meaningfully
 	tw_writew(TW5864_SYSPLL1, 0xd000 + ( (185 << 1) - 1 ));
@@ -118,6 +120,7 @@ static void tw5864_interrupts_enable(struct tw5864_dev *dev)
 	//tw_setw(TW5864_TRIGGER_MODE_L, 0xffff);
 	//tw_setw(TW5864_TRIGGER_MODE_H, 0xffff);
 	mutex_unlock(&dev->lock);
+	dev_dbg(&dev->pci->dev, "TW5864_PCI_INTR_STATUS: 0x%04x, irqmask: 0x%04x%04x, irq status: 0x%04x%04x, TW5864_VLC_BUF: 0x%04x, TW5864_VLC_DSP_INTR: 0x%04x\n", tw_readw(TW5864_PCI_INTR_STATUS), tw_readw(TW5864_INTR_ENABLE_H), tw_readw(TW5864_INTR_ENABLE_L), tw_readw(TW5864_INTR_STATUS_H), tw_readw(TW5864_INTR_STATUS_L), tw_readw(TW5864_VLC_BUF), tw_readw(TW5864_VLC_DSP_INTR));
 }
 
 static void tw5864_interrupts_disable(struct tw5864_dev *dev)
