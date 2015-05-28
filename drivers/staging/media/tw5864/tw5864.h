@@ -201,7 +201,7 @@ struct tw5864_dev {
 #define tw_wait(us) { udelay(us); }
 
 static void tw_indir_writel(struct tw5864_dev *dev, u16 addr, u32 data) {
-	int timeout = 1000000;
+	int timeout = 1000;
 
 	mutex_lock(&dev->lock);
 
@@ -215,7 +215,7 @@ static void tw_indir_writel(struct tw5864_dev *dev, u16 addr, u32 data) {
 		dev_err(&dev->pci->dev, "tw_indir_writel() timeout before writing\n");
 	tw_writel(TW5864_IND_CTL, addr | TW5864_RW | TW5864_ENABLE);
 
-	timeout = 1000000;
+	timeout = 1000;
 	while (timeout--) {
 		if ((!tw_readb(TW5864_IND_CTL + 3) & 0x80))  /* not busy anymore */
 			break;
@@ -228,7 +228,7 @@ static void tw_indir_writel(struct tw5864_dev *dev, u16 addr, u32 data) {
 }
 
 static u32 tw_indir_readl(struct tw5864_dev *dev, u16 addr) {
-	int timeout = 1000000;
+	int timeout = 1000;
 	u32 data = 0;
 
 	mutex_lock(&dev->lock);
@@ -243,7 +243,7 @@ static u32 tw_indir_readl(struct tw5864_dev *dev, u16 addr) {
 
 	tw_writel(TW5864_IND_CTL, addr | TW5864_ENABLE);
 
-	timeout = 1000000;
+	timeout = 1000;
 	while (timeout--) {
 		if ((!tw_readb(TW5864_IND_CTL + 3) & 0x80))  /* not busy anymore */
 			break;
