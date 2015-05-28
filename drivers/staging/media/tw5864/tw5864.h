@@ -200,6 +200,63 @@ struct tw5864_dev {
 #define	tw_clearb(reg, bit)	tw_writeb((reg), tw_readb(reg) & ~(bit))
 #define tw_wait(us) { udelay(us); }
 
+static void tw_indir_writel(struct tw5864_dev *dev, u16 addr, u32 data) {
+	int timeout = 1000000;
+
+	mutex_lock(&dev->lock);
+
+	tw_writel(TW5864_IND_DATA, data);
+	while (timeout--) {
+		if ((!tw_readb(TW5864_IND_CTL + 3) & 0x80))  /* not busy anymore */
+			break;
+		udelay(1);
+	}
+	if (!timeout)
+		dev_err(&dev->pci->dev, "tw_indir_writel() timeout before writing\n");
+	tw_writel(TW5864_IND_CTL, addr | TW5864_RW | TW5864_ENABLE);
+
+	timeout = 1000000;
+	while (timeout--) {
+		if ((!tw_readb(TW5864_IND_CTL + 3) & 0x80))  /* not busy anymore */
+			break;
+		udelay(1);
+	}
+	if (!timeout)
+		dev_err(&dev->pci->dev, "tw_indir_writel() timeout after writing\n");
+
+	mutex_unlock(&dev->lock);
+}
+
+static u32 tw_indir_readl(struct tw5864_dev *dev, u16 addr) {
+	int timeout = 1000000;
+	u32 data = 0;
+
+	mutex_lock(&dev->lock);
+
+	while (timeout--) {
+		if ((!tw_readb(TW5864_IND_CTL + 3) & 0x80))  /* not busy anymore */
+			break;
+		udelay(1);
+	}
+	if (!timeout)
+		dev_err(&dev->pci->dev, "tw_indir_writel() timeout before reading\n");
+
+	tw_writel(TW5864_IND_CTL, addr | TW5864_ENABLE);
+
+	timeout = 1000000;
+	while (timeout--) {
+		if ((!tw_readb(TW5864_IND_CTL + 3) & 0x80))  /* not busy anymore */
+			break;
+		udelay(1);
+	}
+	if (!timeout)
+		dev_err(&dev->pci->dev, "tw_indir_writel() timeout at reading\n");
+
+	data = tw_readl(TW5864_IND_DATA);
+	mutex_unlock(&dev->lock);
+	return data;
+}
+
 /* ----------------------------------------------------------- */
 /* tw5864-video.c                                                */
 

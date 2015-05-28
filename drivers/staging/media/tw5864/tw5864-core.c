@@ -91,15 +91,12 @@ static void tw5864_interrupts_enable(struct tw5864_dev *dev)
 	tw_writew(TW5864_PLL_CFG, 0x0d);
 	mdelay(10);
 
-	// TODO indirect ops
-#if 0
 	/*reset*/
-	mpb_write(chip, ISIL_VI_SYSTEM_RESET, 0x00);/*reset*/
-	mpb_write(chip, ISIL_VI_SYSTEM_RESET, 0xe0);/*unreset*/
+	tw_indir_writel(dev, 0xef0/* ISIL_VI_SYSTEM_RESET */, 0x00);/*reset*/
+	tw_indir_writel(dev, 0xef0/* ISIL_VI_SYSTEM_RESET */, 0xe0);/*unreset*/
 	mdelay(10);
-	mpb_write(chip, ISIL_VI_SYSTEM_CLOCK, 0xf0);
-	mpb_write(chip, ISIL_VI_SYSTEM_CLOCK_REVERSE, 0xf0);/*155 set to 0xff, 330 set to 0xf0*/
-#endif
+	tw_indir_writel(dev, 0xefc/* ISIL_VI_SYSTEM_CLOCK */, 0xf0);
+	tw_indir_writel(dev, 0xefd/* ISIL_VI_SYSTEM_CLOCK_REVERSE */, 0xf0);/*155 set to 0xff, 330 set to 0xf0*/
 
 	tw_writew(TW5864_CS2DAT_CNT, 1);
 	tw_writew(TW5864_DATA_VLD_WIDTH, 3);
