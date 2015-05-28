@@ -73,19 +73,6 @@ static void tw5864_interrupts_enable(struct tw5864_dev *dev)
 {
 	mutex_lock(&dev->lock);
 
-	tw_setw(TW5864_DDR, TW5864_DDR_BRST_EN | TW5864_DDR_MODE);
-
-	//dev->irqmask |= TW5864_INTR_BURST | TW5864_INTR_MV_DSP | TW5864_INTR_VLC_DONE | TW5864_INTR_VLC_RAM;
-	dev->irqmask = 0xfffff00f /* no GPIO */ & (~(TW5864_INTR_TIMER | TW5864_INTR_JPEG));
-	//dev->irqmask |= TW5864_INTR_BURST | TW5864_INTR_MV_DSP | TW5864_INTR_VLC_DONE | TW5864_INTR_VLC_RAM | TW5864_INTR_VIN_LOST;
-	tw_writew(TW5864_INTR_ENABLE_L, dev->irqmask & 0xffff);
-	tw_writew(TW5864_INTR_ENABLE_H, dev->irqmask >> 16);
-
-	dev_dbg(&dev->pci->dev, "TW5864_PCI_INTR_STATUS: 0x%04x, irqmask: 0x%04x%04x, irq status: 0x%04x%04x, TW5864_VLC_BUF: 0x%04x, TW5864_VLC_DSP_INTR: 0x%04x\n", tw_readw(TW5864_PCI_INTR_STATUS), tw_readw(TW5864_INTR_ENABLE_H), tw_readw(TW5864_INTR_ENABLE_L), tw_readw(TW5864_INTR_STATUS_H), tw_readw(TW5864_INTR_STATUS_L), tw_readw(TW5864_VLC_BUF), tw_readw(TW5864_VLC_DSP_INTR));
-
-	//tw_writew(TW5864_INTR_ASSERT_L, 0xffff);
-	//tw_writew(TW5864_INTR_ASSERT_H, 0xffff);
-
 	// TODO express meaningfully
 	tw_writew(TW5864_SYSPLL1, 0xd000 + ( (185 << 1) - 1 ));
 	tw_writew(TW5864_SYSPLL3, 0x284);
@@ -116,6 +103,17 @@ static void tw5864_interrupts_enable(struct tw5864_dev *dev)
 	tw_writeb(0x801c, 0x00);
 
 	
+	tw_setw(TW5864_DDR, TW5864_DDR_BRST_EN | TW5864_DDR_MODE);
+
+	//dev->irqmask |= TW5864_INTR_BURST | TW5864_INTR_MV_DSP | TW5864_INTR_VLC_DONE | TW5864_INTR_VLC_RAM;
+	dev->irqmask = 0xfffff00f /* no GPIO */ & (~(TW5864_INTR_TIMER | TW5864_INTR_JPEG));
+	//dev->irqmask |= TW5864_INTR_BURST | TW5864_INTR_MV_DSP | TW5864_INTR_VLC_DONE | TW5864_INTR_VLC_RAM | TW5864_INTR_VIN_LOST;
+	tw_writew(TW5864_INTR_ENABLE_L, dev->irqmask & 0xffff);
+	tw_writew(TW5864_INTR_ENABLE_H, dev->irqmask >> 16);
+
+	tw_writew(TW5864_INTR_ASSERT_L, 0xffff);
+	tw_writew(TW5864_INTR_ASSERT_H, 0xffff);
+
 	///* Use Level-triggered mode, not edge-triggered */
 	//tw_setw(TW5864_TRIGGER_MODE_L, 0xffff);
 	//tw_setw(TW5864_TRIGGER_MODE_H, 0xffff);
