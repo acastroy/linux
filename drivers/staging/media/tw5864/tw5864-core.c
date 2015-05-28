@@ -219,7 +219,7 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	mutex_init(&dev->lock);
 	spin_lock_init(&dev->slock);
 
-	tw_writeb(TW5864_RST_AND_IF_INFO, TW5864_APP_SOFT_RST);
+	//tw_writeb(TW5864_RST_AND_IF_INFO, TW5864_APP_SOFT_RST);
 
 	err = tw5864_video_init(dev, video_nr);
 	if (err)
