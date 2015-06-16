@@ -35,8 +35,6 @@
 #include "tw5864.h"
 #include "tw5864-reg.h"
 
-#define H264_VLC_BUF_SIZE 0x80000
-
 #if 0
 
 /* ------------------------------------------------------------------ */
@@ -917,7 +915,6 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 	for (i = 0; i < H264_BUF_CNT; i++) {
 		dev->h264_vlc_buf[i].addr = __get_free_pages(GFP_KERNEL, get_order(H264_VLC_BUF_SIZE));
 		dev->h264_vlc_buf[i].dma_addr = dma_map_single(&dev->pci->dev, (void *)dev->h264_vlc_buf[i].addr, H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
-#define H264_MV_BUF_SIZE 0x40000
 		dev->h264_mv_buf[i].addr = __get_free_pages(GFP_KERNEL, get_order(H264_MV_BUF_SIZE));
 		dev->h264_mv_buf[i].dma_addr = dma_map_single(&dev->pci->dev, (void *)dev->h264_vlc_buf[i].addr, H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
 	}

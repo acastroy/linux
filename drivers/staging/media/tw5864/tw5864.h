@@ -103,6 +103,10 @@ struct tw5864_format {
 
 #define	TW5864_INPUTS 4
 
+#define H264_VLC_BUF_SIZE 0x80000
+#define H264_MV_BUF_SIZE 0x40000
+
+
 /* ----------------------------------------------------------- */
 /* device / file handle status                                 */
 
