@@ -136,6 +136,8 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 {
 	struct tw5864_dev *dev = dev_id;
 	u32 status;
+	u32 vlc_len;
+	u32 vlc_crc;
 	int channel;
 	int pci_intr_status;
 
@@ -145,20 +147,34 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		return IRQ_NONE;
 	tw_writew(TW5864_INTR_CLR_L, status & 0xffff);
 	tw_writew(TW5864_INTR_CLR_H, status >> 16);
-	// TODO Handle
-	//if (status & TW5864_INTR_BURST) {
-		// Figure out the channel id of currently encoded frame
-		channel = tw_readb(TW5864_DSP) & TW5864_DSP_ENC_CHN;
 
-		// TODO Figure out what is the new data, and what to do
-		pci_intr_status = tw_readw(TW5864_PCI_INTR_STATUS);
-		dev_dbg(&dev->pci->dev, "tw5864_isr: status: 0x%08x, channel 0x%08x, pci_intr_status 0x%08x\n", status, channel, pci_intr_status);
-		if (pci_intr_status & TW5864_VLC_DONE_INTR) {
-			// TODO Grab encoded video data
-			// TODO Move this block to -video.c
-		}
+	channel = tw_readb(TW5864_DSP) & TW5864_DSP_ENC_CHN;
+	pci_intr_status = tw_readw(TW5864_PCI_INTR_STATUS);
 
-	//}
+	// TODO Figure out the channel id of currently encoded frame
+
+	if (status & TW5864_INTR_VLC_DONE) {
+		// TODO Grab encoded video data
+		// TODO Move this block to -video.c
+
+#define WTF "?!"
+#ifdef WTF
+		tw_writel(0x1807C, 4);
+#endif
+		vlc_len = tw_readl(TW5864_VLC_LENGTH) << 2;
+		vlc_crc = tw_readl(TW5864_VLC_CRC_REG);
+#ifdef WTF
+		tw_writel(0x1807C, 0);
+#endif
+
+		dev_dbg(&dev->pci->dev, "tw5864_isr: status: 0x%08x, channel 0x%08x, pci_intr_status 0x%08x, vlc_len %d, vlc_crc 0x%08x\n", status, channel, pci_intr_status, vlc_len, vlc_crc);
+		// TODO Replace DMA mapping
+		//dma_sync_single_for_cpu(&dev->pci->dev, dev->h264_vlc_buf[0].addr, H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
+		//dma_unmap_single();
+		tw_writew(TW5864_VLC_DSP_INTR, 1);  /* ack to hardware */
+		tw_writew(TW5864_PCI_INTR_STATUS, TW5864_VLC_DONE_INTR);  /* another ack to hw */
+	}
+
 
 	return IRQ_HANDLED;
 }
