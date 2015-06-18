@@ -150,6 +150,8 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 	tw_writew(TW5864_INTR_CLR_L, status & 0xffff);
 	tw_writew(TW5864_INTR_CLR_H, status >> 16);
 
+	dev_dbg(&dev->pci->dev, "tw5864_isr: status: 0x%08x\n", status);
+
 	channel = tw_readb(TW5864_DSP) & TW5864_DSP_ENC_CHN;
 	pci_intr_status = tw_readw(TW5864_PCI_INTR_STATUS);
 
