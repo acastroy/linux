@@ -138,6 +138,8 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 	u32 status;
 	u32 vlc_len;
 	u32 vlc_crc;
+	u32 vlc_reg;  // TW5864_VLC
+	u32 vlc_buf_reg;  // TW5864_VLC_BUF
 	int channel;
 	int pci_intr_status;
 
@@ -166,13 +168,16 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 #ifdef WTF
 		tw_writel(0x1807C, 0);
 #endif
+		vlc_reg = tw_readl(TW5864_VLC);
+		vlc_buf_reg = tw_readl(TW5864_VLC_BUF);
 
-		dev_dbg(&dev->pci->dev, "tw5864_isr: status: 0x%08x, channel 0x%08x, pci_intr_status 0x%08x, vlc_len %d, vlc_crc 0x%08x\n", status, channel, pci_intr_status, vlc_len, vlc_crc);
+		dev_dbg(&dev->pci->dev, "tw5864_isr: status: 0x%08x, channel 0x%08x, pci_intr_status 0x%08x, vlc_len %d, vlc_crc 0x%08x, vlc_buf_rdy 0x%02x, vlc_buf_reg 0x%04x\n", status, channel, pci_intr_status, vlc_len, vlc_crc, (vlc_reg & TW5864_VLC_BUF_RDY_MASK) >> TW5864_VLC_BUF_RDY_SHIFT, vlc_buf_reg);
 		// TODO Replace DMA mapping
 		//dma_sync_single_for_cpu(&dev->pci->dev, dev->h264_vlc_buf[0].addr, H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
 		//dma_unmap_single();
 		tw_writew(TW5864_VLC_DSP_INTR, 1);  /* ack to hardware */
 		tw_writew(TW5864_PCI_INTR_STATUS, TW5864_VLC_DONE_INTR);  /* another ack to hw */
+		tw_writew(TW5864_VLC_BUF, 0x000f);  /* ack BK{0,1} full, end slice, buf overflow status */
 	}
 
 
