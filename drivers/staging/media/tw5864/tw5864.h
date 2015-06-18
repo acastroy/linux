@@ -209,7 +209,7 @@ static void tw_indir_writel(struct tw5864_dev *dev, u16 addr, u32 data) {
 
 	tw_writel(TW5864_IND_DATA, data);
 	while (timeout--) {
-		if ((!tw_readb(TW5864_IND_CTL + 3) & 0x80))  /* not busy anymore */
+		if ((!(tw_readb(TW5864_IND_CTL + 3) & 0x80)))  /* not busy anymore */
 			break;
 		udelay(1);
 	}
@@ -219,7 +219,7 @@ static void tw_indir_writel(struct tw5864_dev *dev, u16 addr, u32 data) {
 
 	timeout = 1000;
 	while (timeout--) {
-		if ((!tw_readb(TW5864_IND_CTL + 3) & 0x80))  /* not busy anymore */
+		if ((!(tw_readb(TW5864_IND_CTL + 3) & 0x80)))  /* not busy anymore */
 			break;
 		udelay(1);
 	}
@@ -232,7 +232,7 @@ static u32 tw_indir_readl(struct tw5864_dev *dev, u16 addr) {
 	u32 data = 0;
 
 	while (timeout--) {
-		if ((!tw_readb(TW5864_IND_CTL + 3) & 0x80))  /* not busy anymore */
+		if ((!(tw_readb(TW5864_IND_CTL + 3) & 0x80)))  /* not busy anymore */
 			break;
 		udelay(1);
 	}
@@ -243,7 +243,7 @@ static u32 tw_indir_readl(struct tw5864_dev *dev, u16 addr) {
 
 	timeout = 1000;
 	while (timeout--) {
-		if ((!tw_readb(TW5864_IND_CTL + 3) & 0x80))  /* not busy anymore */
+		if ((!(tw_readb(TW5864_IND_CTL + 3) & 0x80)))  /* not busy anymore */
 			break;
 		udelay(1);
 	}
