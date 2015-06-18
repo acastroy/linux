@@ -106,7 +106,7 @@ static void tw5864_interrupts_enable(struct tw5864_dev *dev)
 	tw_setw(TW5864_DDR, TW5864_DDR_BRST_EN | TW5864_DDR_MODE);
 
 	//dev->irqmask |= TW5864_INTR_BURST | TW5864_INTR_MV_DSP | TW5864_INTR_VLC_DONE | TW5864_INTR_VLC_RAM;
-	dev->irqmask = 0xfffff00f /* no GPIO */ & (~(TW5864_INTR_TIMER | TW5864_INTR_JPEG));
+	dev->irqmask = 0xfffff00f /* no GPIO */ & (~(TW5864_INTR_TIMER | TW5864_INTR_JPEG | TW5864_INTR_MV_DSP));
 	//dev->irqmask |= TW5864_INTR_BURST | TW5864_INTR_MV_DSP | TW5864_INTR_VLC_DONE | TW5864_INTR_VLC_RAM | TW5864_INTR_VIN_LOST;
 	tw_writew(TW5864_INTR_ENABLE_L, dev->irqmask & 0xffff);
 	tw_writew(TW5864_INTR_ENABLE_H, dev->irqmask >> 16);
