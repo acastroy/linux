@@ -978,6 +978,7 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 	tw_writew(TW5864_DSP_INTRA_MODE, 0x06 << TW5864_DSP_INTRA_MODE_SHIFT);
 	
 	tw_setw(TW5864_SEN_EN_CH, 0xffff);
+	tw_setw(TW5864_H264EN_CH_EN, 0xffff);
 
 
 
