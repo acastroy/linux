@@ -177,6 +177,10 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		// TODO Replace DMA mapping
 		//dma_sync_single_for_cpu(&dev->pci->dev, dev->h264_vlc_buf[0].addr, H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
 		//dma_unmap_single();
+
+		// switch between buffers 0 and 1 in a loop
+		tw_writew(TW5864_DSP_ENC_ORG_PTR_REG, tw_readw(TW5864_DSP_ENC_ORG_PTR_REG) ^ (1 << TW5864_DSP_ENC_ORG_PTR_SHIFT));
+
 		tw_writew(TW5864_VLC_DSP_INTR, 1);  /* ack to hardware */
 		tw_writew(TW5864_PCI_INTR_STATUS, TW5864_VLC_DONE_INTR);  /* another ack to hw */
 		tw_writew(TW5864_VLC_BUF, 0x000f);  /* ack BK{0,1} full, end slice, buf overflow status */
