@@ -101,7 +101,7 @@ IOMMU_INIT(pci_swiotlb_detect_4gb,
 void __init pci_swiotlb_init(void)
 {
 	if (swiotlb) {
-		swiotlb_init(0);
+		swiotlb_init(1);
 		dma_ops = &swiotlb_dma_ops;
 	}
 }
