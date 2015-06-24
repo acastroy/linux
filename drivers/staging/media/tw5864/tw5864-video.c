@@ -913,10 +913,12 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 	}
 
 	for (i = 0; i < H264_BUF_CNT; i++) {
-		dev->h264_vlc_buf[i].addr = __get_free_pages(GFP_KERNEL, get_order(H264_VLC_BUF_SIZE));
-		dev->h264_vlc_buf[i].dma_addr = dma_map_single(&dev->pci->dev, (void *)dev->h264_vlc_buf[i].addr, H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
-		dev->h264_mv_buf[i].addr = __get_free_pages(GFP_KERNEL, get_order(H264_MV_BUF_SIZE));
-		dev->h264_mv_buf[i].dma_addr = dma_map_single(&dev->pci->dev, (void *)dev->h264_vlc_buf[i].addr, H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
+		dev->h264_vlc_buf[i].addr = dma_alloc_coherent(&dev->pci->dev, H264_VLC_BUF_SIZE, &dev->h264_vlc_buf[i].dma_addr, GFP_KERNEL|GFP_DMA32);
+		dev->h264_mv_buf[i].addr = dma_alloc_coherent(&dev->pci->dev, H264_MV_BUF_SIZE, &dev->h264_mv_buf[i].dma_addr, GFP_KERNEL|GFP_DMA32);
+		if (!dev->h264_vlc_buf[i].addr || !dev->h264_mv_buf[i].addr) {
+			dev_err(&dev->pci->dev, "dma alloc & map fail: %ld %ld\n", dev->h264_vlc_buf[i].addr, dev->h264_mv_buf[i].addr);
+			goto dma_alloc_fail;
+		}
 	}
 
 	// TODO Setup a mask of interrupts needed for video subsystem
@@ -982,6 +984,11 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 
 
 	return 0;
+
+dma_alloc_fail:
+	;// TODO Free allocated
+
+	i = TW5864_INPUTS;
 
 input_init_fail:
 	for (; i >= 0; i--)
