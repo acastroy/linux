@@ -940,7 +940,7 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 	tw_writew(0x0008, 0);
 	tw_writeb(TW5864_EMU_EN_VARIOUS_ETC, (TW5864_DSP_FRAME_TYPE & (1 << 6)) | 0x1f);
 	tw_writew(0x0008, 0x0800);
-	tw_setw(TW5864_SLICE, TW5864_START_NSLICE);
+	tw_writew(TW5864_SLICE, TW5864_START_NSLICE);
 	tw_setb(TW5864_IIC_ENB, 1);
 	tw_writeb(TW5864_I2C_PHASE_CFG, 1);
 

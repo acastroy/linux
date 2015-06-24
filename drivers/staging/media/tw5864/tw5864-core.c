@@ -189,6 +189,10 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		tw_writew(TW5864_VLC_DSP_INTR, 1);  /* ack to hardware */
 		tw_writew(TW5864_PCI_INTR_STATUS, TW5864_VLC_DONE_INTR);  /* another ack to hw */
 		tw_writew(TW5864_VLC_BUF, 0x000f);  /* ack BK{0,1} full, end slice, buf overflow status */
+#if 1
+		tw_writew(TW5864_SLICE, TW5864_START_NSLICE);
+		tw_writew(TW5864_SLICE, 0);
+#endif
 	}
 
 
