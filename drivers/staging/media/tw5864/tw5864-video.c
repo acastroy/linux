@@ -31,6 +31,7 @@
 #include <media/v4l2-common.h>
 #include <media/v4l2-event.h>
 #include <media/videobuf2-dma-contig.h>
+#include <linux/debugfs.h>
 
 #include "tw5864.h"
 #include "tw5864-reg.h"
@@ -903,6 +904,7 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 	int i;
 	int j;
 	int ret;
+	static struct debugfs_blob_wrapper jpg, vlc;
 
 	for (i = 0; i < TW5864_INPUTS; i++) {
 		dev->inputs[i].root = dev;
@@ -916,9 +918,12 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 		dev->h264_vlc_buf[i].addr = dma_alloc_coherent(&dev->pci->dev, H264_VLC_BUF_SIZE, &dev->h264_vlc_buf[i].dma_addr, GFP_KERNEL|GFP_DMA32);
 		dev->h264_mv_buf[i].addr = dma_alloc_coherent(&dev->pci->dev, H264_MV_BUF_SIZE, &dev->h264_mv_buf[i].dma_addr, GFP_KERNEL|GFP_DMA32);
 		if (!dev->h264_vlc_buf[i].addr || !dev->h264_mv_buf[i].addr) {
-			dev_err(&dev->pci->dev, "dma alloc & map fail: %ld %ld\n", dev->h264_vlc_buf[i].addr, dev->h264_mv_buf[i].addr);
+			dev_err(&dev->pci->dev, "dma alloc & map fail: %p %p\n", dev->h264_vlc_buf[i].addr, dev->h264_mv_buf[i].addr);
 			goto dma_alloc_fail;
 		}
+	}
+	for (i = 0; i < 8; i++) {
+		dev->jpeg_buf[i].addr = dma_alloc_coherent(&dev->pci->dev, H264_VLC_BUF_SIZE, &dev->jpeg_buf[i].dma_addr, GFP_KERNEL|GFP_DMA32);
 	}
 
 	// TODO Setup a mask of interrupts needed for video subsystem
@@ -929,18 +934,27 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 	tw_writel(TW5864_MV_STREAM_BASE_ADDR, dev->h264_mv_buf[0].dma_addr);
 
 	tw_writel(TW5864_VLC_MAX_LENGTH, H264_VLC_BUF_SIZE);
+	tw_writew(TW5864_MPI_DDR_SEL_REG, TW5864_MPI_DDR_SEL2);
 
-	tw_writel(TW5864_VLC, TW5864_VLC_PCI_SEL | (1 << 23) /* ENABLE_VLC_MVD */ | TW5864_VLC_OVFL_CNTL | /* QP */0x0001 );
+#if 1 // VLC disable
+	tw_writel(TW5864_VLC, TW5864_VLC_PCI_SEL | (1 << 23) /* ENABLE_VLC_MVD */ | TW5864_VLC_OVFL_CNTL | /* QP */0x0012 );
+#endif
 	tw_writew(TW5864_DDR, TW5864_DDR_BRST_EN | TW5864_DDR_MODE);
-	tw_setl(TW5864_PCI_INTR_CTL, TW5864_PCI_MAST_ENB | TW5864_MVD_VLC_MAST_ENB | TW5864_PCI_VLC_BURST_ENB);
-	tw_setl(TW5864_PCI_INTR_CTL, 0xffffffff & (~(TW5864_TIMER_INTR_ENB | TW5864_JPEG_MAST_ENB)));
-	tw_setw(TW5864_MASTER_ENB_REG, TW5864_PCI_VLC_INTR_ENB);
+	//tw_setl(TW5864_PCI_INTR_CTL, TW5864_PCI_MAST_ENB | TW5864_MVD_VLC_MAST_ENB | TW5864_PCI_VLC_BURST_ENB);
+	tw_writel(TW5864_PCI_INTR_CTL, 0xffffffff /*& (~(TW5864_MVD_VLC_MAST_ENB ))*/   /*& (~(TW5864_TIMER_INTR_ENB | TW5864_JPEG_MAST_ENB))*/);
+#if 1 // VLC disable
+	//tw_setw(TW5864_MASTER_ENB_REG, TW5864_PCI_VLC_INTR_ENB);
+	
+#if 0 // VLC dis
 	tw_setw(TW5864_MASTER_ENB_REG, 0xffff);
+#endif
+	//tw_setw(TW5864_MASTER_ENB_REG, 0xffff/*TW5864_PCI_JPEG_INTR_ENB | TW5864_PCI_VLC_INTR_ENB | TW5864_PCI_PREV_INTR_ENB*/);
 
 	tw_writew(0x0008, 0);
 	tw_writeb(TW5864_EMU_EN_VARIOUS_ETC, (TW5864_DSP_FRAME_TYPE & (1 << 6)) | 0x1f);
 	tw_writew(0x0008, 0x0800);
-	tw_writew(TW5864_SLICE, TW5864_START_NSLICE);
+	tw_writew(TW5864_SLICE, TW5864_MAS_SLICE_END | TW5864_START_NSLICE);
+#endif
 	tw_setb(TW5864_IIC_ENB, 1);
 	tw_writeb(TW5864_I2C_PHASE_CFG, 1);
 
@@ -952,13 +966,23 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 		}
 	}
 
+#if 1
+	for (i = 0; i < 4; i++) {
+		for (j = 0; j < 4; j++) {
+			tw_writew(TW5864_H264EN_RATE_CNTL_LO_WORD(i, i * 4 + j), 1);
+			tw_writew(TW5864_H264EN_RATE_CNTL_HI_WORD(i, i * 4 + j), 0);
+		}
+	}
+#endif
+
+#if 1 // VLC
 	tw_writew(TW5864_H264EN_BUS0_MAP, 0x3210);
 	tw_writew(TW5864_H264EN_BUS1_MAP, 0x7654);
 	tw_writew(TW5864_H264EN_BUS2_MAP, 0xBA98);
 	tw_writew(TW5864_H264EN_BUS3_MAP, 0xFEDC);
 
-	tw_writew(TW5864_FRAME_BUS1, ((2 << 3) | (2 << (8 + 3))));  // 2D1 for bus 0 & 1
-	tw_writew(TW5864_FRAME_BUS2, ((2 << 3) | (2 << (8 + 3))));  // 2D1 for bus 2 & 3
+	tw_writew(TW5864_FRAME_BUS1, ((2 << 3) | TW5864_FRAME | (2 << (8 + 3)) | TW5864_FRAME << 8));  // 2D1 for bus 0 & 1
+	tw_writew(TW5864_FRAME_BUS2, ((2 << 3) | TW5864_FRAME | (2 << (8 + 3)) | TW5864_FRAME << 8));  // 2D1 for bus 2 & 3
 
 	for (i = 0; i < 4; i++) {
 		tw_writew(TW5864_FRAME_WIDTH_BUS_A(i), 0x2CF); // 2D1
@@ -969,6 +993,7 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 	}
 
 	tw_writew(TW5864_FULL_HALF_FLAG, 0xffff);
+	tw_writew(TW5864_INTERLACING, TW5864_DSP_INTER_ST | TW5864_DI_EN /* | TW5864_DUAL_STR? */);
 
 #define FPS 1
 	tw_writew(TW5864_H264EN_RATE_MAX_LINE_REG1, (FPS << TW5864_H264EN_RATE_MAX_LINE_ODD_SHIFT) | FPS);
@@ -978,10 +1003,54 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 	tw_writew(TW5864_MOTION_SEARCH_ETC, TW5864_ME_EN | TW5864_INTRA_EN);
 	tw_writew(TW5864_DSP_INTRA_MODE, 0x06 << TW5864_DSP_INTRA_MODE_SHIFT);
 	
-	tw_setw(TW5864_SEN_EN_CH, 0xffff);
-	tw_setw(TW5864_H264EN_CH_EN, 0xffff);
+	tw_writew(TW5864_H264EN_CH_EN, 0xffff);
+	tw_writew(TW5864_SEN_EN_CH, 0xffff);
 
+	tw_writew(TW5864_VLC_RD, TW5864_VLC_RD_BRST);
 
+	tw_writew(TW5864_DSP, 0x0f);
+
+	tw_writeb(TW5864_H264EN_BUS_MAX_CH, 0x0/*f*/);
+#endif // VLC
+
+	tw_writew(TW5864_PCI_PV_CH_EN, 0xffff);
+
+	tw_writeb(0xD014, 1);
+	tw_writeb(0xD018, 1);
+	tw_writeb(0xC800, 2);
+	tw_writeb(0xC804, 2);
+	tw_writeb(0xD00C, 1); // jpeg enc enable bit
+	tw_writeb(0xD0F8, 1); // pci master enable
+
+	tw_writel(0x180c0, dev->jpeg_buf[0].dma_addr);
+	tw_writel(0x180c4, dev->jpeg_buf[1].dma_addr);
+	tw_writel(0x180c8, dev->jpeg_buf[2].dma_addr);
+	tw_writel(0x180cc, dev->jpeg_buf[3].dma_addr);
+
+	tw_writel(0x180d0, dev->jpeg_buf[4].dma_addr);
+	tw_writel(0x180d4, dev->jpeg_buf[5].dma_addr);
+	tw_writel(0x180d8, dev->jpeg_buf[6].dma_addr);
+	tw_writel(0x180dc, dev->jpeg_buf[7].dma_addr);
+
+	tw_writel(0x18050, H264_VLC_BUF_SIZE);
+	tw_writel(0xd000, 0x12); // quantization parameter
+	tw_writeb(0x18060, 0xff);
+	tw_writel(0x18064, 0xffffffff);
+
+	jpg.data = dev->jpeg_buf[0].addr;
+	jpg.size = 0x1000;
+	
+	if (!debugfs_create_blob("jpg", S_IRUGO, dev->debugfs_dir, &jpg)) {
+		dev_err(&dev->pci->dev, "jpg debugfs blob creation failed\n");
+		return 1;
+	}
+
+	vlc.data = dev->h264_vlc_buf[0].addr;
+	vlc.size = 0x1000;
+	if (!debugfs_create_blob("vlc", S_IRUGO, dev->debugfs_dir, &vlc)) {
+		dev_err(&dev->pci->dev, "vlc debugfs blob creation failed\n");
+		return 1;
+	}
 
 	return 0;
 

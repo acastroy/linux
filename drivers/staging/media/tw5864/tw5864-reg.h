@@ -901,6 +901,7 @@ channel (total of 16 channels). Four bits for each channel. */
 #define TW5864_PCI_VLC_INTR_ENB  (1 << 1)  /* master enable */
 #define TW5864_PCI_PREV_INTR_ENB (1 << 4)  /* mvd and vlc master enable */
 #define TW5864_PCI_PREV_OF_INTR_ENB (1 << 5)  /* ad vsync master enable */
+#define TW5864_PCI_JPEG_INTR_ENB  (1 << 7)  /* jpeg master enable */
 #define TW5864_PCI_AUD_INTR_ENB  (1 << 8)  /* preview master enable */
 
 /*

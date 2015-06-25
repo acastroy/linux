@@ -135,7 +135,7 @@ struct tw5864_fmt {
 
 /* bad name, TODO improve */
 struct tw5864_recv_buf {
-	unsigned long addr;
+	void *addr;
 	dma_addr_t dma_addr;
 };
 
@@ -166,6 +166,7 @@ struct tw5864_dev {
 #define H264_BUF_CNT 2
 	struct tw5864_recv_buf       h264_vlc_buf[H264_BUF_CNT];
 	struct tw5864_recv_buf       h264_mv_buf[H264_BUF_CNT];
+	struct tw5864_recv_buf       jpeg_buf[8];
 
 	/* TODO audio stuff */
 
@@ -174,6 +175,8 @@ struct tw5864_dev {
 	struct pci_dev		*pci;
 	void                    __iomem *mmio;
 	u32			irqmask;
+
+	struct dentry           *debugfs_dir;
 };
 
 /* ----------------------------------------------------------- */
