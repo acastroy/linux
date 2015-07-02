@@ -263,6 +263,7 @@ static u32 tw_indir_readl(struct tw5864_dev *dev, u16 addr) {
 void tw5864_set_tvnorm_hw(struct tw5864_dev *dev);
 
 int tw5864_video_init(struct tw5864_dev *dev, int *video_nr);
+int tw5864_video_init_reg_fucking(struct tw5864_dev *dev, int *video_nr);
 void tw5864_video_fini(struct tw5864_dev *dev);
 int tw5864_video_irq(struct tw5864_dev *dev, unsigned long status);
 #if 0
