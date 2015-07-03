@@ -944,6 +944,13 @@ int tw5864_video_init_reg_fucking(struct tw5864_dev *dev, int *video_nr)
 		}
 	}
 #endif
+	for (i = 0; i < 4; i++) {
+		for (j = 0; j < 4; j++) {
+			tw_writew(TW5864_H264EN_RATE_CNTL_LO_WORD(i, i * 4 + j), (j ? 0 : 0x3fffffff) & 0xffff);
+			tw_writew(TW5864_H264EN_RATE_CNTL_HI_WORD(i, i * 4 + j), (j ? 0 : 0x3fffffff) >> 16);
+		}
+	}
+
 
 	tw_writew(TW5864_H264EN_BUS0_MAP, 0x3210);
 	tw_writew(TW5864_H264EN_BUS1_MAP, 0x7654);
@@ -962,10 +969,10 @@ int tw5864_video_init_reg_fucking(struct tw5864_dev *dev, int *video_nr)
 	}
 
 	//tw_writew(TW5864_FULL_HALF_FLAG, 0xffff);
-	tw_writew(TW5864_FULL_HALF_FLAG, 0x0001);
+	tw_writew(TW5864_FULL_HALF_FLAG, 0xffff);
 	tw_writew(TW5864_INTERLACING, TW5864_DSP_INTER_ST | TW5864_DI_EN);
 
-#define FPS 1
+#define FPS 30
 	tw_writew(TW5864_H264EN_RATE_MAX_LINE_REG1, (FPS << TW5864_H264EN_RATE_MAX_LINE_ODD_SHIFT) | FPS);
 	tw_writew(TW5864_H264EN_RATE_MAX_LINE_REG2, (FPS << TW5864_H264EN_RATE_MAX_LINE_ODD_SHIFT) | FPS);
 

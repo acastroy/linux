@@ -90,6 +90,9 @@ static void tw5864_interrupts_enable(struct tw5864_dev *dev)
 	tw_indir_writel(dev, 0xefc/* ISIL_VI_SYSTEM_CLOCK */, 0xf0);
 	tw_indir_writel(dev, 0xefd/* ISIL_VI_SYSTEM_CLOCK_REVERSE */, 0xf0);/*155 set to 0xff, 330 set to 0xf0*/
 
+	tw_indir_writel(dev, 0x041/* ISIL_VI_VD_EDGE */, 0x03);/*use falling edge to sample ,54M to 108M*/
+	tw_indir_writel(dev, 0x046/* ISIL_VI_AGCGAIN */, 0x0);/*AGC loop function disable*/
+
 	tw_writew(TW5864_CS2DAT_CNT, 1);
 	tw_writew(TW5864_DATA_VLD_WIDTH, 3);
 	mdelay(10);
