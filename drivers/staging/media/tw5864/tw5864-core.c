@@ -478,7 +478,7 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 			(unsigned long long)pci_resource_start(pci_dev, 0));
 		goto req_mem_fail;
 	}
-	dev->mmio = ioremap(pci_resource_start(pci_dev, 0),
+	dev->mmio = ioremap_nocache(pci_resource_start(pci_dev, 0),
 			     pci_resource_len(pci_dev, 0));
 	if (NULL == dev->mmio) {
 		err = -EIO;
