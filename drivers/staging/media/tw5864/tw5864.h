@@ -31,6 +31,7 @@
 #include <linux/delay.h>
 #include <linux/mutex.h>
 #include <linux/io.h>
+#include <linux/debugfs.h>
 
 #include <media/v4l2-common.h>
 #include <media/v4l2-ioctl.h>
@@ -178,6 +179,11 @@ struct tw5864_dev {
 	u32                     buf_id;
 	u32                     long_timer_scenario_done;
 	u32                     timers_with_vlc_disabled;
+	u32                     frame_seqno;
+
+	u32                     stored_len;
+
+	struct debugfs_blob_wrapper jpg, vlc;
 
 	struct dentry           *debugfs_dir;
 };

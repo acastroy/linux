@@ -162,10 +162,12 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		dma_sync_single_for_cpu(&dev->pci->dev, dev->h264_vlc_buf[0].dma_addr, H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
 		//dma_sync_single_for_cpu(&dev->pci->dev, dev->h264_mv_buf[0].dma_addr, H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
 
+#if 0
 		for (i = 0; i < sizeof(chunk) / sizeof(chunk[0]); i++) {
 			chunk[i] = tw_readl(TW5864_VLC_STREAM_MEM_START + i * 4);
 		}
 		dev_dbg(&dev->pci->dev, "tw5864_isr: TW5864_VLC_STREAM_MEM_START: hex: %08x %08x %08x %08x\n", chunk[0], chunk[1], chunk[2], chunk[3]);
+#endif
 
 		for (i = 0; i < sizeof(chunk) / sizeof(chunk[0]); i++) {
 			chunk[i] = ((u32*)dev->h264_vlc_buf[0].addr)[i];
@@ -175,9 +177,17 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		dev_dbg(&dev->pci->dev, "CPU-computed CRC: %08x\n", 
 				crc_check_sum((u32*)dev->h264_vlc_buf[0].addr, vlc_len));
 
+		if (dev->frame_seqno == 6) {
+			memcpy(dev->h264_vlc_buf[1].addr, dev->h264_vlc_buf[0].addr, vlc_len);
+			dev->vlc.size = vlc_len;
+			dev_dbg(&dev->pci->dev, "Saved frame for analysis\n");
+		}
+
 		// TODO Do whatever needed, e.g. dump contents elsewhere
 		dma_sync_single_for_device(&dev->pci->dev, dev->h264_vlc_buf[0].dma_addr, H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
 		//dma_sync_single_for_device(&dev->pci->dev, dev->h264_mv_buf[0].dma_addr, H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
+		
+		dev->frame_seqno++;
 
 #include "vlc_intr_0.c"
 

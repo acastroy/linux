@@ -31,7 +31,6 @@
 #include <media/v4l2-common.h>
 #include <media/v4l2-event.h>
 #include <media/videobuf2-dma-contig.h>
-#include <linux/debugfs.h>
 
 #include "tw5864.h"
 #include "tw5864-reg.h"
@@ -902,7 +901,6 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 	int i;
 	int j;
 	int ret;
-	static struct debugfs_blob_wrapper jpg, vlc;
 
 	for (i = 0; i < TW5864_INPUTS; i++) {
 		dev->inputs[i].root = dev;
@@ -926,17 +924,17 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 
 	ret = tw5864_video_init_reg_fucking(dev, video_nr);
 
-	jpg.data = dev->jpeg_buf[0].addr;
-	jpg.size = 0x1000;
+	dev->jpg.data = dev->jpeg_buf[0].addr;
+	dev->jpg.size = 0x1000;
 	
-	if (!debugfs_create_blob("jpg", S_IRUGO, dev->debugfs_dir, &jpg)) {
+	if (!debugfs_create_blob("jpg", S_IRUGO, dev->debugfs_dir, &dev->jpg)) {
 		dev_err(&dev->pci->dev, "jpg debugfs blob creation failed\n");
 		return 1;
 	}
 
-	vlc.data = dev->h264_vlc_buf[0].addr;
-	vlc.size = 0x1000;
-	if (!debugfs_create_blob("vlc", S_IRUGO, dev->debugfs_dir, &vlc)) {
+	dev->vlc.data = dev->h264_vlc_buf[1].addr;
+	dev->vlc.size = 0x80000;
+	if (!debugfs_create_blob("vlc", S_IRUGO, dev->debugfs_dir, &dev->vlc)) {
 		dev_err(&dev->pci->dev, "vlc debugfs blob creation failed\n");
 		return 1;
 	}
