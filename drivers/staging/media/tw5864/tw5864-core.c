@@ -141,13 +141,91 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 
 	ddr_ctl_status = tw_readl(TW5864_DDR_CTL);
 
-	dev_dbg(&dev->pci->dev, "tw5864_isr: status: 0x%08x, pci_status: 0x%08x, pci_ctl: 0x%08x, ddr_status: 0x%08x, 0x9218: 0x%08x\n", status, pci_intr_status, pci_intr_ctl, ddr_ctl_status, r9218);
+	//dev_dbg(&dev->pci->dev, "tw5864_isr: status: 0x%08x, pci_status: 0x%08x, pci_ctl: 0x%08x, ddr_status: 0x%08x, 0x9218: 0x%08x\n", status, pci_intr_status, pci_intr_ctl, ddr_ctl_status, r9218);
 
 	// TODO Figure out the channel id of currently encoded frame
 
 	if (status & TW5864_INTR_VLC_DONE) {
+
+//tw_writel(TW5864_VLC_STREAM_BASE_ADDR, dev->h264_vlc_buf[0].dma_addr);
+//tw_writel(TW5864_MV_STREAM_BASE_ADDR, dev->h264_mv_buf[0].dma_addr);
+
+#include "vlc_intr_0.c"
+
+		dev_dbg(&dev->pci->dev, "tw5864_isr: vlc done\n");
+
+	} else if (status & TW5864_INTR_TIMER) {
+		
+#if 0
+		dev_dbg(&dev->pci->dev, "timer: indir[0x00E(0x038)] = 0x%02X\n", tw_indir_readb(dev, 0x00E));
+		dev_dbg(&dev->pci->dev, "timer: indir[0x2F0(0xBC0)] = 0x%02X\n", tw_indir_readb(dev, 0x2F0));
+		dev_dbg(&dev->pci->dev, "timer: indir[0x2F1(0xBC4)] = 0x%02X\n", tw_indir_readb(dev, 0x2F1));
+		dev_dbg(&dev->pci->dev, "timer: indir[0x2D6(0xB58)] = 0x%02X\n", tw_indir_readb(dev, 0x2D6));
+		dev_dbg(&dev->pci->dev, "timer: indir[0x2D7(0xB5C)] = 0x%02X\n", tw_indir_readb(dev, 0x2D7));
+		dev_dbg(&dev->pci->dev, "timer: indir[0x388(0xE20)] = 0x%02X\n", tw_indir_readb(dev, 0x388));
+		dev_dbg(&dev->pci->dev, "timer: indir[0x389(0xE24)] = 0x%02X\n", tw_indir_readb(dev, 0x389));
+#endif
+		if (tw_indir_readb(dev, 0x2F0))
+			tw_indir_writeb(dev, 0x2F0, 0xFF);
+		if (tw_indir_readb(dev, 0x2F1))
+			tw_indir_writeb(dev, 0x2F1, 0xFF);
+		tw_indir_writeb(dev, 0x382, 0);
+
+
+		u32 prev_buf_id = dev->buf_id;
+		dev->buf_id = (dev->buf_id + 1) % 4;
+		w(0x0000021C, dev->buf_id << 12); /* chip f5880300 */ /* in ISR */
+		w(0x00000210,(dev->buf_id << 12) | prev_buf_id); /* chip f5880300 */ /* in ISR */
+
+		if (!dev->long_timer_scenario_done) {
+			dev->long_timer_scenario_done = 1;
+#include "timer_intr_6.c"
+		} else {
+#include "timer_intr_7.c"
+		}
+
+
+		w(0x00018000,0x00000040);
+
+
+	} else {
+		dev_dbg(&dev->pci->dev, "tw5864_isr: not timer and not vlc, status 0x%08X\n", status);
 	}
 
+
+// playful clearing
+tw_writel(0x00008810,0x00000001);
+tw_writel(0x00008810,0x00000002);
+tw_writel(0x00008810,0x00000004);
+tw_writel(0x00008810,0x00000008);
+tw_writel(0x00008810,0x00000010);
+tw_writel(0x00008810,0x00000020);
+tw_writel(0x00008810,0x00000040);
+tw_writel(0x00008810,0x00000080);
+tw_writel(0x00008810,0x00000100);
+tw_writel(0x00008810,0x00000200);
+tw_writel(0x00008810,0x00000400);
+tw_writel(0x00008810,0x00000800);
+tw_writel(0x00008810,0x00001000);
+tw_writel(0x00008810,0x00002000);
+tw_writel(0x00008810,0x00004000);
+tw_writel(0x00008810,0x00008000);
+tw_writel(0x00008814,0x00000001);
+tw_writel(0x00008814,0x00000002);
+tw_writel(0x00008814,0x00000004);
+tw_writel(0x00008814,0x00000008);
+tw_writel(0x00008814,0x00000010);
+tw_writel(0x00008814,0x00000020);
+tw_writel(0x00008814,0x00000040);
+tw_writel(0x00008814,0x00000080);
+tw_writel(0x00008814,0x00000100);
+tw_writel(0x00008814,0x00000200);
+tw_writel(0x00008814,0x00000400);
+tw_writel(0x00008814,0x00000800);
+tw_writel(0x00008814,0x00001000);
+tw_writel(0x00008814,0x00002000);
+tw_writel(0x00008814,0x00004000);
+tw_writel(0x00008814,0x00008000);
 
 	return IRQ_HANDLED;
 }
@@ -191,7 +269,7 @@ static size_t regs_dump(struct tw5864_dev *dev, char *buf, size_t size)
 	}
 
 	for (reg_addr = 0x0; (count < size) && (reg_addr <= 0xEFE); reg_addr += 1) {
-		value = tw_indir_readl(dev, reg_addr);
+		value = tw_indir_readb(dev, reg_addr);
 		count += scnprintf(buf + count, size - count,
 				"indir[0x%03x] = 0x%02x\n", reg_addr, value);
 	}
@@ -337,7 +415,12 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	/* Enable interrupts */
 	tw5864_interrupts_enable(dev);
 
-	//pci_init_ad(dev); // not enough brutal
+
+
+
+
+
+
 
 	dev->debugfs_dir = debugfs_create_dir(dev->name, NULL);
 	err = tw5864_video_init(dev, video_nr);
@@ -359,6 +442,23 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	dev_info(&dev->pci->dev, "hi everybody, it's info\n");
 	dev_dbg(&dev->pci->dev, "hi everybody, it's debug\n");
 
+
+
+// Use real allocation (used in init6.c)
+//tw_writel(TW5864_VLC_STREAM_BASE_ADDR, dev->h264_vlc_buf[0].dma_addr);
+//tw_writel(TW5864_MV_STREAM_BASE_ADDR, dev->h264_mv_buf[0].dma_addr);
+
+	pci_init_ad(dev);
+#include "init_no_i2c.c"
+#if 0
+#include "init2.c"
+#include "init3.c"
+//#if 0
+#include "init4.c"
+#include "init5.c"
+#include "init6.c"
+#include "init7.c"
+#endif
 	return 0;
 
 irq_req_fail:

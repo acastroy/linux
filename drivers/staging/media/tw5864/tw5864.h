@@ -175,6 +175,8 @@ struct tw5864_dev {
 	struct pci_dev		*pci;
 	void                    __iomem *mmio;
 	u32			irqmask;
+	u32                     buf_id;
+	u32                     long_timer_scenario_done;
 
 	struct dentry           *debugfs_dir;
 };
@@ -207,55 +209,42 @@ struct tw5864_dev {
 #define	tw_clearb(reg, bit)	tw_writel((reg), tw_readl(reg) & ~(bit))
 #define tw_wait(us) { udelay(us); }
 
-static void tw_indir_writel(struct tw5864_dev *dev, u16 addr, u32 data) {
-	int timeout = 1000;
+static void tw_indir_writeb(struct tw5864_dev *dev, u16 addr, u8 data) {
+	int timeout = 30000;
+	addr <<= 2;
 
-	tw_writel(TW5864_IND_DATA, data);
-	while (timeout--) {
-		if ((!(tw_readb(TW5864_IND_CTL + 3) & 0x80)))  /* not busy anymore */
-			break;
-		udelay(1);
-	}
+	while ((tw_readl(TW5864_IND_CTL) >> 31) && (timeout--))
+		;
 	if (!timeout)
 		dev_err(&dev->pci->dev, "tw_indir_writel() timeout before writing\n");
-	tw_writel(TW5864_IND_CTL, addr | TW5864_RW | TW5864_ENABLE);
 
-	timeout = 1000;
-	while (timeout--) {
-		if ((!(tw_readb(TW5864_IND_CTL + 3) & 0x80)))  /* not busy anymore */
-			break;
-		udelay(1);
-	}
-	if (!timeout)
-		dev_err(&dev->pci->dev, "tw_indir_writel() timeout after writing\n");
+	tw_writel(TW5864_IND_DATA, data);
+	tw_writel(TW5864_IND_CTL, addr | TW5864_RW | TW5864_ENABLE);
 }
 
-static u32 tw_indir_readl(struct tw5864_dev *dev, u16 addr) {
-	int timeout = 1000;
+static u8 tw_indir_readb(struct tw5864_dev *dev, u16 addr) {
+	int timeout = 30000;
 	u32 data = 0;
+	addr <<= 2;
 
-	while (timeout--) {
-		if ((!(tw_readb(TW5864_IND_CTL + 3) & 0x80)))  /* not busy anymore */
-			break;
-		udelay(1);
-	}
+	while ((tw_readl(TW5864_IND_CTL) >> 31) && (timeout--))
+		;
 	if (!timeout)
 		dev_err(&dev->pci->dev, "tw_indir_writel() timeout before reading\n");
 
 	tw_writel(TW5864_IND_CTL, addr | TW5864_ENABLE);
 
-	timeout = 1000;
-	while (timeout--) {
-		if ((!(tw_readb(TW5864_IND_CTL + 3) & 0x80)))  /* not busy anymore */
-			break;
-		udelay(1);
-	}
+	timeout = 30000;
+	while ((tw_readl(TW5864_IND_CTL) >> 31) && (timeout--))
+		;
 	if (!timeout)
 		dev_err(&dev->pci->dev, "tw_indir_writel() timeout at reading\n");
 
 	data = tw_readl(TW5864_IND_DATA);
-	return data;
+	return data & 0xff;
 }
+
+#include "w.c"
 
 // Don't do any writes, so that we take intact regs dump
 #if 0
