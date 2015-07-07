@@ -177,6 +177,7 @@ struct tw5864_dev {
 	u32			irqmask;
 	u32                     buf_id;
 	u32                     long_timer_scenario_done;
+	u32                     timers_with_vlc_disabled;
 
 	struct dentry           *debugfs_dir;
 };

@@ -27,7 +27,7 @@ static void w_func(struct tw5864_dev *dev, u32 addr, u32 value)
     }
 
     if (!in_interrupt())
-	    mdelay(40);
+	    mdelay(10);
 }
 
 #define w(addr, value) w_func(dev, addr, value)

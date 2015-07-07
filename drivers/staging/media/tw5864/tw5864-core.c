@@ -154,7 +154,9 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 
 		dev_dbg(&dev->pci->dev, "tw5864_isr: vlc done\n");
 
-	} else if (status & TW5864_INTR_TIMER) {
+	}
+	
+	if (status & TW5864_INTR_TIMER) {
 		
 #if 0
 		dev_dbg(&dev->pci->dev, "timer: indir[0x00E(0x038)] = 0x%02X\n", tw_indir_readb(dev, 0x00E));
@@ -177,18 +179,26 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		w(0x0000021C, dev->buf_id << 12); /* chip f5880300 */ /* in ISR */
 		w(0x00000210,(dev->buf_id << 12) | prev_buf_id); /* chip f5880300 */ /* in ISR */
 
-		if (!dev->long_timer_scenario_done) {
-			dev->long_timer_scenario_done = 1;
+		if (!((tw_readl(TW5864_INTR_ENABLE_H) << 16) & TW5864_INTR_VLC_DONE)) {
+			dev->timers_with_vlc_disabled++;
+			if (dev->timers_with_vlc_disabled > 10) {
+				dev->timers_with_vlc_disabled = 0;
+				if (!dev->long_timer_scenario_done) {
+					dev->long_timer_scenario_done = 1;
 #include "timer_intr_6.c"
-		} else {
+				} else {
 #include "timer_intr_7.c"
+				}
+			}
 		}
 
 
 		w(0x00018000,0x00000040);
 
 
-	} else {
+	}
+	
+	if (!(status & (TW5864_INTR_TIMER | TW5864_INTR_VLC_DONE))){
 		dev_dbg(&dev->pci->dev, "tw5864_isr: not timer and not vlc, status 0x%08X\n", status);
 	}
 
