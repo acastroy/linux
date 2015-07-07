@@ -42,6 +42,8 @@
 #include <linux/pm.h>
 #include <linux/debugfs.h>
 
+#include <asm/dma.h>
+
 #include <media/v4l2-dev.h>
 #include "tw5864.h"
 #include "tw5864-reg.h"
@@ -94,7 +96,7 @@ static void tw5864_interrupts_enable(struct tw5864_dev *dev)
 	tw_indir_writel(dev, 0xefd/* ISIL_VI_SYSTEM_CLOCK_REVERSE */, 0xf0);/*155 set to 0xff, 330 set to 0xf0*/
 
 	tw_writew(TW5864_CS2DAT_CNT, 1);
-	tw_writew(TW5864_DATA_VLD_WIDTH, 3);
+	tw_writew(TW5864_DATA_VLD_WIDTH, 1);
 	mdelay(10);
 
 	tw_writeb(0xA000, 0xc5); // only [2:0] is defined
@@ -119,7 +121,7 @@ static void tw5864_interrupts_enable(struct tw5864_dev *dev)
 
 	tw_setl(TW5864_DDR_CTL, TW5864_SING_ERR_INTR | TW5864_BRST_ERR_INTR | TW5864_BRST_END_INTR);
 
-	dev->irqmask = TW5864_INTR_VLC_RAM | TW5864_INTR_VLC_DONE | TW5864_INTR_VIN_LOST;
+	dev->irqmask = TW5864_INTR_VLC_RAM | TW5864_INTR_VLC_DONE /* | TW5864_INTR_VIN_LOST */;
 	tw_writew(TW5864_INTR_ENABLE_L, dev->irqmask & 0xffff);
 	tw_writew(TW5864_INTR_ENABLE_H, dev->irqmask >> 16);
 
@@ -184,26 +186,56 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 	int i;
 	u32 ddr_ctl_status;
 	u32 pci_intr_ctl;
+	u32 r9218 = tw_readl(0x9218);
 
 	status = tw_readw(TW5864_INTR_STATUS_L)
 		 | (tw_readw(TW5864_INTR_STATUS_H) << 16);
 	if (!status)
 		return IRQ_NONE;
-	tw_writew(TW5864_INTR_CLR_L, status & 0xffff);
-	tw_writew(TW5864_INTR_CLR_H, status >> 16);
 
 	pci_intr_status = tw_readw(TW5864_PCI_INTR_STATUS);
-	tw_writew(TW5864_PCI_INTR_STATUS, pci_intr_status);
 
 	pci_intr_ctl = tw_readl(TW5864_PCI_INTR_CTL);
 
 	ddr_ctl_status = tw_readl(TW5864_DDR_CTL);
 
-	dev_dbg(&dev->pci->dev, "tw5864_isr: status: 0x%08x, pci_status: 0x%08x, pci_ctl: 0x%08x, ddr_status: 0x%08x\n", status, pci_intr_status, pci_intr_ctl, ddr_ctl_status);
+	dev_dbg(&dev->pci->dev, "tw5864_isr: status: 0x%08x, pci_status: 0x%08x, pci_ctl: 0x%08x, ddr_status: 0x%08x, 0x9218: 0x%08x\n", status, pci_intr_status, pci_intr_ctl, ddr_ctl_status, r9218);
 
 	// TODO Figure out the channel id of currently encoded frame
 
 	if (status & TW5864_INTR_VLC_DONE) {
+		/*
+00008814=00000001
+0001807c=00000004
+0001807c=00000000
+00001014=00000001
+00018000=00000002
+0000880c=00000070
+0000021c=00002000
+0000001c=00000000
+00000218=00002d24
+00000210=00002001
+00000208=00000000
+00001000=00009d1c
+00000018=0000001c
+00000214=000000c0
+00000200=00000004
+00000008=00000000
+00000004=0000001f
+00000008=00000800
+00000414=00000006
+00000410=00000070
+0000002c=00000a21
+0000020c=000000bf
+00018080=35080000
+00018084=34140000
+00018004=00000073
+0001800c=00000032
+0000880c=00000072
+0000000c=00008000
+0000000c=00000000
+00008814=00000002
+		 */
 		u32 chunk[4];
 		// TODO Grab encoded video data
 		// TODO Move this block to -video.c
@@ -216,6 +248,53 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		vlc_crc = tw_readl(TW5864_VLC_CRC_REG);
 #ifdef WTF
 		tw_writel(0x1807C, 0);
+
+		tw_writel(TW5864_VLC_DSP_INTR, 1);  /* ack to hardware */
+
+	tw_writew(TW5864_PCI_INTR_STATUS, pci_intr_status);
+
+	// disable VLC irq
+	dev->irqmask &= ~TW5864_INTR_VLC_DONE;
+	tw_writew(TW5864_INTR_ENABLE_L, dev->irqmask & 0xffff);
+	tw_writew(TW5864_INTR_ENABLE_H, dev->irqmask >> 16);
+
+	u32 prev_buf_ptr = (tw_readl(TW5864_DSP_ENC_ORG_PTR_REG) & TW5864_DSP_ENC_ORG_PTR_MASK) >> TW5864_DSP_ENC_ORG_PTR_SHIFT;
+	u32 next_buf_ptr = (prev_buf_ptr + 1) & 0x7;
+	tw_writel(TW5864_DSP_ENC_ORG_PTR_REG, (next_buf_ptr) << TW5864_DSP_ENC_ORG_PTR_SHIFT);
+
+	tw_writel(0x001c, 0x0000);
+	tw_writel(0x0218, 0x2d24);
+	tw_writel(0x0210, (next_buf_ptr << 12) | prev_buf_ptr);
+	tw_writel(0x0208, 0x0000);
+	tw_writel(0x1000, 0x00009d1c);
+	tw_writel(0x001c, 0x001c); // QP
+	tw_writel(0x0214, 0x00c0); // Lambda from QP
+	tw_writel(0x0200, 0x0004); // deinterlacer enable
+// TODO
+	tw_writel(0x0008, 0x0000);
+	tw_writel(0x0004, 0x001f);
+	tw_writel(0x0008, 0x0800);
+	tw_writel(0x0414, 0x0006);
+	tw_writel(0x0410, 0x0070);
+	tw_writel(0x002c, 0x0a20);
+	tw_writel(0x020c, 0xbf);
+	tw_writel(TW5864_PCI_INTR_CTL, 0x03);
+	tw_writew(TW5864_MASTER_ENB_REG, TW5864_PCI_VLC_INTR_ENB);
+
+	dev->irqmask |= TW5864_INTR_VLC_DONE;
+	tw_writew(TW5864_INTR_ENABLE_L, dev->irqmask & 0xffff);
+	tw_writew(TW5864_INTR_ENABLE_H, dev->irqmask >> 16);
+
+	tw_writew(TW5864_SLICE, TW5864_START_NSLICE);
+	tw_writew(TW5864_SLICE, 0);
+
+	tw_writew(TW5864_INTR_CLR_L, status & 0xffff);
+	tw_writew(TW5864_INTR_CLR_H, status >> 16);
+
+
+		dev_dbg(&dev->pci->dev, "tw5864_isr: status: 0x%08x, channel 0x%08x, pci_intr_status 0x%08x, vlc_len %d, vlc_crc 0x%08x, vlc_buf_rdy 0x%02x, vlc_buf_reg 0x%08x\n", status, channel, pci_intr_status, vlc_len, vlc_crc, (vlc_reg & TW5864_VLC_BUF_RDY_MASK) >> TW5864_VLC_BUF_RDY_SHIFT, vlc_buf_reg);
+
+	return IRQ_HANDLED;
 #endif
 		channel = tw_readb(TW5864_DSP) & TW5864_DSP_ENC_CHN;
 		vlc_reg = tw_readl(TW5864_VLC);
@@ -230,11 +309,10 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		tw_writew(TW5864_DSP, (channel+1) % 4);
 #endif
 
-		tw_writel(TW5864_VLC_DSP_INTR, 1);  /* ack to hardware */
 		tw_setl(TW5864_PCI_INTR_STATUS, TW5864_VLC_DONE_INTR);  /* another ack to hw */
 		tw_setl(TW5864_VLC_BUF, vlc_buf_reg & 0x000f);  /* ack BK{0,1} full, end slice, buf overflow status */
 		tw_setl(TW5864_PCI_INTR_CTL, TW5864_PCI_MAST_ENB | TW5864_MVD_VLC_MAST_ENB | TW5864_IIC_INTR_ENB | TW5864_AD_INTR_ENB | TW5864_PCI_TAR_BURST_ENB | TW5864_PCI_VLC_BURST_ENB | TW5864_PCI_DDR_BURST_ENB);
-		tw_setl(TW5864_DDR, TW5864_DDR_BRST_EN);
+		//tw_setl(TW5864_DDR, TW5864_DDR_BRST_EN);
 
 		tw_writeb(TW5864_MV, mv_reg & 0x1f);  /* flags clearing */
 		//tw_writew(0x0008, 0x0000);
@@ -245,7 +323,6 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		tw_writew(TW5864_SLICE, TW5864_START_NSLICE);
 		tw_writew(TW5864_SLICE, 0);
 
-		dev_dbg(&dev->pci->dev, "tw5864_isr: status: 0x%08x, channel 0x%08x, pci_intr_status 0x%08x, vlc_len %d, vlc_crc 0x%08x, vlc_buf_rdy 0x%02x, vlc_buf_reg 0x%08x, mv_reg 0x%04x\n", status, channel, pci_intr_status, vlc_len, vlc_crc, (vlc_reg & TW5864_VLC_BUF_RDY_MASK) >> TW5864_VLC_BUF_RDY_SHIFT, vlc_buf_reg, mv_reg);
 
 		// TODO Swap DMA mapping
 		dma_sync_single_for_cpu(&dev->pci->dev, dev->h264_vlc_buf[0].dma_addr, H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
@@ -268,10 +345,10 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		dma_sync_single_for_device(&dev->pci->dev, dev->h264_vlc_buf[0].dma_addr, H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
 		dma_sync_single_for_device(&dev->pci->dev, dev->h264_mv_buf[0].dma_addr, H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
 
-		tw_writew(TW5864_H264EN_CH_EN, 0x0000);
-		tw_writew(TW5864_SEN_EN_CH, 0x0000);
+		//tw_writew(TW5864_H264EN_CH_EN, 0x0000);
+		//tw_writew(TW5864_SEN_EN_CH, 0x0000);
 
-		tw5864_video_init_reg_fucking(dev, NULL);
+		//tw5864_video_init_reg_fucking(dev, NULL);
 
 
 	} else
@@ -377,10 +454,10 @@ static size_t regs_dump(struct tw5864_dev *dev, char *buf, size_t size)
 				"[0x%05x] = 0x%08x\n", reg_addr, value);
 	}
 
-	for (reg_addr = 0x0; (count < size) && (reg_addr <= 0xEFE); reg_addr += 4) {
+	for (reg_addr = 0x0; (count < size) && (reg_addr <= 0xEFE); reg_addr += 1) {
 		value = tw_indir_readl(dev, reg_addr);
 		count += scnprintf(buf + count, size - count,
-				"indir[0x%03x] = 0x%08x\n", reg_addr, value);
+				"indir[0x%03x] = 0x%02x\n", reg_addr, value);
 	}
 
 	return count;
@@ -435,12 +512,36 @@ static const struct file_operations debugfs_regs_dump_fops = {
 };
 
 
+static int x86_dma_init(struct tw5864_dev *dev)
+{
+	unsigned int dmanr;
+
+	for(dmanr = 0; dmanr < MAX_DMA_CHANNELS; dmanr++){
+		if(dmanr == 4){/*for cascade*/
+			continue;
+		}
+		if(request_dma(dmanr, "tw5864") == 0){
+			dev_dbg(&dev->pci->dev, "got dmanr %d\n", dmanr);
+			//s_dmanr = dmanr;
+			break;
+		}
+	}
+	if(dmanr == 8){
+		dev_dbg(&dev->pci->dev, "dma request failed\n");
+		return 1;
+	}
+
+	return 0;
+}
+
+
 static int tw5864_initdev(struct pci_dev *pci_dev,
 				     const struct pci_device_id *pci_id)
 {
 	struct tw5864_dev *dev;
 	char irq_owner_display_name[64];
 	int err;
+	u16 cmd;
 
 	dev = devm_kzalloc(&pci_dev->dev, sizeof(*dev), GFP_KERNEL);
 	if (!dev)
@@ -461,6 +562,12 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	}
 
 	pci_set_master(pci_dev);
+
+	pci_read_config_word(pci_dev, PCI_COMMAND, &cmd);
+	cmd |= PCI_COMMAND_IO;
+	pci_write_config_word(pci_dev, PCI_COMMAND, cmd);
+	pci_read_config_word(pci_dev, PCI_COMMAND, &cmd);
+	pr_err("%s: cmd after setting PCI_COMMAND_IO: 0x%04x\n", pci_name(pci_dev), cmd);
 
 	/* FIXME: What exactly for is this needed? Which mask(s) this driver needs? */
 	if (!pci_dma_supported(pci_dev, DMA_BIT_MASK(32))) {
@@ -489,9 +596,12 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	mutex_init(&dev->lock);
 	spin_lock_init(&dev->slock);
 
+	x86_dma_init(dev);
 
 	/* Enable interrupts */
 	tw5864_interrupts_enable(dev);
+
+	pci_init_ad(dev);
 
 	dev->debugfs_dir = debugfs_create_dir(dev->name, NULL);
 	err = tw5864_video_init(dev, video_nr);

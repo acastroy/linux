@@ -915,7 +915,7 @@ int tw5864_video_init_reg_fucking(struct tw5864_dev *dev, int *video_nr)
 	tw_writel(TW5864_VLC_MAX_LENGTH, H264_VLC_BUF_SIZE);
 	//tw_writew(TW5864_MPI_DDR_SEL_REG, TW5864_MPI_DDR_SEL2); // this is about MV data
 
-	tw_writel(TW5864_VLC, TW5864_VLC_PCI_SEL | TW5864_VLC_BYTE_SWP | TW5864_VLC_ADD03_EN | TW5864_VLC_INF_SEL /* ? try both with and without */ | TW5864_VLC_OVFL_CNTL | /* QP */0x0012 );
+	tw_writel(TW5864_VLC, TW5864_VLC_PCI_SEL | TW5864_VLC_BYTE_SWP | TW5864_VLC_ADD03_EN | TW5864_VLC_INF_SEL /* ? try both with and without */ | TW5864_VLC_OVFL_CNTL | /* QP */0x001C );
 	tw_writel(TW5864_PCI_INTR_CTL, TW5864_PCI_MAST_ENB | TW5864_MVD_VLC_MAST_ENB | TW5864_IIC_INTR_ENB | TW5864_PCI_TAR_BURST_ENB | TW5864_PCI_VLC_BURST_ENB | TW5864_PCI_DDR_BURST_ENB);
 	tw_setw(TW5864_MASTER_ENB_REG, /*TW5864_PCI_VLC_INTR_ENB*/0x0f);
 	
@@ -923,7 +923,8 @@ int tw5864_video_init_reg_fucking(struct tw5864_dev *dev, int *video_nr)
 	tw_writew(0x0008, 0);
 	tw_writeb(TW5864_EMU_EN_VARIOUS_ETC, (TW5864_DSP_FRAME_TYPE & (1 << 6)) | 0x1f);
 	tw_writew(0x0008, 0x0800);
-	tw_writew(TW5864_SLICE, TW5864_MAS_SLICE_END | TW5864_START_NSLICE);
+	tw_writew(TW5864_SLICE, /*TW5864_MAS_SLICE_END | */TW5864_START_NSLICE);
+	tw_writeb(TW5864_DSP_SEN, 0x440);
 
 	tw_setb(TW5864_IIC_ENB, 1);
 	tw_writeb(TW5864_I2C_PHASE_CFG, 1);
@@ -944,16 +945,22 @@ int tw5864_video_init_reg_fucking(struct tw5864_dev *dev, int *video_nr)
 		}
 	}
 #endif
+#if 0
 	for (i = 0; i < 4; i++) {
 		for (j = 0; j < 4; j++) {
 			tw_writew(TW5864_H264EN_RATE_CNTL_LO_WORD(i, i * 4 + j), (j ? 0 : 0x3fffffff) & 0xffff);
 			tw_writew(TW5864_H264EN_RATE_CNTL_HI_WORD(i, i * 4 + j), (j ? 0 : 0x3fffffff) >> 16);
 		}
 	}
+#endif
+	tw_writel(0x9100, 0xffff);
+	tw_writel(0x9104, 0x3fff);
+	tw_writel(0x9120, 0xffff);
+	tw_writel(0x9124, 0x3fff);
 
 
-	tw_writew(TW5864_H264EN_BUS0_MAP, 0x3210);
-	tw_writew(TW5864_H264EN_BUS1_MAP, 0x7654);
+	tw_writew(TW5864_H264EN_BUS0_MAP, 0x4210);
+	tw_writew(TW5864_H264EN_BUS1_MAP, 0x7653);
 	tw_writew(TW5864_H264EN_BUS2_MAP, 0xBA98);
 	tw_writew(TW5864_H264EN_BUS3_MAP, 0xFEDC);
 
@@ -972,7 +979,7 @@ int tw5864_video_init_reg_fucking(struct tw5864_dev *dev, int *video_nr)
 	tw_writew(TW5864_FULL_HALF_FLAG, 0xffff);
 	tw_writew(TW5864_INTERLACING, TW5864_DSP_INTER_ST | TW5864_DI_EN);
 
-#define FPS 30
+#define FPS 24
 	tw_writew(TW5864_H264EN_RATE_MAX_LINE_REG1, (FPS << TW5864_H264EN_RATE_MAX_LINE_ODD_SHIFT) | FPS);
 	tw_writew(TW5864_H264EN_RATE_MAX_LINE_REG2, (FPS << TW5864_H264EN_RATE_MAX_LINE_ODD_SHIFT) | FPS);
 
@@ -992,7 +999,7 @@ int tw5864_video_init_reg_fucking(struct tw5864_dev *dev, int *video_nr)
 
 	tw_writew(TW5864_DSP_PIC_MAX_MB, ((720 / 16) << 8) | ((576 / 16)));
 	tw_writel(TW5864_DSP_SKIP, 0);
-	tw_writel(TW5864_DSP_QP, 0x0012 /* QP - it is also in TW5864_VLC */);
+	tw_writel(TW5864_DSP_QP, 0x001C /* QP - it is also in TW5864_VLC */);
 
 	tw_writew(TW5864_PCI_PV_CH_EN, 0x0);
 

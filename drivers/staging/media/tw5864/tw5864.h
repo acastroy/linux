@@ -186,8 +186,8 @@ struct tw5864_dev {
 #define	tw_readb(reg) readb(dev->mmio + reg)
 
 #define tw_writel(reg, value) writel((value), dev->mmio + reg)
-#define tw_writew(reg, value) writew((value), dev->mmio + reg)
-#define	tw_writeb(reg, value) writeb((value), dev->mmio + reg)
+#define tw_writew(reg, value) writel((value), dev->mmio + reg)
+#define	tw_writeb(reg, value) writel((value), dev->mmio + reg)
 #if 0
 #define tw_andorl(reg, mask, value) \
 		tw_writel((reg), (tw_readl(reg) & ~(mask)) |\
@@ -200,11 +200,11 @@ struct tw5864_dev {
 		((value) & (mask)))
 #endif
 #define	tw_setl(reg, bit)	tw_writel((reg), tw_readl(reg) | (bit))
-#define	tw_setw(reg, bit)	tw_writew((reg), tw_readw(reg) | (bit))
-#define	tw_setb(reg, bit)	tw_writeb((reg), tw_readb(reg) | (bit))
+#define	tw_setw(reg, bit)	tw_writel((reg), tw_readl(reg) | (bit))
+#define	tw_setb(reg, bit)	tw_writel((reg), tw_readl(reg) | (bit))
 #define	tw_clearl(reg, bit)	tw_writel((reg), tw_readl(reg) & ~(bit))
-#define	tw_clearw(reg, bit)	tw_writew((reg), tw_readw(reg) & ~(bit))
-#define	tw_clearb(reg, bit)	tw_writeb((reg), tw_readb(reg) & ~(bit))
+#define	tw_clearw(reg, bit)	tw_writel((reg), tw_readl(reg) & ~(bit))
+#define	tw_clearb(reg, bit)	tw_writel((reg), tw_readl(reg) & ~(bit))
 #define tw_wait(us) { udelay(us); }
 
 static void tw_indir_writel(struct tw5864_dev *dev, u16 addr, u32 data) {
@@ -257,11 +257,24 @@ static u32 tw_indir_readl(struct tw5864_dev *dev, u16 addr) {
 	return data;
 }
 
+// Don't do any writes, so that we take intact regs dump
+#if 0
+#define tw_writel(reg, value)
+#define tw_writew(reg, value)
+#define	tw_writeb(reg, value)
+#define	tw_setl(reg, bit)
+#define	tw_setw(reg, bit)
+#define	tw_setb(reg, bit)
+#define	tw_clearl(reg, bit)
+#define	tw_clearw(reg, bit)
+#define	tw_clearb(reg, bit)
+#endif
 /* ----------------------------------------------------------- */
 /* tw5864-video.c                                                */
 
 void tw5864_set_tvnorm_hw(struct tw5864_dev *dev);
 
+void pci_init_ad(struct tw5864_dev *dev);
 int tw5864_video_init(struct tw5864_dev *dev, int *video_nr);
 int tw5864_video_init_reg_fucking(struct tw5864_dev *dev, int *video_nr);
 void tw5864_video_fini(struct tw5864_dev *dev);
