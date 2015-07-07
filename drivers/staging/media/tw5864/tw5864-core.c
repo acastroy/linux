@@ -150,9 +150,37 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 //tw_writel(TW5864_VLC_STREAM_BASE_ADDR, dev->h264_vlc_buf[0].dma_addr);
 //tw_writel(TW5864_MV_STREAM_BASE_ADDR, dev->h264_mv_buf[0].dma_addr);
 
+				u32 chunk[4];
+
+				vlc_len = tw_readl(TW5864_VLC_LENGTH) << 2;
+				vlc_crc = tw_readl(TW5864_VLC_CRC_REG);
+				channel = tw_readl(TW5864_DSP) & TW5864_DSP_ENC_CHN;
+				vlc_reg = tw_readl(TW5864_VLC);
+				vlc_buf_reg = tw_readl(TW5864_VLC_BUF);
+
+		dev_dbg(&dev->pci->dev, "tw5864_isr: vlc done. channel 0x%08x, vlc_len %d, vlc_crc 0x%08x, vlc_buf_rdy 0x%02x, vlc_buf_reg 0x%08x\n", channel, vlc_len, vlc_crc, (vlc_reg & TW5864_VLC_BUF_RDY_MASK) >> TW5864_VLC_BUF_RDY_SHIFT, vlc_buf_reg);
+		dma_sync_single_for_cpu(&dev->pci->dev, dev->h264_vlc_buf[0].dma_addr, H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
+		//dma_sync_single_for_cpu(&dev->pci->dev, dev->h264_mv_buf[0].dma_addr, H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
+
+		for (i = 0; i < sizeof(chunk) / sizeof(chunk[0]); i++) {
+			chunk[i] = tw_readl(TW5864_VLC_STREAM_MEM_START + i * 4);
+		}
+		dev_dbg(&dev->pci->dev, "tw5864_isr: TW5864_VLC_STREAM_MEM_START: hex: %08x %08x %08x %08x\n", chunk[0], chunk[1], chunk[2], chunk[3]);
+
+		for (i = 0; i < sizeof(chunk) / sizeof(chunk[0]); i++) {
+			chunk[i] = ((u32*)dev->h264_vlc_buf[0].addr)[i];
+		}
+		dev_dbg(&dev->pci->dev, "tw5864_isr: vlc buf: hex: %08x %08x %08x %08x\n", chunk[0], chunk[1], chunk[2], chunk[3]);
+
+		dev_dbg(&dev->pci->dev, "CPU-computed CRC: %08x\n", 
+				crc_check_sum((u32*)dev->h264_vlc_buf[0].addr, vlc_len));
+
+		// TODO Do whatever needed, e.g. dump contents elsewhere
+		dma_sync_single_for_device(&dev->pci->dev, dev->h264_vlc_buf[0].dma_addr, H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
+		//dma_sync_single_for_device(&dev->pci->dev, dev->h264_mv_buf[0].dma_addr, H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
+
 #include "vlc_intr_0.c"
 
-		dev_dbg(&dev->pci->dev, "tw5864_isr: vlc done\n");
 
 	}
 	
