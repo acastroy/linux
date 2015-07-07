@@ -434,9 +434,6 @@ static void tw5864_buf_finish(struct vb2_buffer *vb)
 static int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	dev_dbg(&dev->pci->dev, "enabling channel %d\n", input_number);
 	mutex_lock(&dev->lock);
-	//tw_setw(TW5864_H264EN_CH_EN, 1 << input_number);
-	//tw_setw(TW5864_SEN_EN_CH, 1 << input_number);
-	tw_setw(TW5864_H264EN_CH_EN, 0xffff);
 
 	mutex_unlock(&dev->lock);
 	dev_dbg(&dev->pci->dev, "status: 0x%04x\n", tw_readw(TW5864_H264EN_CH_STATUS));
@@ -447,10 +444,6 @@ static int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 static int tw5864_disable_input(struct tw5864_dev *dev, int input_number) {
 	dev_dbg(&dev->pci->dev, "disabling channel %d\n", input_number);
 	mutex_lock(&dev->lock);
-	//tw_clearw(TW5864_SEN_EN_CH, 1 << input_number);
-	//tw_clearw(TW5864_H264EN_CH_EN, 1 << input_number);
-	tw_clearw(TW5864_H264EN_CH_EN, 0xffff);
-	tw_clearw(TW5864_SEN_EN_CH, 0xffff);
 	mutex_unlock(&dev->lock);
 	dev_dbg(&dev->pci->dev, "status: 0x%04x\n", tw_readw(TW5864_H264EN_CH_STATUS));
 	dev_dbg(&dev->pci->dev, "TW5864_PCI_INTR_STATUS: 0x%04x, irqmask: 0x%04x%04x, irq status: 0x%04x%04x, TW5864_VLC_BUF: 0x%04x, TW5864_VLC_DSP_INTR: 0x%04x\n", tw_readw(TW5864_PCI_INTR_STATUS), tw_readw(TW5864_INTR_ENABLE_H), tw_readw(TW5864_INTR_ENABLE_L), tw_readw(TW5864_INTR_STATUS_H), tw_readw(TW5864_INTR_STATUS_L), tw_readw(TW5864_VLC_BUF), tw_readw(TW5864_VLC_DSP_INTR));
@@ -901,132 +894,6 @@ static void tw5864_video_input_fini(struct tw5864_input *dev);
 
 int tw5864_video_init_reg_fucking(struct tw5864_dev *dev, int *video_nr)
 {
-	int i;
-	int j;
-	int ret;
-
-	// TODO Setup a mask of interrupts needed for video subsystem
-
-	/* Hardware configuration */
-
-	tw_writel(TW5864_VLC_STREAM_BASE_ADDR, dev->h264_vlc_buf[0].dma_addr);
-	tw_writel(TW5864_MV_STREAM_BASE_ADDR, dev->h264_mv_buf[0].dma_addr);
-
-	tw_writel(TW5864_VLC_MAX_LENGTH, H264_VLC_BUF_SIZE);
-	//tw_writew(TW5864_MPI_DDR_SEL_REG, TW5864_MPI_DDR_SEL2); // this is about MV data
-
-	tw_writel(TW5864_VLC, TW5864_VLC_PCI_SEL | TW5864_VLC_BYTE_SWP | TW5864_VLC_ADD03_EN | TW5864_VLC_INF_SEL /* ? try both with and without */ | TW5864_VLC_OVFL_CNTL | /* QP */0x001C );
-	tw_writel(TW5864_PCI_INTR_CTL, TW5864_PCI_MAST_ENB | TW5864_MVD_VLC_MAST_ENB | TW5864_IIC_INTR_ENB | TW5864_PCI_TAR_BURST_ENB | TW5864_PCI_VLC_BURST_ENB | TW5864_PCI_DDR_BURST_ENB);
-	tw_setw(TW5864_MASTER_ENB_REG, /*TW5864_PCI_VLC_INTR_ENB*/0x0f);
-	
-
-	tw_writew(0x0008, 0);
-	tw_writeb(TW5864_EMU_EN_VARIOUS_ETC, (TW5864_DSP_FRAME_TYPE & (1 << 6)) | 0x1f);
-	tw_writew(0x0008, 0x0800);
-	tw_writew(TW5864_SLICE, /*TW5864_MAS_SLICE_END | */TW5864_START_NSLICE);
-	tw_writeb(TW5864_DSP_SEN, 0x440);
-
-	tw_setb(TW5864_IIC_ENB, 1);
-	tw_writeb(TW5864_I2C_PHASE_CFG, 1);
-
-#if 0
-	for (i = 0; i < 4; i++) {
-		for (j = 0; j < 4; j++) {
-			// NTSC_MAP[1] as we have 1 FPS
-			tw_writew(TW5864_H264EN_RATE_CNTL_LO_WORD(i, i * 4 + j), 0x20000000 & 0xffff);
-			tw_writew(TW5864_H264EN_RATE_CNTL_HI_WORD(i, i * 4 + j), 0x20000000 >> 16);
-		}
-	}
-
-	for (i = 0; i < 4; i++) {
-		for (j = 0; j < 4; j++) {
-			tw_writew(TW5864_H264EN_RATE_CNTL_LO_WORD(i, i * 4 + j), 1);
-			tw_writew(TW5864_H264EN_RATE_CNTL_HI_WORD(i, i * 4 + j), 0);
-		}
-	}
-#endif
-#if 0
-	for (i = 0; i < 4; i++) {
-		for (j = 0; j < 4; j++) {
-			tw_writew(TW5864_H264EN_RATE_CNTL_LO_WORD(i, i * 4 + j), (j ? 0 : 0x3fffffff) & 0xffff);
-			tw_writew(TW5864_H264EN_RATE_CNTL_HI_WORD(i, i * 4 + j), (j ? 0 : 0x3fffffff) >> 16);
-		}
-	}
-#endif
-	tw_writel(0x9100, 0xffff);
-	tw_writel(0x9104, 0x3fff);
-	tw_writel(0x9120, 0xffff);
-	tw_writel(0x9124, 0x3fff);
-
-
-	tw_writew(TW5864_H264EN_BUS0_MAP, 0x4210);
-	tw_writew(TW5864_H264EN_BUS1_MAP, 0x7653);
-	tw_writew(TW5864_H264EN_BUS2_MAP, 0xBA98);
-	tw_writew(TW5864_H264EN_BUS3_MAP, 0xFEDC);
-
-	tw_writew(TW5864_FRAME_BUS1, ((2 << 3) | TW5864_FRAME | (2 << (8 + 3)) | TW5864_FRAME << 8));  // 2D1 for bus 0 & 1
-	tw_writew(TW5864_FRAME_BUS2, ((2 << 3) | TW5864_FRAME | (2 << (8 + 3)) | TW5864_FRAME << 8));  // 2D1 for bus 2 & 3
-
-	for (i = 0; i < 4; i++) {
-		tw_writew(TW5864_FRAME_WIDTH_BUS_A(i), 0x2CF); // 2D1
-		tw_writew(TW5864_FRAME_WIDTH_BUS_B(i), 0x2CF); // 2D1
-
-		tw_writew(TW5864_FRAME_HEIGHT_BUS_A(i), 0x1DF); // 2D1 NTSC
-		tw_writew(TW5864_FRAME_HEIGHT_BUS_B(i), 0x1DF); // 2D1 NTSC
-	}
-
-	//tw_writew(TW5864_FULL_HALF_FLAG, 0xffff);
-	tw_writew(TW5864_FULL_HALF_FLAG, 0xffff);
-	tw_writew(TW5864_INTERLACING, TW5864_DSP_INTER_ST | TW5864_DI_EN);
-
-#define FPS 24
-	tw_writew(TW5864_H264EN_RATE_MAX_LINE_REG1, (FPS << TW5864_H264EN_RATE_MAX_LINE_ODD_SHIFT) | FPS);
-	tw_writew(TW5864_H264EN_RATE_MAX_LINE_REG2, (FPS << TW5864_H264EN_RATE_MAX_LINE_ODD_SHIFT) | FPS);
-
-	tw_writew(TW5864_DSP_CODEC, TW5864_CIF_MAP_MD | TW5864_HD1_MAP_MD);
-	tw_writew(TW5864_MOTION_SEARCH_ETC, TW5864_ME_EN | TW5864_INTRA_EN);
-	tw_writew(TW5864_DSP_INTRA_MODE, 0x06 << TW5864_DSP_INTRA_MODE_SHIFT);
-	
-	tw_writew(TW5864_H264EN_CH_EN, 0x0001);
-	tw_writew(TW5864_SEN_EN_CH, 0x0001);
-
-	tw_writew(TW5864_VLC_RD, TW5864_VLC_RD_BRST);
-
-	//tw_writew(TW5864_DSP, 0x01); // VLC flow control can be enabled with this register
-	tw_writew(TW5864_DSP, 0x0000   | TW5864_DSP_CHROM_SW |  /*mbdelay*/ ((0x430 >> 7) << 8) | TW5864_DSP_MB_WAIT  /*| TW5864_DSP_FLW_CNTL*/);
-
-	tw_writeb(TW5864_H264EN_BUS_MAX_CH, 0xf);
-
-	tw_writew(TW5864_DSP_PIC_MAX_MB, ((720 / 16) << 8) | ((576 / 16)));
-	tw_writel(TW5864_DSP_SKIP, 0);
-	tw_writel(TW5864_DSP_QP, 0x001C /* QP - it is also in TW5864_VLC */);
-
-	tw_writew(TW5864_PCI_PV_CH_EN, 0x0);
-
-#if 0
-	tw_writeb(0xD014, 1);
-	tw_writeb(0xD018, 1);
-	tw_writeb(0xC800, 2);
-	tw_writeb(0xC804, 2);
-	tw_writeb(0xD00C, 1); // jpeg enc enable bit
-	tw_writeb(0xD0F8, 1); // pci master enable
-
-	tw_writel(0x180c0, dev->jpeg_buf[0].dma_addr);
-	tw_writel(0x180c4, dev->jpeg_buf[1].dma_addr);
-	tw_writel(0x180c8, dev->jpeg_buf[2].dma_addr);
-	tw_writel(0x180cc, dev->jpeg_buf[3].dma_addr);
-
-	tw_writel(0x180d0, dev->jpeg_buf[4].dma_addr);
-	tw_writel(0x180d4, dev->jpeg_buf[5].dma_addr);
-	tw_writel(0x180d8, dev->jpeg_buf[6].dma_addr);
-	tw_writel(0x180dc, dev->jpeg_buf[7].dma_addr);
-
-	tw_writel(0x18050, H264_VLC_BUF_SIZE);
-	tw_writel(0xd000, 0x12); // quantization parameter
-	tw_writeb(0x18060, 0xff);
-	tw_writel(0x18064, 0xffffffff);
-#endif
-
 	return 0;
 }
 
