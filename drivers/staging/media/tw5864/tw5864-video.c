@@ -1062,7 +1062,7 @@ void tw5864_video_fini(struct tw5864_dev *dev)
 		tw5864_video_input_fini(&dev->inputs[i]);
 
 	for (i = 0; i < H264_BUF_CNT; i++) {
-		dma_free_coherent(&dev->pci->dev, H264_VLC_BUF_SIZE, dev->h264_vlc_buf[i].addr, &dev->h264_vlc_buf[i].dma_addr);
+		dma_free_coherent(&dev->pci->dev, H264_VLC_BUF_SIZE, dev->h264_vlc_buf[i].addr, dev->h264_vlc_buf[i].dma_addr);
 		dma_free_coherent(&dev->pci->dev, H264_MV_BUF_SIZE, dev->h264_mv_buf[i].addr, dev->h264_mv_buf[i].dma_addr);
 	}
 	for (i = 0; i < 8; i++) {
