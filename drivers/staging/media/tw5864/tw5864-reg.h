@@ -1468,4 +1468,7 @@ channel (total of 16 channels). Four bits for each channel. */
 
 /* Clock PLL / Analog IP Control */
 /* Some registers skipped TODO */
+
+#include "tw5864-reg-undefined.h"
+
 #endif

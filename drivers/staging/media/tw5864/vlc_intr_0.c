@@ -1,5 +1,5 @@
-w(0x0001807C,0x00000004); /* chip f5880300 */ /* in ISR */
-w(0x0001807C,0x00000000); /* chip f5880300 */ /* in ISR */
-w(0x00001014,0x00000001); /* chip f5880300 */ /* in ISR */
-w(0x00018000,0x00000002); /* chip f5880300 */ /* in ISR */
-w(0x0000880C,0x00000070); /* chip f5880300 */ /* in ISR */
+w(TW5864_UNDEF_REG_0x1807C,0x00000004); /* chip f5880300 */ /* in ISR */
+w(TW5864_UNDEF_REG_0x1807C,0x00000000); /* chip f5880300 */ /* in ISR */
+w(TW5864_VLC_DSP_INTR,0x00000001); /* chip f5880300 */ /* in ISR */
+w(TW5864_PCI_INTR_STATUS,0x00000002); /* chip f5880300 */ /* in ISR */
+w(TW5864_INTR_ENABLE_H,0x00000070); /* chip f5880300 */ /* in ISR */
