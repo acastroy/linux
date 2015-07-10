@@ -4,7 +4,7 @@ w(TW5864_DSP_CODEC,0x00000000); /* chip f5880300 */ /* in ISR */
 w(TW5864_DSP_PIC_MAX_MB,0x00002D24); /* chip f5880300 */ /* in ISR */
 //w(TW5864_DSP_ENC_REC,0x00001000); /* chip f5880300 */ /* in ISR */
 w(TW5864_DSP_SKIP,0x00000000); /* chip f5880300 */ /* in ISR */
-w(0x00001000,0x00009D1C); /* chip f5880300 */ /* in ISR */
+w(TW5864_VLC,0x00009D1C); /* chip f5880300 */ /* in ISR */
 w(TW5864_DSP_QP,0x0000001C); /* chip f5880300 */ /* in ISR */
 w(TW5864_DSP_REF_MVP_LAMBDA,0x000000C0); /* chip f5880300 */ /* in ISR */
 w(TW5864_INTERLACING,0x00000004); /* chip f5880300 */ /* in ISR */
