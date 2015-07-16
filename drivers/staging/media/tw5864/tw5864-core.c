@@ -177,10 +177,9 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		dev_dbg(&dev->pci->dev, "CPU-computed CRC: %08x\n", 
 				crc_check_sum((u32*)dev->h264_vlc_buf[0].addr, vlc_len));
 
-		if (dev->frame_seqno == 6) {
-			memcpy(dev->h264_vlc_buf[1].addr, dev->h264_vlc_buf[0].addr, vlc_len);
-			dev->vlc.size = vlc_len;
-			dev_dbg(&dev->pci->dev, "Saved frame for analysis\n");
+		if (dev->frame_seqno < VLC_DUMP_CNT) {
+			memcpy(dev->vlc[dev->frame_seqno].data, dev->h264_vlc_buf[0].addr, vlc_len);
+			dev->vlc[dev->frame_seqno].size = vlc_len;
 		}
 
 		// TODO Do whatever needed, e.g. dump contents elsewhere
@@ -188,6 +187,28 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		//dma_sync_single_for_device(&dev->pci->dev, dev->h264_mv_buf[0].dma_addr, H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
 		
 		dev->frame_seqno++;
+
+		u32 prev_buf_id = dev->buf_id;
+		dev->buf_id = (dev->buf_id + 1) % 4;
+		w(0x0000021C, dev->buf_id << 12); /* chip f5880300 */ /* in ISR */
+		w(0x00000210,(dev->buf_id << 12) | prev_buf_id); /* chip f5880300 */ /* in ISR */
+
+		if (dev->frame_seqno == 1)
+			w(TW5864_MOTION_SEARCH_ETC,0x00000008); // produce intra frame each time
+		else
+			w(TW5864_MOTION_SEARCH_ETC,0x0000008C); // produce P-frames
+
+		// set real bitalign
+		int bitalign_32;
+		if(dev->frame.frame_len % 4){
+			bitalign_32 = dev->frame.nal.i_temp_bitalign_number + 16;
+		} else {
+			bitalign_32 = dev->frame.nal.i_temp_bitalign_number;
+		}
+		bitalign_32 = 0;
+		w(TW5864_VLC, (tw_readl(TW5864_VLC) & ~TW5864_VLC_BIT_ALIGN_MASK)
+				| ((bitalign_32 << TW5864_VLC_BIT_ALIGN_SHIFT) & TW5864_VLC_BIT_ALIGN_MASK)
+		 );
 
 #include "vlc_intr_0.c"
 
@@ -212,14 +233,10 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		tw_indir_writeb(dev, 0x382, 0);
 
 
-		u32 prev_buf_id = dev->buf_id;
-		dev->buf_id = (dev->buf_id + 1) % 4;
-		w(0x0000021C, dev->buf_id << 12); /* chip f5880300 */ /* in ISR */
-		w(0x00000210,(dev->buf_id << 12) | prev_buf_id); /* chip f5880300 */ /* in ISR */
-
 		if (!((tw_readl(TW5864_INTR_ENABLE_H) << 16) & TW5864_INTR_VLC_DONE)) {
 			dev->timers_with_vlc_disabled++;
 			if (dev->timers_with_vlc_disabled > 10) {
+				dev_dbg(&dev->pci->dev, "enabling VLC irq again\n");
 				dev->timers_with_vlc_disabled = 0;
 				if (!dev->long_timer_scenario_done) {
 					dev->long_timer_scenario_done = 1;

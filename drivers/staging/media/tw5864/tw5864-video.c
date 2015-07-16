@@ -932,11 +932,15 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 		return 1;
 	}
 
-	dev->vlc.data = dev->h264_vlc_buf[1].addr;
-	dev->vlc.size = 0x80000;
-	if (!debugfs_create_blob("vlc", S_IRUGO, dev->debugfs_dir, &dev->vlc)) {
-		dev_err(&dev->pci->dev, "vlc debugfs blob creation failed\n");
-		return 1;
+	for (i = 0; i < VLC_DUMP_CNT; i++) {
+		char filename[10];
+		snprintf(filename, sizeof(filename), "vlc_%02d", i);
+		dev->vlc[i].data = kmalloc(H264_VLC_BUF_SIZE, GFP_KERNEL);
+		dev->vlc[i].size = 0;
+		if (!debugfs_create_blob(filename, S_IRUGO, dev->debugfs_dir, &dev->vlc[i])) {
+			dev_err(&dev->pci->dev, "vlc debugfs blob creation failed\n");
+			return 1;
+		}
 	}
 
 	return 0;

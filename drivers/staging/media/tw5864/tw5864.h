@@ -183,7 +183,8 @@ struct tw5864_dev {
 
 	u32                     stored_len;
 
-	struct debugfs_blob_wrapper jpg, vlc;
+#define VLC_DUMP_CNT 64
+	struct debugfs_blob_wrapper jpg, vlc[VLC_DUMP_CNT];
 
 	struct dentry           *debugfs_dir;
 };
