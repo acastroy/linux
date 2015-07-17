@@ -236,6 +236,11 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 				if (!dev->long_timer_scenario_done) {
 					dev->long_timer_scenario_done = 1;
 #include "timer_intr_6.c"
+			int bitalign_32;
+			bitalign_32 = 0;
+			w(TW5864_VLC, (tw_readl(TW5864_VLC) & ~TW5864_VLC_BIT_ALIGN_MASK)
+					| ((bitalign_32 << TW5864_VLC_BIT_ALIGN_SHIFT) & TW5864_VLC_BIT_ALIGN_MASK)
+		 );
 				} else {
 #include "timer_intr_7.c"
 				}
