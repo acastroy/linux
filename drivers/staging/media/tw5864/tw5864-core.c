@@ -242,7 +242,6 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 			}
 		}
 
-
 		w(0x00018000,0x00000040);
 
 
@@ -437,6 +436,9 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 
 	pci_set_master(pci_dev);
 
+	if ((pci_name(pci_dev))[9] != '4')
+		return -1;
+
 	pci_read_config_word(pci_dev, PCI_COMMAND, &cmd);
 	cmd |= PCI_COMMAND_IO;
 	pci_write_config_word(pci_dev, PCI_COMMAND, cmd);
@@ -519,6 +521,48 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 #include "init6.c"
 #include "init7.c"
 #endif
+	w(TW5864_MOTION_SEARCH_ETC,0x00000008); // produce intra frame each time
+	// set real bitalign
+	int bitalign_32;
+	bitalign_32 = 0;
+	w(TW5864_VLC, (tw_readl(TW5864_VLC) & ~TW5864_VLC_BIT_ALIGN_MASK)
+			| ((bitalign_32 << TW5864_VLC_BIT_ALIGN_SHIFT) & TW5864_VLC_BIT_ALIGN_MASK)
+			);
+
+
+	int i;
+	for (i = 0xC100; i <= 0xC17C; i += 8) {
+		tw_writel(i, 1);
+		tw_writel(i + 4, 1);
+	}
+
+	tw_indir_writeb(dev, 0x00E, 0x0f /* ATREG=1, //PAL */);
+	// maybe just tw_indir_writeb(dev, 0x00f, 0x80); // to initiate auto format recognition
+	//tw_indir_writeb(dev, 0x002, 0x0a);
+	//tw_indir_writeb(dev, 0x0e8, 0x90);
+	tw_indir_writeb(dev, 0x200, 0xb4);
+	tw_indir_writeb(dev, 0x201, 0x3c);
+	tw_indir_writeb(dev, 0x202, 0x5a);
+	tw_indir_writeb(dev, 0x203, 0x1e);
+
+	tw_writel(0x0d10, 0x2cf);
+	tw_writel(0x0d14, 0x2cf);
+	tw_writel(0x0d18, 0x23f);
+	tw_writel(0x0d1c, 0x23f);
+
+	tw_writel(0xc014, (24 | (24 << 5)));
+	tw_writel(0xc018, (24 | (24 << 5)));
+
+	tw_writel(0xc020, 0);
+	tw_writel(0xc024, 0);
+
+	tw_writel(0x18044, 0x6fff);
+
+	tw_indir_writeb(dev, 0x260, 0x01 /* PAL */);
+
+	//tw_writel(TW5864_PCI_PV_CH_EN, 0x0001);
+	tw_writel(TW5864_SEN_EN_CH, 0x0001);
+
 	return 0;
 
 irq_req_fail:
