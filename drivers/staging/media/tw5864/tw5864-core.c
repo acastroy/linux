@@ -200,11 +200,6 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 
 		// set real bitalign
 		int bitalign_32;
-		if(dev->frame.frame_len % 4){
-			bitalign_32 = dev->frame.nal.i_temp_bitalign_number + 16;
-		} else {
-			bitalign_32 = dev->frame.nal.i_temp_bitalign_number;
-		}
 		bitalign_32 = 0;
 		w(TW5864_VLC, (tw_readl(TW5864_VLC) & ~TW5864_VLC_BIT_ALIGN_MASK)
 				| ((bitalign_32 << TW5864_VLC_BIT_ALIGN_SHIFT) & TW5864_VLC_BIT_ALIGN_MASK)
