@@ -377,11 +377,6 @@ void pci_init_ad(struct tw5864_dev *dev)
     tw_writel(TW5864_IIC_ENB, val);
     tw_writel(TW5864_I2C_PHASE_CFG, 0x01);
 
-#define TW5864_CHIP
-//#define FPGA_330_5864_TESTING
-
-#if defined(FPGA_330_5864_TESTING) //FPGA 330
-#if defined(TW5864_CHIP) //TW5864
     pci_init_tw2864(dev, 0x52);
     tw28xx_clkp_delay(dev, 0x52, 4, 4);
     pci_init_tw2864(dev, 0x54);
@@ -389,22 +384,6 @@ void pci_init_ad(struct tw5864_dev *dev)
     pci_init_tw2864(dev, 0x56);
     tw28xx_clkp_delay(dev, 0x56, 12, 4);
     pci_init_tw2865(dev, 0x50);
-#elif defined(TW5866_CHIP)
-    pci_init_tw2866(dev, 0x50);
-    pci_init_tw2866(dev, 0x52);
-    pci_init_tw2866(dev, 0x54);
-    pci_init_tw2866(dev, 0x56);
-#else
-#error "No dev module defined!"
-#endif
-#else
-    pci_init_tw2866(dev, 0x52);
-    tw28xx_clkp_delay(dev, 0x52, 4, 4);
-    pci_init_tw2866(dev, 0x54);
-    tw28xx_clkp_delay(dev, 0x54, 8, 4);
-    pci_init_tw2866(dev, 0x56);
-    tw28xx_clkp_delay(dev, 0x56, 12, 4);
-#endif
 }
 
 //#endif //POWERPC_PCI_PLATFORM
