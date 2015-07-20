@@ -186,25 +186,26 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		dma_sync_single_for_device(&dev->pci->dev, dev->h264_vlc_buf[0].dma_addr, H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
 		//dma_sync_single_for_device(&dev->pci->dev, dev->h264_mv_buf[0].dma_addr, H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
 		
-		dev->frame_seqno++;
 
 		u32 prev_buf_id = dev->buf_id;
 		dev->buf_id = (dev->buf_id + 1) % 4;
 		w(0x0000021C, dev->buf_id << 12); /* chip f5880300 */ /* in ISR */
 		w(0x00000210,(dev->buf_id << 12) | prev_buf_id); /* chip f5880300 */ /* in ISR */
 
-		if (dev->frame_seqno == 1)
-			w(TW5864_MOTION_SEARCH_ETC,0x00000008); // produce intra frame each time
+		dev->frame_seqno++;
+		if (dev->frame_seqno % 4 == 0)
+			w(TW5864_MOTION_SEARCH_ETC,0x00000008); // produce intra frame for #4, #8, #12...
 		else
-			w(TW5864_MOTION_SEARCH_ETC,0x0000008C); // produce P-frames
+			w(TW5864_MOTION_SEARCH_ETC,0x000000BF);
 
+#if 0
 		// set real bitalign
 		int bitalign_32;
-		bitalign_32 = 0;
+		bitalign_32 = 25;
 		w(TW5864_VLC, (tw_readl(TW5864_VLC) & ~TW5864_VLC_BIT_ALIGN_MASK)
 				| ((bitalign_32 << TW5864_VLC_BIT_ALIGN_SHIFT) & TW5864_VLC_BIT_ALIGN_MASK)
 		 );
-
+#endif
 #include "vlc_intr_0.c"
 
 
@@ -236,13 +237,22 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 				if (!dev->long_timer_scenario_done) {
 					dev->long_timer_scenario_done = 1;
 #include "timer_intr_6.c"
+					tw_writel(TW5864_DSP_QP, 0x1a);
+					//tw_setl(TW5864_PCI_INTR_CTL, TW5864_PREV_MAST_ENB | TW5864_PREV_OVERFLOW_ENB);
+					//tw_setl(TW5864_MASTER_ENB_REG, TW5864_PCI_PREV_INTR_ENB | TW5864_PCI_PREV_OF_INTR_ENB);
+					//tw_writel(TW5864_PCI_PV_CH_EN, 1);
+					//tw_writel(TW5864_SEN_EN_CH, ch);
+
+#if 0
 			int bitalign_32;
-			bitalign_32 = 0;
+			bitalign_32 = 25;
 			w(TW5864_VLC, (tw_readl(TW5864_VLC) & ~TW5864_VLC_BIT_ALIGN_MASK)
 					| ((bitalign_32 << TW5864_VLC_BIT_ALIGN_SHIFT) & TW5864_VLC_BIT_ALIGN_MASK)
 		 );
+#endif
 				} else {
 #include "timer_intr_7.c"
+					tw_writel(TW5864_DSP_QP, 0x1a);
 				}
 			}
 		}
@@ -517,16 +527,17 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 
 	pci_init_ad(dev);
 #include "init_no_i2c.c"
-#if 0
+//#if 0
 #include "init2.c"
 #include "init3.c"
 //#if 0
 #include "init4.c"
 #include "init5.c"
 #include "init6.c"
-#include "init7.c"
+#if 0
+//#include "init7.c"
 #endif
-	w(TW5864_MOTION_SEARCH_ETC,0x00000008); // produce intra frame each time
+	w(TW5864_MOTION_SEARCH_ETC,0x00000008);
 	// set real bitalign
 	int bitalign_32;
 	bitalign_32 = 0;
@@ -567,6 +578,8 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 
 	//tw_writel(TW5864_PCI_PV_CH_EN, 0x0001);
 	tw_writel(TW5864_SEN_EN_CH, 0x0001);
+
+	tw_writel(0x00000D00,0x00000017);
 
 	return 0;
 

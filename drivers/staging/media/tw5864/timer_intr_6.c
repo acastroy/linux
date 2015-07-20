@@ -14,7 +14,7 @@ w(TW5864_UNDEF_REG_0x0008,0x00000800); /* chip f5880300 */ /* in ISR */
 w(TW5864_DSP_I4x4_WEIGHT,0x00000006); /* chip f5880300 */ /* in ISR */
 w(TW5864_DSP_INTRA_MODE,0x00000070); /* chip f5880300 */ /* in ISR */
 w(TW5864_DSP,0x00000A20); /* chip f5880300 */ /* in ISR */
-w(TW5864_MOTION_SEARCH_ETC,0x000000BF); /* chip f5880300 */ /* in ISR */
+//w(TW5864_MOTION_SEARCH_ETC,0x000000BF); /* chip f5880300 */ /* in ISR */
 //w(TW5864_VLC_STREAM_BASE_ADDR,0x35900000); /* chip f5880300 */ /* in ISR */
 //w(TW5864_MV_STREAM_BASE_ADDR,0x35840000); /* chip f5880300 */ /* in ISR */
 tw_writel(TW5864_VLC_STREAM_BASE_ADDR, dev->h264_vlc_buf[0].dma_addr);
