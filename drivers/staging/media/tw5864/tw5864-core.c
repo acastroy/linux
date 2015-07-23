@@ -446,7 +446,7 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 //#include "init3.c"
 //#if 0
 //#include "init4.c"
-#include "init5.c"
+//#include "init5.c"
 #include "init6.c"
 #if 0
 //#include "init7.c"
