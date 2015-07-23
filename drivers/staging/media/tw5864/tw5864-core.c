@@ -443,7 +443,7 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 //#include "init_no_i2c.c"
 //#if 0
 //#include "init2.c"
-#include "init3.c"
+//#include "init3.c"
 //#if 0
 //#include "init4.c"
 #include "init5.c"
