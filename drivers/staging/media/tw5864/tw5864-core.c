@@ -128,28 +128,21 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 	int i;
 	u32 ddr_ctl_status;
 	u32 pci_intr_ctl;
-	u32 r9218 = tw_readl(0x9218);
 
 	status = tw_readw(TW5864_INTR_STATUS_L)
 		 | (tw_readw(TW5864_INTR_STATUS_H) << 16);
 	if (!status)
 		return IRQ_NONE;
 
+	tw_writel(0x00008810, 0xffff);
+	tw_writel(0x00008814, 0xffff);
+
 	pci_intr_status = tw_readw(TW5864_PCI_INTR_STATUS);
 
 	pci_intr_ctl = tw_readl(TW5864_PCI_INTR_CTL);
 
 	ddr_ctl_status = tw_readl(TW5864_DDR_CTL);
-
-	//dev_dbg(&dev->pci->dev, "tw5864_isr: status: 0x%08x, pci_status: 0x%08x, pci_ctl: 0x%08x, ddr_status: 0x%08x, 0x9218: 0x%08x\n", status, pci_intr_status, pci_intr_ctl, ddr_ctl_status, r9218);
-
-	// TODO Figure out the channel id of currently encoded frame
-
 	if (status & TW5864_INTR_VLC_DONE) {
-
-//tw_writel(TW5864_VLC_STREAM_BASE_ADDR, dev->h264_vlc_buf[0].dma_addr);
-//tw_writel(TW5864_MV_STREAM_BASE_ADDR, dev->h264_mv_buf[0].dma_addr);
-
 				u32 chunk[4];
 
 				vlc_len = tw_readl(TW5864_VLC_LENGTH) << 2;
@@ -162,12 +155,6 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		dma_sync_single_for_cpu(&dev->pci->dev, dev->h264_vlc_buf[0].dma_addr, H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
 		//dma_sync_single_for_cpu(&dev->pci->dev, dev->h264_mv_buf[0].dma_addr, H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
 
-#if 0
-		for (i = 0; i < sizeof(chunk) / sizeof(chunk[0]); i++) {
-			chunk[i] = tw_readl(TW5864_VLC_STREAM_MEM_START + i * 4);
-		}
-		dev_dbg(&dev->pci->dev, "tw5864_isr: TW5864_VLC_STREAM_MEM_START: hex: %08x %08x %08x %08x\n", chunk[0], chunk[1], chunk[2], chunk[3]);
-#endif
 
 		for (i = 0; i < sizeof(chunk) / sizeof(chunk[0]); i++) {
 			chunk[i] = ((u32*)dev->h264_vlc_buf[0].addr)[i];
@@ -197,38 +184,10 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 			w(TW5864_MOTION_SEARCH_ETC,0x00000008); // produce intra frame for #4, #8, #12...
 		else
 			w(TW5864_MOTION_SEARCH_ETC,0x000000BF);
-
-#if 0
-		// set real bitalign
-		int bitalign_32;
-		bitalign_32 = 25;
-		w(TW5864_VLC, (tw_readl(TW5864_VLC) & ~TW5864_VLC_BIT_ALIGN_MASK)
-				| ((bitalign_32 << TW5864_VLC_BIT_ALIGN_SHIFT) & TW5864_VLC_BIT_ALIGN_MASK)
-		 );
-#endif
 #include "vlc_intr_0.c"
-
-
 	}
 	
 	if (status & TW5864_INTR_TIMER) {
-		
-#if 0
-		dev_dbg(&dev->pci->dev, "timer: indir[0x00E(0x038)] = 0x%02X\n", tw_indir_readb(dev, 0x00E));
-		dev_dbg(&dev->pci->dev, "timer: indir[0x2F0(0xBC0)] = 0x%02X\n", tw_indir_readb(dev, 0x2F0));
-		dev_dbg(&dev->pci->dev, "timer: indir[0x2F1(0xBC4)] = 0x%02X\n", tw_indir_readb(dev, 0x2F1));
-		dev_dbg(&dev->pci->dev, "timer: indir[0x2D6(0xB58)] = 0x%02X\n", tw_indir_readb(dev, 0x2D6));
-		dev_dbg(&dev->pci->dev, "timer: indir[0x2D7(0xB5C)] = 0x%02X\n", tw_indir_readb(dev, 0x2D7));
-		dev_dbg(&dev->pci->dev, "timer: indir[0x388(0xE20)] = 0x%02X\n", tw_indir_readb(dev, 0x388));
-		dev_dbg(&dev->pci->dev, "timer: indir[0x389(0xE24)] = 0x%02X\n", tw_indir_readb(dev, 0x389));
-#endif
-		if (tw_indir_readb(dev, 0x2F0))
-			tw_indir_writeb(dev, 0x2F0, 0xFF);
-		if (tw_indir_readb(dev, 0x2F1))
-			tw_indir_writeb(dev, 0x2F1, 0xFF);
-		tw_indir_writeb(dev, 0x382, 0);
-
-
 		if (!((tw_readl(TW5864_INTR_ENABLE_H) << 16) & TW5864_INTR_VLC_DONE)) {
 			dev->timers_with_vlc_disabled++;
 			if (dev->timers_with_vlc_disabled > 10) {
@@ -238,18 +197,6 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 					dev->long_timer_scenario_done = 1;
 #include "timer_intr_6.c"
 					tw_writel(TW5864_DSP_QP, 0x1a);
-					//tw_setl(TW5864_PCI_INTR_CTL, TW5864_PREV_MAST_ENB | TW5864_PREV_OVERFLOW_ENB);
-					//tw_setl(TW5864_MASTER_ENB_REG, TW5864_PCI_PREV_INTR_ENB | TW5864_PCI_PREV_OF_INTR_ENB);
-					//tw_writel(TW5864_PCI_PV_CH_EN, 1);
-					//tw_writel(TW5864_SEN_EN_CH, ch);
-
-#if 0
-			int bitalign_32;
-			bitalign_32 = 25;
-			w(TW5864_VLC, (tw_readl(TW5864_VLC) & ~TW5864_VLC_BIT_ALIGN_MASK)
-					| ((bitalign_32 << TW5864_VLC_BIT_ALIGN_SHIFT) & TW5864_VLC_BIT_ALIGN_MASK)
-		 );
-#endif
 				} else {
 #include "timer_intr_7.c"
 					tw_writel(TW5864_DSP_QP, 0x1a);
@@ -265,41 +212,6 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 	if (!(status & (TW5864_INTR_TIMER | TW5864_INTR_VLC_DONE))){
 		dev_dbg(&dev->pci->dev, "tw5864_isr: not timer and not vlc, status 0x%08X\n", status);
 	}
-
-
-// playful clearing
-tw_writel(0x00008810,0x00000001);
-tw_writel(0x00008810,0x00000002);
-tw_writel(0x00008810,0x00000004);
-tw_writel(0x00008810,0x00000008);
-tw_writel(0x00008810,0x00000010);
-tw_writel(0x00008810,0x00000020);
-tw_writel(0x00008810,0x00000040);
-tw_writel(0x00008810,0x00000080);
-tw_writel(0x00008810,0x00000100);
-tw_writel(0x00008810,0x00000200);
-tw_writel(0x00008810,0x00000400);
-tw_writel(0x00008810,0x00000800);
-tw_writel(0x00008810,0x00001000);
-tw_writel(0x00008810,0x00002000);
-tw_writel(0x00008810,0x00004000);
-tw_writel(0x00008810,0x00008000);
-tw_writel(0x00008814,0x00000001);
-tw_writel(0x00008814,0x00000002);
-tw_writel(0x00008814,0x00000004);
-tw_writel(0x00008814,0x00000008);
-tw_writel(0x00008814,0x00000010);
-tw_writel(0x00008814,0x00000020);
-tw_writel(0x00008814,0x00000040);
-tw_writel(0x00008814,0x00000080);
-tw_writel(0x00008814,0x00000100);
-tw_writel(0x00008814,0x00000200);
-tw_writel(0x00008814,0x00000400);
-tw_writel(0x00008814,0x00000800);
-tw_writel(0x00008814,0x00001000);
-tw_writel(0x00008814,0x00002000);
-tw_writel(0x00008814,0x00004000);
-tw_writel(0x00008814,0x00008000);
 
 	return IRQ_HANDLED;
 }
@@ -646,10 +558,6 @@ static int tw5864_resume(struct pci_dev *pci_dev)
 	struct v4l2_device *v4l2_dev = pci_get_drvdata(pci_dev);
 	struct tw5864_dev *dev = container_of(v4l2_dev,
 					    struct tw5864_dev, v4l2_dev);
-#if 0
-	struct tw5864_buf *buf;
-	unsigned long flags;
-#endif
 
 	pci_set_power_state(pci_dev, PCI_D0);
 	pci_restore_state(pci_dev);
@@ -659,18 +567,6 @@ static int tw5864_resume(struct pci_dev *pci_dev)
 
 	msleep(100);
 
-#if 0
-	/* FIXME TODO I don't know what this means */
-	tw5864_set_tvnorm_hw(dev);
-
-	/*resume unfinished buffer(s)*/
-	spin_lock_irqsave(&dev->slock, flags);
-	buf = container_of(dev->active.next, struct tw5864_buf, list);
-
-	tw5864_video_start_dma(dev, buf);
-
-	spin_unlock_irqrestore(&dev->slock, flags);
-#endif
 
 	tw5864_interrupts_enable(dev);
 
