@@ -48,8 +48,8 @@ static int tw5864_queue_setup(struct vb2_queue *q, const struct v4l2_format *fmt
 	alloc_ctxs[0] = dev->alloc_ctx;
 	*num_planes = 1;
 
-	if (*num_buffers < 2)
-		*num_buffers = 2;
+	if (*num_buffers < 12)
+		*num_buffers = 12;
 
 	return 0;
 }
@@ -166,26 +166,31 @@ static int tw5864_disable_input(struct tw5864_dev *dev, int input_number) {
 
 static int tw5864_start_streaming(struct vb2_queue *q, unsigned int count)
 {
-	struct tw5864_input *dev = vb2_get_drv_priv(q);
+	struct tw5864_input *input = vb2_get_drv_priv(q);
 
-	dev->seqnr = 0;
-	tw5864_enable_input(dev->root, dev->input_number);
+	input->frame_seqno = 0;
+	input->h264_idr_pic_id = 0;
+	input->h264_frame_seqno_in_gop = 0;
+	input->h264 = tw5864_h264_init();
+	tw5864_enable_input(input->root, input->input_number);
 	return 0;
 }
 
 static void tw5864_stop_streaming(struct vb2_queue *q)
 {
-	struct tw5864_input *dev = vb2_get_drv_priv(q);
+	struct tw5864_input *input = vb2_get_drv_priv(q);
 
-	tw5864_disable_input(dev->root, dev->input_number);
+	tw5864_disable_input(input->root, input->input_number);
 
-	while (!list_empty(&dev->active)) {
+	while (!list_empty(&input->active)) {
 		struct tw5864_buf *buf =
-			container_of(dev->active.next, struct tw5864_buf, list);
+			container_of(input->active.next, struct tw5864_buf, list);
 
 		list_del(&buf->list);
 		vb2_buffer_done(&buf->vb, VB2_BUF_STATE_ERROR);
 	}
+	tw5864_h264_destroy(input->h264);
+	input->h264 = NULL;
 }
 
 static struct vb2_ops tw5864_video_qops = {
@@ -564,7 +569,7 @@ static int tw5864_video_input_init(struct tw5864_input *dev, int video_nr)
 	dev->vidq.gfp_flags = __GFP_DMA32;
 	dev->vidq.buf_struct_size = sizeof(struct tw5864_buf);
 	dev->vidq.lock = &dev->lock;
-	dev->vidq.min_buffers_needed = 2;
+	dev->vidq.min_buffers_needed = 12;
 	ret = vb2_queue_init(&dev->vidq);
 	if (ret)
 		goto vb2_q_init_fail;
@@ -698,4 +703,44 @@ int tw5864_video_irq(struct tw5864_dev *dev, unsigned long status)
 	if (status & TW5864_FFERR)
 		dev_dbg(&dev->pci->dev, "FFERR interrupt\n");
 #endif
+}
+
+void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len) {
+	struct tw5864_dev *dev = input->root;
+	struct tw5864_buf *vb = NULL;
+	u8 *dst;
+	unsigned long dst_size;
+	unsigned long dst_space;
+	int skip_bytes = input->h264_frame_seqno_in_gop ? 3 : 2;
+
+	spin_lock(&input->slock);
+	if (list_empty(&input->active))
+		goto end;
+
+	vb = list_first_entry(&input->active, struct tw5864_buf, list);
+	list_del(&vb->list);
+	dst = vb2_plane_vaddr(&vb->vb, 0);
+	dst_size = vb2_plane_size(&vb->vb, 0);
+	dst_space = dst_size;
+
+	// Generate H264 headers:
+	// If this is first frame, put SPS and PPS
+	if (input->frame_seqno == 0)
+		tw5864_h264_put_stream_header(input->h264, &dst, &dst_space, QP_VALUE);
+
+	// Put slice header
+	tw5864_h264_put_slice_header(input->h264, &dst, &dst_space, input->h264_idr_pic_id, input->h264_frame_seqno_in_gop);
+
+	frame_len -= skip_bytes;  // skip first bytes of frame produced by hardware
+	if (WARN_ON_ONCE(dst_space < frame_len)) {
+		dev_err_once(&dev->pci->dev, "Left space in vb2 buffer %lu is insufficient for frame length %lu, writing truncated frame\n", dst_space, frame_len);
+		frame_len = dst_space;
+	}
+	memcpy(dst, dev->h264_vlc_buf[0].addr + skip_bytes, frame_len);
+	dst_space -= frame_len;
+	vb2_set_plane_payload(&vb->vb, 0, dst_size - dst_space);
+end:
+	spin_unlock(&input->slock);
+	if (vb)
+		vb2_buffer_done(&vb->vb, VB2_BUF_STATE_DONE);
 }

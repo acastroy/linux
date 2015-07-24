@@ -62,6 +62,8 @@
 			 TW5864_SBDONE2)
 #endif
 
+typedef struct h264_stream_t h264_stream_t;
+
 /* ----------------------------------------------------------- */
 /* static data                                                 */
 
@@ -106,6 +108,7 @@ struct tw5864_format {
 
 #define H264_VLC_BUF_SIZE 0x80000
 #define H264_MV_BUF_SIZE 0x40000
+#define QP_VALUE 28
 
 
 /* ----------------------------------------------------------- */
@@ -154,8 +157,11 @@ struct tw5864_input {
 	struct list_head	active;
 	const struct tw5864_format *fmt;
 	unsigned		width, height;
-	unsigned		seqnr;
+	unsigned		frame_seqno;
 	unsigned		field;
+	h264_stream_t *h264;
+	unsigned int h264_idr_pic_id;
+	unsigned int h264_frame_seqno_in_gop;
 };
 
 /* global device status */
@@ -276,6 +282,11 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr);
 int tw5864_video_init_reg_fucking(struct tw5864_dev *dev, int *video_nr);
 void tw5864_video_fini(struct tw5864_dev *dev);
 int tw5864_video_irq(struct tw5864_dev *dev, unsigned long status);
+void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len);
+h264_stream_t *tw5864_h264_init(void);
+void tw5864_h264_destroy(h264_stream_t *h);
+void tw5864_h264_put_stream_header(h264_stream_t* h, u8 **buf, size_t *space_left, int qp);
+void tw5864_h264_put_slice_header(h264_stream_t* h, u8 **buf, size_t *space_left, unsigned int idr_pic_id, unsigned int frame_seqno_in_gop);
 #if 0
 int tw5864_video_start_dma(struct tw5864_dev *dev, struct tw5864_buf *buf);
 

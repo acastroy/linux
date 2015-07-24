@@ -145,6 +145,7 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 
 	ddr_ctl_status = tw_readl(TW5864_DDR_CTL);
 	if (status & TW5864_INTR_VLC_DONE) {
+		struct tw5864_input *input = &dev->inputs[0];
 				u32 chunk[4];
 
 				vlc_len = tw_readl(TW5864_VLC_LENGTH) << 2;
@@ -166,11 +167,7 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		dev_dbg(&dev->pci->dev, "CPU-computed CRC: %08x\n", 
 				crc_check_sum((u32*)dev->h264_vlc_buf[0].addr, vlc_len));
 
-		if (dev->frame_seqno < VLC_DUMP_CNT) {
-			memcpy(dev->vlc[dev->frame_seqno].data, dev->h264_vlc_buf[0].addr, vlc_len);
-			dev->vlc[dev->frame_seqno].size = vlc_len;
-		}
-
+		tw5864_handle_frame(input, vlc_len);
 		// TODO Do whatever needed, e.g. dump contents elsewhere
 		dma_sync_single_for_device(&dev->pci->dev, dev->h264_vlc_buf[0].dma_addr, H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
 		//dma_sync_single_for_device(&dev->pci->dev, dev->h264_mv_buf[0].dma_addr, H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
@@ -181,11 +178,19 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		w(0x0000021C, dev->buf_id << 12); /* chip f5880300 */ /* in ISR */
 		w(0x00000210,(dev->buf_id << 12) | prev_buf_id); /* chip f5880300 */ /* in ISR */
 
-		dev->frame_seqno++;
-		if (dev->frame_seqno % 4 == 0)
+		input->frame_seqno++;
+
+		// TODO Move this section to be done just before encoding job is fired
+		if (input->frame_seqno % 4 == 0) {
 			w(TW5864_MOTION_SEARCH_ETC,0x00000008); // produce intra frame for #4, #8, #12...
-		else
+			input->h264_idr_pic_id++;
+			input->h264_idr_pic_id &= TW5864_DSP_REF_FRM;
+			tw_writel(TW5864_DSP_REF, (tw_readl(TW5864_DSP_REF) & ~TW5864_DSP_REF_FRM) | input->h264_idr_pic_id);
+		} else {
 			w(TW5864_MOTION_SEARCH_ETC,0x000000BF);
+		}
+		// End TODO
+
 #include "vlc_intr_0.c"
 	}
 	
@@ -198,10 +203,10 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 				if (!dev->long_timer_scenario_done) {
 					dev->long_timer_scenario_done = 1;
 #include "timer_intr_6.c"
-					tw_writel(TW5864_DSP_QP, 0x1a);
+					tw_writel(TW5864_DSP_QP, QP_VALUE);
 				} else {
 #include "timer_intr_7.c"
-					tw_writel(TW5864_DSP_QP, 0x1a);
+					tw_writel(TW5864_DSP_QP, QP_VALUE);
 				}
 			}
 		}
