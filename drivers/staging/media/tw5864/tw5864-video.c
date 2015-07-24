@@ -80,6 +80,9 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	dev_dbg(&dev->pci->dev, "enabling channel %d\n", input_number);
 	//mutex_lock(&dev->lock);
 
+#include "init6.c"
+
+#if 0
 	u8 indir_0x0Ne = tw_indir_readb(dev, 0x00e + input_number * 0x010);
 	u8 fmt = indir_0x0Ne & 0x70;
 
@@ -138,7 +141,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 			tw_writel(TW5864_FRAME_HEIGHT_BUS_B(i), 0x23f);
 		}
 	}
-
+#endif
 
 	//mutex_unlock(&dev->lock);
 	return 0;
