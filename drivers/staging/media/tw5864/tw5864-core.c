@@ -92,9 +92,7 @@ static void tw5864_interrupts_disable(struct tw5864_dev *dev)
 	mutex_lock(&dev->lock);
 	//dev->irqmask &= ~(TW5864_INTR_BURST | TW5864_INTR_MV_DSP | TW5864_INTR_VLC_DONE | TW5864_INTR_VLC_RAM);
 	dev->irqmask = 0;
-	// TODO deduplicate writing to register(s) with _enable
-	tw_writew(TW5864_INTR_ENABLE_L, dev->irqmask & 0xffff);
-	tw_writew(TW5864_INTR_ENABLE_H, (dev->irqmask >> 16));
+	tw5864_irqmask_apply(dev);
 	mutex_unlock(&dev->lock);
 }
 
@@ -136,6 +134,7 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 	int i;
 	u32 ddr_ctl_status;
 	u32 pci_intr_ctl;
+	unsigned long flags;
 
 	status = tw_readw(TW5864_INTR_STATUS_L)
 		 | (tw_readw(TW5864_INTR_STATUS_H) << 16);
@@ -150,6 +149,8 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 	pci_intr_ctl = tw_readl(TW5864_PCI_INTR_CTL);
 
 	ddr_ctl_status = tw_readl(TW5864_DDR_CTL);
+
+
 	if (status & TW5864_INTR_VLC_DONE) {
 		struct tw5864_input *input = &dev->inputs[0];
 				u32 chunk[4];
@@ -200,10 +201,10 @@ w(TW5864_UNDEF_REG_0x1807C,0x00000004); /* chip f5880300 */ /* in ISR */
 w(TW5864_UNDEF_REG_0x1807C,0x00000000); /* chip f5880300 */ /* in ISR */
 w(TW5864_VLC_DSP_INTR,0x00000001); /* chip f5880300 */ /* in ISR */
 w(TW5864_PCI_INTR_STATUS, TW5864_VLC_DONE_INTR);
-// this variable needs sync FIXME TODO
-//dev->irqmask &= TW5864_INTR_VLC_DONE;
-//tw5864_irqmask_apply(dev);
-w(TW5864_INTR_ENABLE_H,0x00000070);
+spin_lock_irqsave(&dev->slock, flags);
+dev->irqmask &= ~TW5864_INTR_VLC_DONE;
+tw5864_irqmask_apply(dev);
+spin_unlock_irqrestore(&dev->slock, flags);
 	}
 	
 	if (status & TW5864_INTR_TIMER) {
@@ -267,7 +268,10 @@ w(TW5864_DDR_CTL,0x01010000); /* chip f5880300 */ /* in ISR */
 w(TW5864_DSP_OSD_ATTRI_BASE,0x0000047F); /* chip f5880300 */ /* in ISR */
 w(TW5864_DSP_OSD_ENABLE,0x000000FF); /* chip f5880300 */ /* in ISR */
 w(TW5864_UNDEF_REG_0x0224,0x00000000); /* chip f5880300 */ /* in ISR */
-w(TW5864_INTR_ENABLE_H,0x00000072); /* chip f5880300 */ /* in ISR */
+spin_lock_irqsave(&dev->slock, flags);
+dev->irqmask |= TW5864_INTR_VLC_DONE;
+tw5864_irqmask_apply(dev);
+spin_unlock_irqrestore(&dev->slock, flags);
 w(TW5864_SLICE,0x00008000); /* chip f5880300 */ /* in ISR */
 w(TW5864_SLICE,0x00000000); /* chip f5880300 */ /* in ISR */
 w(TW5864_IND_DATA,0x00000000); /* chip f5880300 */ /* in ISR */
@@ -284,7 +288,10 @@ w(TW5864_UNDEF_REG_0x0008,0x00000800); /* chip f5880300 */ /* in ISR */
 w(TW5864_DSP,0x00000A20); /* chip f5880300 */ /* in ISR */
 w(TW5864_PCI_INTR_CTL,0x00000073); /* chip f5880300 */ /* in ISR */
 w(TW5864_MASTER_ENB_REG,0x00000032); /* chip f5880300 */ /* in ISR */
-w(TW5864_INTR_ENABLE_H,0x00000072); /* chip f5880300 */ /* in ISR */
+spin_lock_irqsave(&dev->slock, flags);
+dev->irqmask |= TW5864_INTR_VLC_DONE;
+tw5864_irqmask_apply(dev);
+spin_unlock_irqrestore(&dev->slock, flags);
 w(TW5864_SLICE,0x00008000); /* chip f5880300 */ /* in ISR */
 w(TW5864_SLICE,0x00000000); /* chip f5880300 */ /* in ISR */
 w(TW5864_IND_DATA,0x00000000); /* chip f5880300 */ /* in ISR */
@@ -302,6 +309,7 @@ w(TW5864_IND_CTL,0x02000EE0); /* chip f5880300 */ /* in ISR */
 	if (!(status & (TW5864_INTR_TIMER | TW5864_INTR_VLC_DONE))){
 		dev_dbg(&dev->pci->dev, "tw5864_isr: not timer and not vlc, status 0x%08X\n", status);
 	}
+
 
 	return IRQ_HANDLED;
 }

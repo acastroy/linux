@@ -76,6 +76,7 @@ static void tw5864_buf_finish(struct vb2_buffer *vb)
 }
 
 int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
+	unsigned long flags;
 	int i;
 	dev_dbg(&dev->pci->dev, "enabling channel %d\n", input_number);
 
@@ -93,7 +94,6 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	}
 
 
-	//mutex_lock(&dev->lock);
 
 	if (tw_readl(TW5864_VLC_BUF))
 		tw_writel(TW5864_VLC_BUF, tw_readl(TW5864_VLC_BUF) & 0x0f);
@@ -117,10 +117,6 @@ tw_writel(TW5864_DSP, 0 /* channel id */ | TW5864_DSP_CHROM_SW | ((0xa << 8) & T
 tw_writel(TW5864_MOTION_SEARCH_ETC, TW5864_INTRA_EN);
 tw_writel(TW5864_PCI_INTR_CTL, TW5864_PREV_MAST_ENB | TW5864_PREV_OVERFLOW_ENB | TW5864_TIMER_INTR_ENB | TW5864_PCI_MAST_ENB | (1<<1)  /* TODO try TW5864_MVD_VLC_MAST_ENB*/ /*0x00000073*/);
 tw_writel(TW5864_MASTER_ENB_REG,TW5864_PCI_VLC_INTR_ENB | TW5864_PCI_PREV_INTR_ENB | TW5864_PCI_PREV_OF_INTR_ENB/*0x00000032*/);
-dev->irqmask |= TW5864_INTR_VLC_DONE | TW5864_INTR_PV_OVERFLOW | TW5864_INTR_TIMER | TW5864_INTR_AUD_EOF;
-tw5864_irqmask_apply(dev);
-w(TW5864_SLICE,0x00008000); // delays required!
-tw_writel(TW5864_SLICE,0x00000000);
 
 
 
@@ -133,7 +129,7 @@ tw_writel(TW5864_SLICE,0x00000000);
 	if (fmt == 0x00 /* NTSC */) {
 		tw_indir_writeb(dev, 0x201, 0x3c);
 		tw_indir_writeb(dev, 0x203, 0x3c);
-		w(TW5864_DSP_PIC_MAX_MB, ((720 / 16) << 8) | (480 / 16));
+		tw_writel(TW5864_DSP_PIC_MAX_MB, ((720 / 16) << 8) | (480 / 16));
 
 		for (i = 0; i < 4; i++) {
 			tw_writel(TW5864_FRAME_HEIGHT_BUS_A(i), 0x1df);
@@ -142,7 +138,7 @@ tw_writel(TW5864_SLICE,0x00000000);
 	} else {
 		tw_indir_writeb(dev, 0x201, 0x48);
 		tw_indir_writeb(dev, 0x203, 0x48);
-		w(TW5864_DSP_PIC_MAX_MB, ((720 / 16) << 8) | (576 / 16));
+		tw_writel(TW5864_DSP_PIC_MAX_MB, ((720 / 16) << 8) | (576 / 16));
 
 		for (i = 0; i < 4; i++) {
 			tw_writel(TW5864_FRAME_HEIGHT_BUS_A(i), 0x23f);
@@ -154,11 +150,17 @@ tw_writel(TW5864_SLICE,0x00000000);
 
 
 
-	//mutex_unlock(&dev->lock);
+	spin_lock_irqsave(&dev->slock, flags);
+	dev->irqmask |= TW5864_INTR_VLC_DONE | TW5864_INTR_PV_OVERFLOW | TW5864_INTR_TIMER | TW5864_INTR_AUD_EOF;
+	tw5864_irqmask_apply(dev);
+	spin_unlock_irqrestore(&dev->slock, flags);
+w(TW5864_SLICE,0x00008000); // delays required!
+tw_writel(TW5864_SLICE,0x00000000);
 	return 0;
 }
 
 static int tw5864_disable_input(struct tw5864_dev *dev, int input_number) {
+	unsigned long flags;
 	dev_dbg(&dev->pci->dev, "disabling channel %d\n", input_number);
 	mutex_lock(&dev->lock);
 
@@ -166,9 +168,10 @@ static int tw5864_disable_input(struct tw5864_dev *dev, int input_number) {
 	tw_clearl(TW5864_SEN_EN_CH, 1 << input_number);
 	tw_clearl(TW5864_MASTER_ENB_REG, TW5864_PCI_VLC_INTR_ENB);
 	tw_clearl(TW5864_PCI_INTR_CTL, TW5864_PCI_MAST_ENB | TW5864_MVD_VLC_MAST_ENB);
-	dev->irqmask &= ~TW5864_INTR_VLC_DONE;
-	tw_writel(TW5864_INTR_ENABLE_L, dev->irqmask & 0xffff);
-	tw_writel(TW5864_INTR_ENABLE_H, dev->irqmask >> 16);
+	spin_lock_irqsave(&dev->slock, flags);
+	dev->irqmask &= ~TW5864_INTR_VLC_DONE;  // timer doesn't like to get turned off?
+	tw5864_irqmask_apply(dev);
+	spin_unlock_irqrestore(&dev->slock, flags);
 	tw_clearl(TW5864_VLC, 0x8000);
 
 	mutex_unlock(&dev->lock);
