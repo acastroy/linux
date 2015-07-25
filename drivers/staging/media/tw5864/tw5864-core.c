@@ -197,9 +197,11 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		if (input->frame_seqno % GOP_SIZE == 0) {
 			tw_writel(TW5864_MOTION_SEARCH_ETC,0x00000008); // produce intra frame for #4, #8, #12...
 			input->h264_frame_seqno_in_gop = 0;
+#if GOP_SIZE == 1
 			input->h264_idr_pic_id++;
 			input->h264_idr_pic_id &= TW5864_DSP_REF_FRM;
 			tw_writel(TW5864_DSP_REF, (tw_readl(TW5864_DSP_REF) & ~TW5864_DSP_REF_FRM) | input->h264_idr_pic_id);
+#endif
 		} else {
 			tw_writel(TW5864_MOTION_SEARCH_ETC,0x000000BF);
 		}

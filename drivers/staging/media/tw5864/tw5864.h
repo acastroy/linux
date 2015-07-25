@@ -100,7 +100,7 @@ struct tw5864_format {
 #define H264_VLC_BUF_SIZE 0x80000
 #define H264_MV_BUF_SIZE 0x40000
 #define QP_VALUE 28
-#define GOP_SIZE 1
+#define GOP_SIZE 4
 
 
 /* ----------------------------------------------------------- */
