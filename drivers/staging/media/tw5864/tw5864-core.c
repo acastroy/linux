@@ -208,7 +208,15 @@ spin_unlock_irqrestore(&dev->slock, flags);
 	}
 	
 	if (status & TW5864_INTR_TIMER) {
-		if (!((tw_readl(TW5864_INTR_ENABLE_H) << 16) & TW5864_INTR_VLC_DONE)) {
+		int enabled;
+		unsigned long irqmask;
+
+		spin_lock_irqsave(&dev->slock, flags);
+		enabled = dev->inputs[0].enabled;
+		irqmask = dev->irqmask;
+		spin_unlock_irqrestore(&dev->slock, flags);
+
+		if (enabled && !(irqmask & TW5864_INTR_VLC_DONE)) {
 			dev->timers_with_vlc_disabled++;
 			if (dev->timers_with_vlc_disabled > 10) {
 				dev_dbg(&dev->pci->dev, "enabling VLC irq again\n");

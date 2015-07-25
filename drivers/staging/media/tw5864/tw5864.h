@@ -148,6 +148,7 @@ struct tw5864_input {
 	h264_stream_t *h264;
 	unsigned int h264_idr_pic_id;
 	unsigned int h264_frame_seqno_in_gop;
+	int enabled;
 };
 
 /* global device status */
