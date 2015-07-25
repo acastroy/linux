@@ -132,6 +132,17 @@ struct tw5864_recv_buf {
 	dma_addr_t dma_addr;
 };
 
+enum tw5864_vid_std {
+	STD_NTSC = 0,
+	STD_PAL = 1,
+	STD_SECAM = 2,
+
+	STD_INVALID = 7,
+	STD_AUTO = 7,
+};
+
+v4l2_std_id tw5864_get_v4l2_std(enum tw5864_vid_std std);
+enum tw5864_vid_std tw5864_from_v4l2_std(v4l2_std_id v4l2_std);
 
 struct tw5864_input {
 	int                     input_number;
@@ -154,6 +165,8 @@ struct tw5864_input {
 	int enabled;
 	int timer_must_readd_encoding_irq;
 	int discard_frames;
+	enum tw5864_vid_std     std;
+	v4l2_std_id             v4l2_std;
 };
 
 /* global device status */

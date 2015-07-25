@@ -82,17 +82,20 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	dev_dbg(&dev->pci->dev, "enabling channel %d\n", input_number);
 
 	u8 indir_0x0Ne = tw_indir_readb(dev, 0x00e + input_number * 0x010);
-	u8 fmt = indir_0x0Ne & 0x70;
+	u8 std = (indir_0x0Ne & 0x70) >> 4;
 
 	if (indir_0x0Ne & 0x80) {
 		dev_err(&dev->pci->dev, "Video format detection is in progress, please wait\n");
 		return -EAGAIN;
 	}
 
-	if (fmt == 0x70) {
+	if (std == STD_INVALID) {
 		dev_err(&dev->pci->dev, "Video format detection done, no valid video format\n");
 		return -1;
 	}
+
+	input->std = std;
+	input->v4l2_std = tw5864_get_v4l2_std(std);
 
 	if (tw_readl(TW5864_VLC_BUF))
 		tw_writel(TW5864_VLC_BUF, tw_readl(TW5864_VLC_BUF) & 0x0f);
@@ -120,7 +123,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	input->width = 720;
 #endif
 
-	if (fmt == 0x00 /* NTSC */) {
+	if (std == STD_NTSC) {
 		input->height = 480;
 		tw_indir_writeb(dev, 0x201, 0x3c);
 		tw_indir_writeb(dev, 0x203, 0x3c);
@@ -258,33 +261,32 @@ static int tw5864_s_ctrl(struct v4l2_ctrl *ctrl)
 static int tw5864_g_fmt_vid_cap(struct file *file, void *priv,
 		struct v4l2_format *f)
 {
-	struct tw5864_input *dev = video_drvdata(file);
+	struct tw5864_input *input = video_drvdata(file);
 
-	u8 indir_0x0Ne = tw_indir_readb(dev->root, 0x00e + dev->input_number * 0x010);
-	u8 fmt = indir_0x0Ne & 0x70;
+	u8 indir_0x0Ne = tw_indir_readb(input->root, 0x00e + input->input_number * 0x010);
+	u8 std = (indir_0x0Ne & 0x70) >> 4;
 
 	if (indir_0x0Ne & 0x80) {
-		dev_err(&dev->root->pci->dev, "Video format detection is in progress, please wait\n");
+		dev_err(&input->root->pci->dev, "Video format detection is in progress, please wait\n");
 		return -EAGAIN;
 	}
 
-	if (fmt == 0x70) {
-		dev_err(&dev->root->pci->dev, "Video format detection done, no valid video format\n");
+	if (std == STD_INVALID) {
+		dev_err(&input->root->pci->dev, "Video format detection done, no valid video format\n");
 		return -1;
 	}
-	// TODO FIXME shift fmt by 4 bits to right, in all occurances
 
 	f->fmt.pix.width = 720;
-	switch (fmt) {
-		case 0:  /* NTSC */
+	switch (std) {
+		default:
+			WARN_ON_ONCE(1);
+		case STD_NTSC:
 			f->fmt.pix.height = 480;
 			break;
-		case 1:  /* PAL */
-		case 2:  /* SECAM */
+		case STD_PAL:
+		case STD_SECAM:
 			f->fmt.pix.height = 576;
 			break;
-		default:
-			BUG();
 	}
 	f->fmt.pix.field        = V4L2_FIELD_NONE;
 	f->fmt.pix.pixelformat  = V4L2_PIX_FMT_H264;
@@ -302,7 +304,7 @@ static int tw5864_enum_input(struct file *file, void *priv,
 	u8 indir_0x0N0 = tw_indir_readb(dev->root, 0x000 + dev->input_number * 0x010);
 	u8 indir_0x0Nd = tw_indir_readb(dev->root, 0x00d + dev->input_number * 0x010);
 	u8 indir_0x0Ne = tw_indir_readb(dev->root, 0x00e + dev->input_number * 0x010);
-	u8 fmt = indir_0x0Ne & 0x70;
+	u8 std = (indir_0x0Ne & 0x70) >> 4;
 	u8 v1 = indir_0x0N0;
 	u8 v2 = indir_0x0Nd;
 
@@ -315,21 +317,14 @@ static int tw5864_enum_input(struct file *file, void *priv,
 		return -EAGAIN;
 	}
 
-	if (fmt == 0x70) {
+	if (std == STD_INVALID) {
 		dev_err(&dev->root->pci->dev, "Video format detection done, no valid video format\n");
 		return -1;
 	}
 
 	i->type = V4L2_INPUT_TYPE_CAMERA;
 	snprintf(i->name, sizeof(i->name), "Encoder %d", dev->input_number);
-	/*
-	   switch (fmt) {
-	   case 0: i->std = V4L2_STD_NTSC_M; break;
-	   case 1: i->std = V4L2_STD_PAL_B; break;
-	   case 2: i->std = V4L2_STD_SECAM; break;
-	   default: BUG();
-	   }
-	   */
+	//i->std = tw5864_get_v4l2_std(std);
 	i->std = TW5864_NORMS;
 	if (v1 & (1 << 7))
 		i->status |= V4L2_IN_ST_NO_SYNC;
@@ -379,7 +374,7 @@ static int tw5864_g_std(struct file *file, void *priv, v4l2_std_id *id)
 	struct tw5864_input *dev = video_drvdata(file);
 
 	u8 indir_0x0Ne = tw_indir_readb(dev->root, 0x00e + dev->input_number * 0x010);
-	u8 fmt = indir_0x0Ne & 0x70;
+	u8 std = (indir_0x0Ne & 0x70) >> 4;
 
 	// TODO Deduplicate
 	if (indir_0x0Ne & 0x80) {
@@ -387,12 +382,12 @@ static int tw5864_g_std(struct file *file, void *priv, v4l2_std_id *id)
 		return -EAGAIN;
 	}
 
-	if (fmt == 0x70) {
+	if (std == STD_INVALID) {
 		dev_err(&dev->root->pci->dev, "Video format detection done, no valid video format\n");
 		return -1;
 	}
 
-	*id = !fmt ? V4L2_STD_NTSC_M : V4L2_STD_PAL_B;
+	*id = tw5864_get_v4l2_std(std);
 	return 0;
 }
 
@@ -590,6 +585,7 @@ static int tw5864_video_input_init(struct tw5864_input *dev, int video_nr)
 		goto vb2_q_init_fail;
 
 	dev->vdev = tw5864_video_template;
+	// TODO Set tvnorms to actual recognized format instead of wildcard?
 	dev->vdev.v4l2_dev = &dev->root->v4l2_dev;
 	dev->vdev.lock = &dev->lock;
 	dev->vdev.queue = &dev->vidq;
@@ -709,4 +705,28 @@ end:
 	spin_unlock(&input->slock);
 	if (vb)
 		vb2_buffer_done(&vb->vb, VB2_BUF_STATE_DONE);
+}
+
+v4l2_std_id tw5864_get_v4l2_std(enum tw5864_vid_std std)
+{
+	switch (std) {
+		case STD_NTSC: return V4L2_STD_NTSC_M;
+		case STD_PAL: return V4L2_STD_PAL_B;
+		case STD_SECAM: return V4L2_STD_SECAM_B;
+		case STD_INVALID: WARN_ON_ONCE(1); return 0;
+	}
+}
+
+enum tw5864_vid_std tw5864_from_v4l2_std(v4l2_std_id v4l2_std)
+{
+	if (v4l2_std & V4L2_STD_NTSC) {
+		return STD_NTSC;
+	} else if (v4l2_std & V4L2_STD_PAL) {
+		return STD_PAL;
+	} else if (v4l2_std & V4L2_STD_SECAM) {
+		return STD_SECAM;
+	} else {
+		WARN_ON_ONCE(1);
+		return STD_AUTO;
+	}
 }
