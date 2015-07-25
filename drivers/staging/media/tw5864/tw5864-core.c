@@ -134,6 +134,7 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 	u32 ddr_ctl_status;
 	u32 pci_intr_ctl;
 	unsigned long flags;
+	struct tw5864_input *input = &dev->inputs[0];  // TODO FIXME HARDCODE
 
 	status = tw_readw(TW5864_INTR_STATUS_L)
 		| (tw_readw(TW5864_INTR_STATUS_H) << 16);
@@ -151,7 +152,6 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 
 
 	if (status & TW5864_INTR_VLC_DONE) {
-		struct tw5864_input *input = &dev->inputs[0];
 		u32 chunk[4];
 
 		vlc_len = tw_readl(TW5864_VLC_LENGTH) << 2;
@@ -201,8 +201,8 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		w(TW5864_VLC_DSP_INTR,0x00000001);
 		w(TW5864_PCI_INTR_STATUS, TW5864_VLC_DONE_INTR);
 		spin_lock_irqsave(&dev->slock, flags);
-		if (dev->inputs[0].enabled)
-			dev->inputs[0].timer_must_readd_encoding_irq = 1;
+		if (input->enabled)
+			input->timer_must_readd_encoding_irq = 1;
 		dev->irqmask &= ~TW5864_INTR_VLC_DONE;
 		tw5864_irqmask_apply(dev);
 		spin_unlock_irqrestore(&dev->slock, flags);
@@ -212,7 +212,7 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		int timer_must_readd_encoding_irq;
 
 		spin_lock_irqsave(&dev->slock, flags);
-		timer_must_readd_encoding_irq = dev->inputs[0].timer_must_readd_encoding_irq;
+		timer_must_readd_encoding_irq = input->timer_must_readd_encoding_irq;
 		spin_unlock_irqrestore(&dev->slock, flags);
 
 		if (timer_must_readd_encoding_irq) {
@@ -223,7 +223,7 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 				dev->timers_with_vlc_disabled = 0;
 
 				spin_lock_irqsave(&dev->slock, flags);
-				dev->inputs[0].timer_must_readd_encoding_irq = 0;
+				input->timer_must_readd_encoding_irq = 0;
 				spin_unlock_irqrestore(&dev->slock, flags);
 
 				if (tw_readl(TW5864_VLC_BUF))
