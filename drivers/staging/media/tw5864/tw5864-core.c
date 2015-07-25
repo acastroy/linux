@@ -90,7 +90,6 @@ void tw5864_irqmask_apply(struct tw5864_dev *dev)
 static void tw5864_interrupts_disable(struct tw5864_dev *dev)
 {
 	mutex_lock(&dev->lock);
-	//dev->irqmask &= ~(TW5864_INTR_BURST | TW5864_INTR_MV_DSP | TW5864_INTR_VLC_DONE | TW5864_INTR_VLC_RAM);
 	dev->irqmask = 0;
 	tw5864_irqmask_apply(dev);
 	mutex_unlock(&dev->lock);
@@ -528,8 +527,6 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 		goto video_init_fail;
 
 	/* get irq */
-	//snprintf(irq_owner_display_name, sizeof(irq_owner_display_name),
-	//		"tw5864:irq%d", pci_dev->irq);
 	err = devm_request_irq(&pci_dev->dev, pci_dev->irq, tw5864_isr,
 			IRQF_SHARED, "tw5864", dev);
 	if (err < 0) {
