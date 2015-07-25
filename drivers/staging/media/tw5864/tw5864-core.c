@@ -384,12 +384,6 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	if ((pci_name(pci_dev))[9] != '4')
 		return -1;
 
-	pci_read_config_word(pci_dev, PCI_COMMAND, &cmd);
-	cmd |= PCI_COMMAND_IO;
-	pci_write_config_word(pci_dev, PCI_COMMAND, cmd);
-	pci_read_config_word(pci_dev, PCI_COMMAND, &cmd);
-	pr_err("%s: cmd after setting PCI_COMMAND_IO: 0x%04x\n", pci_name(pci_dev), cmd);
-
 	/* FIXME: What exactly for is this needed? Which mask(s) this driver needs? */
 	if (!pci_dma_supported(pci_dev, DMA_BIT_MASK(32))) {
 		pr_info("%s: Oops: no 32bit PCI DMA ???\n", dev->name);
