@@ -136,7 +136,7 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 	unsigned long flags;
 
 	status = tw_readw(TW5864_INTR_STATUS_L)
-		 | (tw_readw(TW5864_INTR_STATUS_H) << 16);
+		| (tw_readw(TW5864_INTR_STATUS_H) << 16);
 	if (!status)
 		return IRQ_NONE;
 
@@ -152,13 +152,13 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 
 	if (status & TW5864_INTR_VLC_DONE) {
 		struct tw5864_input *input = &dev->inputs[0];
-				u32 chunk[4];
+		u32 chunk[4];
 
-				vlc_len = tw_readl(TW5864_VLC_LENGTH) << 2;
-				vlc_crc = tw_readl(TW5864_VLC_CRC_REG);
-				channel = tw_readl(TW5864_DSP) & TW5864_DSP_ENC_CHN;
-				vlc_reg = tw_readl(TW5864_VLC);
-				vlc_buf_reg = tw_readl(TW5864_VLC_BUF);
+		vlc_len = tw_readl(TW5864_VLC_LENGTH) << 2;
+		vlc_crc = tw_readl(TW5864_VLC_CRC_REG);
+		channel = tw_readl(TW5864_DSP) & TW5864_DSP_ENC_CHN;
+		vlc_reg = tw_readl(TW5864_VLC);
+		vlc_buf_reg = tw_readl(TW5864_VLC_BUF);
 
 		dev_dbg(&dev->pci->dev, "tw5864_isr: vlc done. channel 0x%08x, vlc_len %d, vlc_crc 0x%08x, vlc_buf_rdy 0x%02x, vlc_buf_reg 0x%08x\n", channel, vlc_len, vlc_crc, (vlc_reg & TW5864_VLC_BUF_RDY_MASK) >> TW5864_VLC_BUF_RDY_SHIFT, vlc_buf_reg);
 		dma_sync_single_for_cpu(&dev->pci->dev, dev->h264_vlc_buf[0].dma_addr, H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
@@ -177,7 +177,7 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		// TODO Do whatever needed, e.g. dump contents elsewhere
 		dma_sync_single_for_device(&dev->pci->dev, dev->h264_vlc_buf[0].dma_addr, H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
 		//dma_sync_single_for_device(&dev->pci->dev, dev->h264_mv_buf[0].dma_addr, H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
-		
+
 
 		u32 prev_buf_id = dev->buf_id;
 		dev->buf_id = (dev->buf_id + 1) % 4;
@@ -196,18 +196,18 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		}
 		// End TODO
 
-w(TW5864_UNDEF_REG_0x1807C,0x00000004);
-w(TW5864_UNDEF_REG_0x1807C,0x00000000);
-w(TW5864_VLC_DSP_INTR,0x00000001);
-w(TW5864_PCI_INTR_STATUS, TW5864_VLC_DONE_INTR);
-spin_lock_irqsave(&dev->slock, flags);
-if (dev->inputs[0].enabled)
-	dev->inputs[0].timer_must_readd_encoding_irq = 1;
-dev->irqmask &= ~TW5864_INTR_VLC_DONE;
-tw5864_irqmask_apply(dev);
-spin_unlock_irqrestore(&dev->slock, flags);
+		w(TW5864_UNDEF_REG_0x1807C,0x00000004);
+		w(TW5864_UNDEF_REG_0x1807C,0x00000000);
+		w(TW5864_VLC_DSP_INTR,0x00000001);
+		w(TW5864_PCI_INTR_STATUS, TW5864_VLC_DONE_INTR);
+		spin_lock_irqsave(&dev->slock, flags);
+		if (dev->inputs[0].enabled)
+			dev->inputs[0].timer_must_readd_encoding_irq = 1;
+		dev->irqmask &= ~TW5864_INTR_VLC_DONE;
+		tw5864_irqmask_apply(dev);
+		spin_unlock_irqrestore(&dev->slock, flags);
 	}
-	
+
 	if (status & TW5864_INTR_TIMER) {
 		int timer_must_readd_encoding_irq;
 
@@ -232,83 +232,83 @@ spin_unlock_irqrestore(&dev->slock, flags);
 				if (!dev->long_timer_scenario_done) {
 					dev->long_timer_scenario_done = 1;
 
-w(TW5864_DSP_CODEC,0x00000000);
-w(TW5864_VLC,0x00009D1C);
-w(TW5864_UNDEF_REG_0x0008,0x00000000);
-w(TW5864_EMU_EN_VARIOUS_ETC,0x0000001F);
-w(TW5864_UNDEF_REG_0x0008,0x00000800);
-w(TW5864_DSP,0x00000A20);
-w(TW5864_PCI_INTR_CTL,0x00000073);
-w(TW5864_MASTER_ENB_REG,0x00000032);
-w(TW5864_DDR,0x00008001);
-w(0x00084000,0x00000000);
-w(0x00084004,0x00000000);
-w(0x00084008,0x00000000);
-w(0x0008400C,0x00000000);
-w(0x00084010,0x00000000);
-w(0x00084014,0x00000000);
-w(0x00084018,0x00000000);
-w(0x0008401C,0x00000000);
-w(0x00084020,0x00000000);
-w(0x00084024,0x00000000);
-w(0x00084028,0x00000000);
-w(0x0008402C,0x00000000);
-w(0x00084030,0x00000000);
-w(0x00084034,0x00000000);
-w(0x00084038,0x00000000);
-w(0x0008403C,0x00000000);
-w(0x00084040,0x00000000);
-w(0x00084044,0x00000000);
-w(0x00084048,0x00000000);
-w(0x0008404C,0x00000000);
-w(0x00084050,0x00000000);
-w(0x00084054,0x00000000);
-w(0x00084058,0x00000000);
-w(0x0008405C,0x00000000);
-w(TW5864_DDR,0x00008001);
-w(TW5864_DDR,0x00008008);
-w(TW5864_DDR_ADDR,0x0047F000);
-w(TW5864_DPR_BUF_ADDR,0x00000000);
-w(TW5864_DDR_CTL,0x00010060);
-w(TW5864_DDR_CTL,0x00030060);
-w(TW5864_DDR_ADDR,0x0047F000);
-w(TW5864_DPR_BUF_ADDR,0x00000080);
-w(TW5864_DDR_CTL,0x01010000);
-w(TW5864_DDR_CTL,0x01030000);
-w(TW5864_DDR,0x00008008);
-w(TW5864_DDR_CTL,0x01010000);
-w(TW5864_DSP_OSD_ATTRI_BASE,0x0000047F);
-w(TW5864_DSP_OSD_ENABLE,0x000000FF);
-w(TW5864_UNDEF_REG_0x0224,0x00000000);
-spin_lock_irqsave(&dev->slock, flags);
-dev->irqmask |= TW5864_INTR_VLC_DONE;
-tw5864_irqmask_apply(dev);
-spin_unlock_irqrestore(&dev->slock, flags);
-w(TW5864_SLICE,0x00008000);
-w(TW5864_SLICE,0x00000000);
-w(TW5864_IND_DATA,0x00000000);
-w(TW5864_IND_CTL,0x03000E08);
-w(TW5864_IND_CTL,0x02000EE0);
+					w(TW5864_DSP_CODEC,0x00000000);
+					w(TW5864_VLC,0x00009D1C);
+					w(TW5864_UNDEF_REG_0x0008,0x00000000);
+					w(TW5864_EMU_EN_VARIOUS_ETC,0x0000001F);
+					w(TW5864_UNDEF_REG_0x0008,0x00000800);
+					w(TW5864_DSP,0x00000A20);
+					w(TW5864_PCI_INTR_CTL,0x00000073);
+					w(TW5864_MASTER_ENB_REG,0x00000032);
+					w(TW5864_DDR,0x00008001);
+					w(0x00084000,0x00000000);
+					w(0x00084004,0x00000000);
+					w(0x00084008,0x00000000);
+					w(0x0008400C,0x00000000);
+					w(0x00084010,0x00000000);
+					w(0x00084014,0x00000000);
+					w(0x00084018,0x00000000);
+					w(0x0008401C,0x00000000);
+					w(0x00084020,0x00000000);
+					w(0x00084024,0x00000000);
+					w(0x00084028,0x00000000);
+					w(0x0008402C,0x00000000);
+					w(0x00084030,0x00000000);
+					w(0x00084034,0x00000000);
+					w(0x00084038,0x00000000);
+					w(0x0008403C,0x00000000);
+					w(0x00084040,0x00000000);
+					w(0x00084044,0x00000000);
+					w(0x00084048,0x00000000);
+					w(0x0008404C,0x00000000);
+					w(0x00084050,0x00000000);
+					w(0x00084054,0x00000000);
+					w(0x00084058,0x00000000);
+					w(0x0008405C,0x00000000);
+					w(TW5864_DDR,0x00008001);
+					w(TW5864_DDR,0x00008008);
+					w(TW5864_DDR_ADDR,0x0047F000);
+					w(TW5864_DPR_BUF_ADDR,0x00000000);
+					w(TW5864_DDR_CTL,0x00010060);
+					w(TW5864_DDR_CTL,0x00030060);
+					w(TW5864_DDR_ADDR,0x0047F000);
+					w(TW5864_DPR_BUF_ADDR,0x00000080);
+					w(TW5864_DDR_CTL,0x01010000);
+					w(TW5864_DDR_CTL,0x01030000);
+					w(TW5864_DDR,0x00008008);
+					w(TW5864_DDR_CTL,0x01010000);
+					w(TW5864_DSP_OSD_ATTRI_BASE,0x0000047F);
+					w(TW5864_DSP_OSD_ENABLE,0x000000FF);
+					w(TW5864_UNDEF_REG_0x0224,0x00000000);
+					spin_lock_irqsave(&dev->slock, flags);
+					dev->irqmask |= TW5864_INTR_VLC_DONE;
+					tw5864_irqmask_apply(dev);
+					spin_unlock_irqrestore(&dev->slock, flags);
+					w(TW5864_SLICE,0x00008000);
+					w(TW5864_SLICE,0x00000000);
+					w(TW5864_IND_DATA,0x00000000);
+					w(TW5864_IND_CTL,0x03000E08);
+					w(TW5864_IND_CTL,0x02000EE0);
 
 				} else {
 
-w(TW5864_DSP_CODEC,0x00000000);
-w(TW5864_VLC,0x00009D1C);
-w(TW5864_UNDEF_REG_0x0008,0x00000000);
-w(TW5864_EMU_EN_VARIOUS_ETC,0x0000001F);
-w(TW5864_UNDEF_REG_0x0008,0x00000800);
-w(TW5864_DSP,0x00000A20);
-w(TW5864_PCI_INTR_CTL,0x00000073);
-w(TW5864_MASTER_ENB_REG,0x00000032);
-spin_lock_irqsave(&dev->slock, flags);
-dev->irqmask |= TW5864_INTR_VLC_DONE;
-tw5864_irqmask_apply(dev);
-spin_unlock_irqrestore(&dev->slock, flags);
-w(TW5864_SLICE,0x00008000);
-w(TW5864_SLICE,0x00000000);
-w(TW5864_IND_DATA,0x00000000);
-w(TW5864_IND_CTL,0x03000E08);
-w(TW5864_IND_CTL,0x02000EE0);
+					w(TW5864_DSP_CODEC,0x00000000);
+					w(TW5864_VLC,0x00009D1C);
+					w(TW5864_UNDEF_REG_0x0008,0x00000000);
+					w(TW5864_EMU_EN_VARIOUS_ETC,0x0000001F);
+					w(TW5864_UNDEF_REG_0x0008,0x00000800);
+					w(TW5864_DSP,0x00000A20);
+					w(TW5864_PCI_INTR_CTL,0x00000073);
+					w(TW5864_MASTER_ENB_REG,0x00000032);
+					spin_lock_irqsave(&dev->slock, flags);
+					dev->irqmask |= TW5864_INTR_VLC_DONE;
+					tw5864_irqmask_apply(dev);
+					spin_unlock_irqrestore(&dev->slock, flags);
+					w(TW5864_SLICE,0x00008000);
+					w(TW5864_SLICE,0x00000000);
+					w(TW5864_IND_DATA,0x00000000);
+					w(TW5864_IND_CTL,0x03000E08);
+					w(TW5864_IND_CTL,0x02000EE0);
 				}
 			}
 		}
@@ -317,7 +317,7 @@ w(TW5864_IND_CTL,0x02000EE0);
 
 
 	}
-	
+
 	if (!(status & (TW5864_INTR_TIMER | TW5864_INTR_VLC_DONE))){
 		dev_dbg(&dev->pci->dev, "tw5864_isr: not timer and not vlc, status 0x%08X\n", status);
 	}
@@ -397,12 +397,12 @@ static int debugfs_regs_dump_open(struct inode *inode, struct file *file)
 }
 
 static ssize_t debugfs_regs_dump_read(struct file *file, char __user *user_buf,
-				      size_t nbytes, loff_t *ppos)
+		size_t nbytes, loff_t *ppos)
 {
 	struct debugfs_buffer *buf = file->private_data;
 
 	return simple_read_from_buffer(user_buf, nbytes, ppos, buf->data,
-				       buf->count);
+			buf->count);
 }
 
 static int debugfs_regs_dump_release(struct inode *inode, struct file *file)
@@ -446,7 +446,7 @@ static int x86_dma_init(struct tw5864_dev *dev)
 
 
 static int tw5864_initdev(struct pci_dev *pci_dev,
-				     const struct pci_device_id *pci_id)
+		const struct pci_device_id *pci_id)
 {
 	struct tw5864_dev *dev;
 	char irq_owner_display_name[64];
@@ -495,11 +495,11 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 				dev->name)) {
 		err = -EBUSY;
 		pr_err("%s: can't get MMIO memory @ 0x%llx\n", dev->name,
-			(unsigned long long)pci_resource_start(pci_dev, 0));
+				(unsigned long long)pci_resource_start(pci_dev, 0));
 		goto req_mem_fail;
 	}
 	dev->mmio = ioremap_nocache(pci_resource_start(pci_dev, 0),
-			     pci_resource_len(pci_dev, 0));
+			pci_resource_len(pci_dev, 0));
 	if (NULL == dev->mmio) {
 		err = -EIO;
 		pr_err("%s: can't ioremap() MMIO memory\n", dev->name);
@@ -592,7 +592,7 @@ static void tw5864_finidev(struct pci_dev *pci_dev)
 	/* release resources */
 	iounmap(dev->mmio);
 	release_mem_region(pci_resource_start(pci_dev, 0),
-			   pci_resource_len(pci_dev, 0));
+			pci_resource_len(pci_dev, 0));
 
 	v4l2_device_unregister(&dev->v4l2_dev);
 	devm_kfree(&pci_dev->dev, dev);
@@ -604,7 +604,7 @@ static int tw5864_suspend(struct pci_dev *pci_dev, pm_message_t state)
 {
 	struct v4l2_device *v4l2_dev = pci_get_drvdata(pci_dev);
 	struct tw5864_dev *dev = container_of(v4l2_dev,
-				struct tw5864_dev, v4l2_dev);
+			struct tw5864_dev, v4l2_dev);
 
 	tw5864_interrupts_disable(dev);
 
@@ -621,13 +621,13 @@ static int tw5864_resume(struct pci_dev *pci_dev)
 {
 	struct v4l2_device *v4l2_dev = pci_get_drvdata(pci_dev);
 	struct tw5864_dev *dev = container_of(v4l2_dev,
-					    struct tw5864_dev, v4l2_dev);
+			struct tw5864_dev, v4l2_dev);
 
 	pci_set_power_state(pci_dev, PCI_D0);
 	pci_restore_state(pci_dev);
 
 	/* Do things that are done in tw5864_initdev ,
-		except of initializing memory structures.*/
+	   except of initializing memory structures.*/
 
 	msleep(100);
 

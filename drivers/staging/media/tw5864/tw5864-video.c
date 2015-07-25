@@ -39,8 +39,8 @@
 /* vb2 queue operations                                          */
 
 static int tw5864_queue_setup(struct vb2_queue *q, const struct v4l2_format *fmt,
-			   unsigned int *num_buffers, unsigned int *num_planes,
-			   unsigned int sizes[], void *alloc_ctxs[])
+		unsigned int *num_buffers, unsigned int *num_planes,
+		unsigned int sizes[], void *alloc_ctxs[])
 {
 	struct tw5864_input *dev = vb2_get_drv_priv(q);
 
@@ -98,24 +98,24 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	if (tw_readl(TW5864_VLC_BUF))
 		tw_writel(TW5864_VLC_BUF, tw_readl(TW5864_VLC_BUF) & 0x0f);
 
-tw_writel(TW5864_DSP_ENC_ORG_PTR_REG,0x00000000);
-tw_writel(TW5864_DSP_CODEC,0x00000000);
-tw_writel(TW5864_DSP_ENC_REC,0x00000003);
+	tw_writel(TW5864_DSP_ENC_ORG_PTR_REG,0x00000000);
+	tw_writel(TW5864_DSP_CODEC,0x00000000);
+	tw_writel(TW5864_DSP_ENC_REC,0x00000003);
 
-tw_writel(TW5864_VLC, TW5864_VLC_PCI_SEL | (0x19 /* bitalign */ << 8) | QP_VALUE /* 0x0000991C */);
+	tw_writel(TW5864_VLC, TW5864_VLC_PCI_SEL | (0x19 /* bitalign */ << 8) | QP_VALUE /* 0x0000991C */);
 
-tw_writel(TW5864_DSP_QP, QP_VALUE);
-tw_writel(TW5864_DSP_REF_MVP_LAMBDA,Lambda_lookup_table[QP_VALUE]);
-tw_writel(TW5864_INTERLACING, TW5864_DI_EN);
-tw_writel(TW5864_UNDEF_REG_0x0008,0x00000000);
-tw_writel(TW5864_EMU_EN_VARIOUS_ETC,TW5864_EMU_EN_LPF | TW5864_EMU_EN_BHOST | TW5864_EMU_EN_SEN | TW5864_EMU_EN_ME | TW5864_EMU_EN_DDR);
-tw_writel(TW5864_UNDEF_REG_0x0008,0x00000800);
-tw_writel(TW5864_DSP_I4x4_WEIGHT,Intra4X4_Lambda3[QP_VALUE]);
-tw_writel(TW5864_DSP_INTRA_MODE,0x00000070);
-tw_writel(TW5864_DSP, 0 /* channel id */ | TW5864_DSP_CHROM_SW | ((0xa << 8) & TW5864_DSP_MB_DELAY) /* 0x00000A20 */);
-tw_writel(TW5864_MOTION_SEARCH_ETC, TW5864_INTRA_EN);
-tw_writel(TW5864_PCI_INTR_CTL, TW5864_PREV_MAST_ENB | TW5864_PREV_OVERFLOW_ENB | TW5864_TIMER_INTR_ENB | TW5864_PCI_MAST_ENB | (1<<1)  /* TODO try TW5864_MVD_VLC_MAST_ENB*/ /*0x00000073*/);
-tw_writel(TW5864_MASTER_ENB_REG,TW5864_PCI_VLC_INTR_ENB | TW5864_PCI_PREV_INTR_ENB | TW5864_PCI_PREV_OF_INTR_ENB/*0x00000032*/);
+	tw_writel(TW5864_DSP_QP, QP_VALUE);
+	tw_writel(TW5864_DSP_REF_MVP_LAMBDA,Lambda_lookup_table[QP_VALUE]);
+	tw_writel(TW5864_INTERLACING, TW5864_DI_EN);
+	tw_writel(TW5864_UNDEF_REG_0x0008,0x00000000);
+	tw_writel(TW5864_EMU_EN_VARIOUS_ETC,TW5864_EMU_EN_LPF | TW5864_EMU_EN_BHOST | TW5864_EMU_EN_SEN | TW5864_EMU_EN_ME | TW5864_EMU_EN_DDR);
+	tw_writel(TW5864_UNDEF_REG_0x0008,0x00000800);
+	tw_writel(TW5864_DSP_I4x4_WEIGHT,Intra4X4_Lambda3[QP_VALUE]);
+	tw_writel(TW5864_DSP_INTRA_MODE,0x00000070);
+	tw_writel(TW5864_DSP, 0 /* channel id */ | TW5864_DSP_CHROM_SW | ((0xa << 8) & TW5864_DSP_MB_DELAY) /* 0x00000A20 */);
+	tw_writel(TW5864_MOTION_SEARCH_ETC, TW5864_INTRA_EN);
+	tw_writel(TW5864_PCI_INTR_CTL, TW5864_PREV_MAST_ENB | TW5864_PREV_OVERFLOW_ENB | TW5864_TIMER_INTR_ENB | TW5864_PCI_MAST_ENB | (1<<1)  /* TODO try TW5864_MVD_VLC_MAST_ENB*/ /*0x00000073*/);
+	tw_writel(TW5864_MASTER_ENB_REG,TW5864_PCI_VLC_INTR_ENB | TW5864_PCI_PREV_INTR_ENB | TW5864_PCI_PREV_OF_INTR_ENB/*0x00000032*/);
 
 
 
@@ -154,8 +154,8 @@ tw_writel(TW5864_MASTER_ENB_REG,TW5864_PCI_VLC_INTR_ENB | TW5864_PCI_PREV_INTR_E
 	dev->irqmask |= TW5864_INTR_VLC_DONE | TW5864_INTR_PV_OVERFLOW | TW5864_INTR_TIMER | TW5864_INTR_AUD_EOF;
 	tw5864_irqmask_apply(dev);
 	spin_unlock_irqrestore(&dev->slock, flags);
-w(TW5864_SLICE,0x00008000); // delays required!
-tw_writel(TW5864_SLICE,0x00000000);
+	w(TW5864_SLICE,0x00008000); // delays required!
+	tw_writel(TW5864_SLICE,0x00000000);
 	return 0;
 }
 
@@ -229,31 +229,31 @@ static int tw5864_s_ctrl(struct v4l2_ctrl *ctrl)
 	// TODO
 #if 0
 	switch (ctrl->id) {
-	case V4L2_CID_BRIGHTNESS:
-		tw_writeb(TW5864_BRIGHT, ctrl->val);
-		break;
-	case V4L2_CID_HUE:
-		tw_writeb(TW5864_HUE, ctrl->val);
-		break;
-	case V4L2_CID_CONTRAST:
-		tw_writeb(TW5864_CONTRAST, ctrl->val);
-		break;
-	case V4L2_CID_SATURATION:
-		tw_writeb(TW5864_SAT_U, ctrl->val);
-		tw_writeb(TW5864_SAT_V, ctrl->val);
-		break;
-	case V4L2_CID_COLOR_KILLER:
-		if (ctrl->val)
-			tw_andorb(TW5864_MISC2, 0xe0, 0xe0);
-		else
-			tw_andorb(TW5864_MISC2, 0xe0, 0x00);
-		break;
-	case V4L2_CID_CHROMA_AGC:
-		if (ctrl->val)
-			tw_andorb(TW5864_LOOP, 0x30, 0x20);
-		else
-			tw_andorb(TW5864_LOOP, 0x30, 0x00);
-		break;
+		case V4L2_CID_BRIGHTNESS:
+			tw_writeb(TW5864_BRIGHT, ctrl->val);
+			break;
+		case V4L2_CID_HUE:
+			tw_writeb(TW5864_HUE, ctrl->val);
+			break;
+		case V4L2_CID_CONTRAST:
+			tw_writeb(TW5864_CONTRAST, ctrl->val);
+			break;
+		case V4L2_CID_SATURATION:
+			tw_writeb(TW5864_SAT_U, ctrl->val);
+			tw_writeb(TW5864_SAT_V, ctrl->val);
+			break;
+		case V4L2_CID_COLOR_KILLER:
+			if (ctrl->val)
+				tw_andorb(TW5864_MISC2, 0xe0, 0xe0);
+			else
+				tw_andorb(TW5864_MISC2, 0xe0, 0x00);
+			break;
+		case V4L2_CID_CHROMA_AGC:
+			if (ctrl->val)
+				tw_andorb(TW5864_LOOP, 0x30, 0x20);
+			else
+				tw_andorb(TW5864_LOOP, 0x30, 0x00);
+			break;
 	}
 #endif
 	return 0;
@@ -261,7 +261,7 @@ static int tw5864_s_ctrl(struct v4l2_ctrl *ctrl)
 /* ------------------------------------------------------------------ */
 
 static int tw5864_g_fmt_vid_cap(struct file *file, void *priv,
-				struct v4l2_format *f)
+		struct v4l2_format *f)
 {
 	struct tw5864_input *dev = video_drvdata(file);
 
@@ -300,7 +300,7 @@ static int tw5864_g_fmt_vid_cap(struct file *file, void *priv,
 }
 
 static int tw5864_enum_input(struct file *file, void *priv,
-					struct v4l2_input *i)
+		struct v4l2_input *i)
 {
 	struct tw5864_input *dev = video_drvdata(file);
 
@@ -327,14 +327,14 @@ static int tw5864_enum_input(struct file *file, void *priv,
 
 	i->type = V4L2_INPUT_TYPE_CAMERA;
 	snprintf(i->name, sizeof(i->name), "Encoder %d", dev->input_number);
-/*
-	switch (fmt) {
-		case 0: i->std = V4L2_STD_NTSC_M; break;
-		case 1: i->std = V4L2_STD_PAL_B; break;
-		case 2: i->std = V4L2_STD_SECAM; break;
-		default: BUG();
-	}
-*/
+	/*
+	   switch (fmt) {
+	   case 0: i->std = V4L2_STD_NTSC_M; break;
+	   case 1: i->std = V4L2_STD_PAL_B; break;
+	   case 2: i->std = V4L2_STD_SECAM; break;
+	   default: BUG();
+	   }
+	   */
 	i->std = TW5864_NORMS;
 	if (v1 & (1 << 7))
 		i->status |= V4L2_IN_ST_NO_SYNC;
@@ -364,7 +364,7 @@ static int tw5864_s_input(struct file *file, void *priv, unsigned int i)
 }
 
 static int tw5864_querycap(struct file *file, void  *priv,
-					struct v4l2_capability *cap)
+		struct v4l2_capability *cap)
 {
 	struct tw5864_input *dev = video_drvdata(file);
 
@@ -410,7 +410,7 @@ static int tw5864_s_std(struct file *file, void *priv, v4l2_std_id id)
 	// TODO FIXME compare with currently detected, refuse otherwise
 	if (!(id & TW5864_NORMS))
 		return -EINVAL;
-		
+
 	return 0;
 }
 
@@ -434,7 +434,7 @@ static int tw5864_s_fmt_vid_cap(struct file *file, void *priv,
 }
 
 static int tw5864_enum_fmt_vid_cap(struct file *file, void  *priv,
-					struct v4l2_fmtdesc *f)
+		struct v4l2_fmtdesc *f)
 {
 	if (f->index)
 		return -EINVAL;
@@ -538,7 +538,7 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 
 	dev->jpg.data = dev->jpeg_buf[0].addr;
 	dev->jpg.size = 0x1000;
-	
+
 	if (!debugfs_create_blob("jpg", S_IRUGO, dev->debugfs_dir, &dev->jpg)) {
 		dev_err(&dev->pci->dev, "jpg debugfs blob creation failed\n");
 		return 1;
