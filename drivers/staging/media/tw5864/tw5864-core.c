@@ -220,17 +220,10 @@ w(TW5864_INTR_ENABLE_H,0x00000070);
 					dev->long_timer_scenario_done = 1;
 
 w(TW5864_DSP_CODEC,0x00000000); /* chip f5880300 */ /* in ISR */
-w(TW5864_DSP_PIC_MAX_MB,0x00002D24); /* chip f5880300 */ /* in ISR */
-w(TW5864_DSP_SKIP,0x00000000); /* chip f5880300 */ /* in ISR */
 w(TW5864_VLC,0x00009D1C); /* chip f5880300 */ /* in ISR */
-w(TW5864_DSP_QP,0x0000001C); /* chip f5880300 */ /* in ISR */
-w(TW5864_DSP_REF_MVP_LAMBDA,0x000000C0); /* chip f5880300 */ /* in ISR */
-w(TW5864_INTERLACING,0x00000004); /* chip f5880300 */ /* in ISR */
 w(TW5864_UNDEF_REG_0x0008,0x00000000); /* chip f5880300 */ /* in ISR */
 w(TW5864_EMU_EN_VARIOUS_ETC,0x0000001F); /* chip f5880300 */ /* in ISR */
 w(TW5864_UNDEF_REG_0x0008,0x00000800); /* chip f5880300 */ /* in ISR */
-w(TW5864_DSP_I4x4_WEIGHT,0x00000006); /* chip f5880300 */ /* in ISR */
-w(TW5864_DSP_INTRA_MODE,0x00000070); /* chip f5880300 */ /* in ISR */
 w(TW5864_DSP,0x00000A20); /* chip f5880300 */ /* in ISR */
 w(TW5864_PCI_INTR_CTL,0x00000073); /* chip f5880300 */ /* in ISR */
 w(TW5864_MASTER_ENB_REG,0x00000032); /* chip f5880300 */ /* in ISR */
@@ -284,17 +277,10 @@ w(TW5864_IND_CTL,0x02000EE0); /* chip f5880300 */ /* in ISR */
 				} else {
 
 w(TW5864_DSP_CODEC,0x00000000); /* chip f5880300 */ /* in ISR */
-w(TW5864_DSP_PIC_MAX_MB,0x00002D24); /* chip f5880300 */ /* in ISR */
-w(TW5864_DSP_SKIP,0x00000000); /* chip f5880300 */ /* in ISR */
 w(TW5864_VLC,0x00009D1C); /* chip f5880300 */ /* in ISR */
-w(TW5864_DSP_QP,0x0000001C); /* chip f5880300 */ /* in ISR */
-w(TW5864_DSP_REF_MVP_LAMBDA,0x000000C0); /* chip f5880300 */ /* in ISR */
-w(TW5864_INTERLACING,0x00000004); /* chip f5880300 */ /* in ISR */
 w(TW5864_UNDEF_REG_0x0008,0x00000000); /* chip f5880300 */ /* in ISR */
 w(TW5864_EMU_EN_VARIOUS_ETC,0x0000001F); /* chip f5880300 */ /* in ISR */
 w(TW5864_UNDEF_REG_0x0008,0x00000800); /* chip f5880300 */ /* in ISR */
-w(TW5864_DSP_I4x4_WEIGHT,0x00000006); /* chip f5880300 */ /* in ISR */
-w(TW5864_DSP_INTRA_MODE,0x00000070); /* chip f5880300 */ /* in ISR */
 w(TW5864_DSP,0x00000A20); /* chip f5880300 */ /* in ISR */
 w(TW5864_PCI_INTR_CTL,0x00000073); /* chip f5880300 */ /* in ISR */
 w(TW5864_MASTER_ENB_REG,0x00000032); /* chip f5880300 */ /* in ISR */
