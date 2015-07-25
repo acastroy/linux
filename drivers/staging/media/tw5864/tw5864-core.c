@@ -196,7 +196,14 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		}
 		// End TODO
 
-#include "vlc_intr_0.c"
+w(TW5864_UNDEF_REG_0x1807C,0x00000004); /* chip f5880300 */ /* in ISR */
+w(TW5864_UNDEF_REG_0x1807C,0x00000000); /* chip f5880300 */ /* in ISR */
+w(TW5864_VLC_DSP_INTR,0x00000001); /* chip f5880300 */ /* in ISR */
+w(TW5864_PCI_INTR_STATUS,0x00000002); /* chip f5880300 */ /* in ISR */
+// this variable needs sync FIXME TODO
+//dev->irqmask &= TW5864_INTR_VLC_DONE;
+//tw5864_irqmask_apply(dev);
+w(TW5864_INTR_ENABLE_H,0x00000070);
 	}
 	
 	if (status & TW5864_INTR_TIMER) {
@@ -211,9 +218,92 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 
 				if (!dev->long_timer_scenario_done) {
 					dev->long_timer_scenario_done = 1;
-#include "timer_intr_6.c"
+
+w(TW5864_DSP_CODEC,0x00000000); /* chip f5880300 */ /* in ISR */
+w(TW5864_DSP_PIC_MAX_MB,0x00002D24); /* chip f5880300 */ /* in ISR */
+w(TW5864_DSP_SKIP,0x00000000); /* chip f5880300 */ /* in ISR */
+w(TW5864_VLC,0x00009D1C); /* chip f5880300 */ /* in ISR */
+w(TW5864_DSP_QP,0x0000001C); /* chip f5880300 */ /* in ISR */
+w(TW5864_DSP_REF_MVP_LAMBDA,0x000000C0); /* chip f5880300 */ /* in ISR */
+w(TW5864_INTERLACING,0x00000004); /* chip f5880300 */ /* in ISR */
+w(TW5864_UNDEF_REG_0x0008,0x00000000); /* chip f5880300 */ /* in ISR */
+w(TW5864_EMU_EN_VARIOUS_ETC,0x0000001F); /* chip f5880300 */ /* in ISR */
+w(TW5864_UNDEF_REG_0x0008,0x00000800); /* chip f5880300 */ /* in ISR */
+w(TW5864_DSP_I4x4_WEIGHT,0x00000006); /* chip f5880300 */ /* in ISR */
+w(TW5864_DSP_INTRA_MODE,0x00000070); /* chip f5880300 */ /* in ISR */
+w(TW5864_DSP,0x00000A20); /* chip f5880300 */ /* in ISR */
+w(TW5864_PCI_INTR_CTL,0x00000073); /* chip f5880300 */ /* in ISR */
+w(TW5864_MASTER_ENB_REG,0x00000032); /* chip f5880300 */ /* in ISR */
+w(TW5864_DDR,0x00008001); /* chip f5880300 */ /* in ISR */
+w(0x00084000,0x00000000); /* chip f5880300 */ /* in ISR */
+w(0x00084004,0x00000000); /* chip f5880300 */ /* in ISR */
+w(0x00084008,0x00000000); /* chip f5880300 */ /* in ISR */
+w(0x0008400C,0x00000000); /* chip f5880300 */ /* in ISR */
+w(0x00084010,0x00000000); /* chip f5880300 */ /* in ISR */
+w(0x00084014,0x00000000); /* chip f5880300 */ /* in ISR */
+w(0x00084018,0x00000000); /* chip f5880300 */ /* in ISR */
+w(0x0008401C,0x00000000); /* chip f5880300 */ /* in ISR */
+w(0x00084020,0x00000000); /* chip f5880300 */ /* in ISR */
+w(0x00084024,0x00000000); /* chip f5880300 */ /* in ISR */
+w(0x00084028,0x00000000); /* chip f5880300 */ /* in ISR */
+w(0x0008402C,0x00000000); /* chip f5880300 */ /* in ISR */
+w(0x00084030,0x00000000); /* chip f5880300 */ /* in ISR */
+w(0x00084034,0x00000000); /* chip f5880300 */ /* in ISR */
+w(0x00084038,0x00000000); /* chip f5880300 */ /* in ISR */
+w(0x0008403C,0x00000000); /* chip f5880300 */ /* in ISR */
+w(0x00084040,0x00000000); /* chip f5880300 */ /* in ISR */
+w(0x00084044,0x00000000); /* chip f5880300 */ /* in ISR */
+w(0x00084048,0x00000000); /* chip f5880300 */ /* in ISR */
+w(0x0008404C,0x00000000); /* chip f5880300 */ /* in ISR */
+w(0x00084050,0x00000000); /* chip f5880300 */ /* in ISR */
+w(0x00084054,0x00000000); /* chip f5880300 */ /* in ISR */
+w(0x00084058,0x00000000); /* chip f5880300 */ /* in ISR */
+w(0x0008405C,0x00000000); /* chip f5880300 */ /* in ISR */
+w(TW5864_DDR,0x00008001); /* chip f5880300 */ /* in ISR */
+w(TW5864_DDR,0x00008008); /* chip f5880300 */ /* in ISR */
+w(TW5864_DDR_ADDR,0x0047F000); /* chip f5880300 */ /* in ISR */
+w(TW5864_DPR_BUF_ADDR,0x00000000); /* chip f5880300 */ /* in ISR */
+w(TW5864_DDR_CTL,0x00010060); /* chip f5880300 */ /* in ISR */
+w(TW5864_DDR_CTL,0x00030060); /* chip f5880300 */ /* in ISR */
+w(TW5864_DDR_ADDR,0x0047F000); /* chip f5880300 */ /* in ISR */
+w(TW5864_DPR_BUF_ADDR,0x00000080); /* chip f5880300 */ /* in ISR */
+w(TW5864_DDR_CTL,0x01010000); /* chip f5880300 */ /* in ISR */
+w(TW5864_DDR_CTL,0x01030000); /* chip f5880300 */ /* in ISR */
+w(TW5864_DDR,0x00008008); /* chip f5880300 */ /* in ISR */
+w(TW5864_DDR_CTL,0x01010000); /* chip f5880300 */ /* in ISR */
+w(TW5864_DSP_OSD_ATTRI_BASE,0x0000047F); /* chip f5880300 */ /* in ISR */
+w(TW5864_DSP_OSD_ENABLE,0x000000FF); /* chip f5880300 */ /* in ISR */
+w(TW5864_UNDEF_REG_0x0224,0x00000000); /* chip f5880300 */ /* in ISR */
+w(TW5864_INTR_ENABLE_H,0x00000072); /* chip f5880300 */ /* in ISR */
+w(TW5864_SLICE,0x00008000); /* chip f5880300 */ /* in ISR */
+w(TW5864_SLICE,0x00000000); /* chip f5880300 */ /* in ISR */
+w(TW5864_IND_DATA,0x00000000); /* chip f5880300 */ /* in ISR */
+w(TW5864_IND_CTL,0x03000E08); /* chip f5880300 */ /* in ISR */
+w(TW5864_IND_CTL,0x02000EE0); /* chip f5880300 */ /* in ISR */
+
 				} else {
-#include "timer_intr_7.c"
+
+w(TW5864_DSP_CODEC,0x00000000); /* chip f5880300 */ /* in ISR */
+w(TW5864_DSP_PIC_MAX_MB,0x00002D24); /* chip f5880300 */ /* in ISR */
+w(TW5864_DSP_SKIP,0x00000000); /* chip f5880300 */ /* in ISR */
+w(TW5864_VLC,0x00009D1C); /* chip f5880300 */ /* in ISR */
+w(TW5864_DSP_QP,0x0000001C); /* chip f5880300 */ /* in ISR */
+w(TW5864_DSP_REF_MVP_LAMBDA,0x000000C0); /* chip f5880300 */ /* in ISR */
+w(TW5864_INTERLACING,0x00000004); /* chip f5880300 */ /* in ISR */
+w(TW5864_UNDEF_REG_0x0008,0x00000000); /* chip f5880300 */ /* in ISR */
+w(TW5864_EMU_EN_VARIOUS_ETC,0x0000001F); /* chip f5880300 */ /* in ISR */
+w(TW5864_UNDEF_REG_0x0008,0x00000800); /* chip f5880300 */ /* in ISR */
+w(TW5864_DSP_I4x4_WEIGHT,0x00000006); /* chip f5880300 */ /* in ISR */
+w(TW5864_DSP_INTRA_MODE,0x00000070); /* chip f5880300 */ /* in ISR */
+w(TW5864_DSP,0x00000A20); /* chip f5880300 */ /* in ISR */
+w(TW5864_PCI_INTR_CTL,0x00000073); /* chip f5880300 */ /* in ISR */
+w(TW5864_MASTER_ENB_REG,0x00000032); /* chip f5880300 */ /* in ISR */
+w(TW5864_INTR_ENABLE_H,0x00000072); /* chip f5880300 */ /* in ISR */
+w(TW5864_SLICE,0x00008000); /* chip f5880300 */ /* in ISR */
+w(TW5864_SLICE,0x00000000); /* chip f5880300 */ /* in ISR */
+w(TW5864_IND_DATA,0x00000000); /* chip f5880300 */ /* in ISR */
+w(TW5864_IND_CTL,0x03000E08); /* chip f5880300 */ /* in ISR */
+w(TW5864_IND_CTL,0x02000EE0); /* chip f5880300 */ /* in ISR */
 				}
 			}
 		}
