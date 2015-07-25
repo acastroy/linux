@@ -239,7 +239,7 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 					tw_writel(TW5864_VLC_BUF, tw_readl(TW5864_VLC_BUF) & 0x0f);
 
 				tw_writel(TW5864_DSP_CODEC,0x00000000);
-				tw_writel(TW5864_VLC,0x00009D1C);
+				tw_writel(TW5864_VLC, QP_VALUE | TW5864_VLC_PCI_SEL | (BITALIGN_VALUE_IN_TIMER << TW5864_VLC_BIT_ALIGN_SHIFT));
 				tw_writel(TW5864_UNDEF_REG_0x0008,0x00000000);
 				tw_writel(TW5864_EMU_EN_VARIOUS_ETC,0x0000001F);
 				tw_writel(TW5864_UNDEF_REG_0x0008,0x00000800);

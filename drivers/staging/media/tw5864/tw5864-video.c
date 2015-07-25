@@ -101,7 +101,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	tw_writel(TW5864_DSP_CODEC,0x00000000);
 	tw_writel(TW5864_DSP_ENC_REC,0x00000003);
 
-	tw_writel(TW5864_VLC, TW5864_VLC_PCI_SEL | (0x19 /* bitalign */ << 8) | QP_VALUE /* 0x0000991C */);
+	tw_writel(TW5864_VLC, TW5864_VLC_PCI_SEL | (BITALIGN_VALUE_IN_INIT << TW5864_VLC_BIT_ALIGN_SHIFT) | QP_VALUE);
 
 	tw_writel(TW5864_DSP_QP, QP_VALUE);
 	tw_writel(TW5864_DSP_REF_MVP_LAMBDA,Lambda_lookup_table[QP_VALUE]);
