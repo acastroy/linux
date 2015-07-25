@@ -142,8 +142,8 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 	if (!status)
 		return IRQ_NONE;
 
-	tw_writel(0x00008810, 0xffff);
-	tw_writel(0x00008814, 0xffff);
+	tw_writel(TW5864_INTR_CLR_L, 0xffff);
+	tw_writel(TW5864_INTR_CLR_H, 0xffff);
 
 	pci_intr_status = tw_readw(TW5864_PCI_INTR_STATUS);
 
@@ -181,8 +181,8 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 
 		u32 prev_buf_id = dev->buf_id;
 		dev->buf_id = (dev->buf_id + 1) % 4;
-		w(0x0000021C, dev->buf_id << 12); /* chip f5880300 */ /* in ISR */
-		w(0x00000210,(dev->buf_id << 12) | prev_buf_id); /* chip f5880300 */ /* in ISR */
+		w(TW5864_DSP_ENC_ORG_PTR_REG, dev->buf_id << 12); /* chip f5880300 */ /* in ISR */
+		w(TW5864_DSP_ENC_REC,(dev->buf_id << 12) | prev_buf_id); /* chip f5880300 */ /* in ISR */
 
 		input->frame_seqno++;
 		input->h264_frame_seqno_in_gop++;
@@ -199,7 +199,7 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 w(TW5864_UNDEF_REG_0x1807C,0x00000004); /* chip f5880300 */ /* in ISR */
 w(TW5864_UNDEF_REG_0x1807C,0x00000000); /* chip f5880300 */ /* in ISR */
 w(TW5864_VLC_DSP_INTR,0x00000001); /* chip f5880300 */ /* in ISR */
-w(TW5864_PCI_INTR_STATUS,0x00000002); /* chip f5880300 */ /* in ISR */
+w(TW5864_PCI_INTR_STATUS, TW5864_VLC_DONE_INTR);
 // this variable needs sync FIXME TODO
 //dev->irqmask &= TW5864_INTR_VLC_DONE;
 //tw5864_irqmask_apply(dev);
@@ -308,7 +308,7 @@ w(TW5864_IND_CTL,0x02000EE0); /* chip f5880300 */ /* in ISR */
 			}
 		}
 
-		w(0x00018000,0x00000040);
+		w(TW5864_PCI_INTR_STATUS,TW5864_TIMER_INTR);
 
 
 	}
