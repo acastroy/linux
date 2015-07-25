@@ -100,6 +100,7 @@ struct tw5864_format {
 #define H264_VLC_BUF_SIZE 0x80000
 #define H264_MV_BUF_SIZE 0x40000
 #define QP_VALUE 28
+#define GOP_SIZE 1
 
 
 /* ----------------------------------------------------------- */
@@ -150,6 +151,7 @@ struct tw5864_input {
 	unsigned int h264_frame_seqno_in_gop;
 	int enabled;
 	int timer_must_readd_encoding_irq;
+	int discard_frames;
 };
 
 /* global device status */

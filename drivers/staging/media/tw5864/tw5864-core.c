@@ -173,7 +173,15 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		dev_dbg(&dev->pci->dev, "CPU-computed CRC: %08x\n", 
 				crc_check_sum((u32*)dev->h264_vlc_buf[0].addr, vlc_len));
 
-		tw5864_handle_frame(input, vlc_len);
+		if (!input->discard_frames) {
+			tw5864_handle_frame(input, vlc_len);
+			input->frame_seqno++;
+			input->h264_frame_seqno_in_gop++;
+		} else {
+			input->discard_frames--;
+			input->frame_seqno = 0;
+			input->h264_frame_seqno_in_gop = 0;
+		}
 		// TODO Do whatever needed, e.g. dump contents elsewhere
 		dma_sync_single_for_device(&dev->pci->dev, dev->h264_vlc_buf[0].dma_addr, H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
 		//dma_sync_single_for_device(&dev->pci->dev, dev->h264_mv_buf[0].dma_addr, H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
@@ -184,11 +192,9 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		tw_writel(TW5864_DSP_ENC_ORG_PTR_REG, dev->buf_id << 12);
 		tw_writel(TW5864_DSP_ENC_REC,(dev->buf_id << 12) | prev_buf_id);
 
-		input->frame_seqno++;
-		input->h264_frame_seqno_in_gop++;
 
 		// TODO Move this section to be done just before encoding job is fired
-		if (input->frame_seqno % 1 == 0) {
+		if (input->frame_seqno % GOP_SIZE == 0) {
 			tw_writel(TW5864_MOTION_SEARCH_ETC,0x00000008); // produce intra frame for #4, #8, #12...
 			input->h264_frame_seqno_in_gop = 0;
 			input->h264_idr_pic_id++;
