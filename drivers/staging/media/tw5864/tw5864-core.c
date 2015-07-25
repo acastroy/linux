@@ -353,29 +353,6 @@ static const struct file_operations debugfs_regs_dump_fops = {
 };
 
 
-static int x86_dma_init(struct tw5864_dev *dev)
-{
-	unsigned int dmanr;
-
-	for(dmanr = 0; dmanr < MAX_DMA_CHANNELS; dmanr++){
-		if(dmanr == 4){/*for cascade*/
-			continue;
-		}
-		if(request_dma(dmanr, "tw5864") == 0){
-			dev_dbg(&dev->pci->dev, "got dmanr %d\n", dmanr);
-			//s_dmanr = dmanr;
-			break;
-		}
-	}
-	if(dmanr == 8){
-		dev_dbg(&dev->pci->dev, "dma request failed\n");
-		return 1;
-	}
-
-	return 0;
-}
-
-
 static int tw5864_initdev(struct pci_dev *pci_dev,
 		const struct pci_device_id *pci_id)
 {
@@ -439,8 +416,6 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 
 	mutex_init(&dev->lock);
 	spin_lock_init(&dev->slock);
-
-	x86_dma_init(dev);
 
 	/* Enable interrupts */
 	tw5864_interrupts_enable(dev);
