@@ -181,23 +181,23 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 
 		u32 prev_buf_id = dev->buf_id;
 		dev->buf_id = (dev->buf_id + 1) % 4;
-		w(TW5864_DSP_ENC_ORG_PTR_REG, dev->buf_id << 12);
-		w(TW5864_DSP_ENC_REC,(dev->buf_id << 12) | prev_buf_id);
+		tw_writel(TW5864_DSP_ENC_ORG_PTR_REG, dev->buf_id << 12);
+		tw_writel(TW5864_DSP_ENC_REC,(dev->buf_id << 12) | prev_buf_id);
 
 		input->frame_seqno++;
 		input->h264_frame_seqno_in_gop++;
 
 		// TODO Move this section to be done just before encoding job is fired
 		if (input->frame_seqno % 4 == 0) {
-			w(TW5864_MOTION_SEARCH_ETC,0x00000008); // produce intra frame for #4, #8, #12...
+			tw_writel(TW5864_MOTION_SEARCH_ETC,0x00000008); // produce intra frame for #4, #8, #12...
 			input->h264_frame_seqno_in_gop = 0;
 		} else {
-			w(TW5864_MOTION_SEARCH_ETC,0x000000BF);
+			tw_writel(TW5864_MOTION_SEARCH_ETC,0x000000BF);
 		}
 		// End TODO
 
-		w(TW5864_VLC_DSP_INTR,0x00000001);
-		w(TW5864_PCI_INTR_STATUS, TW5864_VLC_DONE_INTR);
+		tw_writel(TW5864_VLC_DSP_INTR,0x00000001);
+		tw_writel(TW5864_PCI_INTR_STATUS, TW5864_VLC_DONE_INTR);
 		spin_lock_irqsave(&dev->slock, flags);
 		if (input->enabled)
 			input->timer_must_readd_encoding_irq = 1;
@@ -227,24 +227,24 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 				if (tw_readl(TW5864_VLC_BUF))
 					tw_writel(TW5864_VLC_BUF, tw_readl(TW5864_VLC_BUF) & 0x0f);
 
-				w(TW5864_DSP_CODEC,0x00000000);
-				w(TW5864_VLC,0x00009D1C);
-				w(TW5864_UNDEF_REG_0x0008,0x00000000);
-				w(TW5864_EMU_EN_VARIOUS_ETC,0x0000001F);
-				w(TW5864_UNDEF_REG_0x0008,0x00000800);
-				w(TW5864_DSP,0x00000A20);
-				w(TW5864_PCI_INTR_CTL,0x00000073);
-				w(TW5864_MASTER_ENB_REG,0x00000032);
+				tw_writel(TW5864_DSP_CODEC,0x00000000);
+				tw_writel(TW5864_VLC,0x00009D1C);
+				tw_writel(TW5864_UNDEF_REG_0x0008,0x00000000);
+				tw_writel(TW5864_EMU_EN_VARIOUS_ETC,0x0000001F);
+				tw_writel(TW5864_UNDEF_REG_0x0008,0x00000800);
+				tw_writel(TW5864_DSP,0x00000A20);
+				tw_writel(TW5864_PCI_INTR_CTL,0x00000073);
+				tw_writel(TW5864_MASTER_ENB_REG,0x00000032);
 				spin_lock_irqsave(&dev->slock, flags);
 				dev->irqmask |= TW5864_INTR_VLC_DONE;
 				tw5864_irqmask_apply(dev);
 				spin_unlock_irqrestore(&dev->slock, flags);
-				w(TW5864_SLICE,0x00008000);
-				w(TW5864_SLICE,0x00000000);
+				tw_writel(TW5864_SLICE,0x00008000);
+				tw_writel(TW5864_SLICE,0x00000000);
 			}
 		}
 
-		w(TW5864_PCI_INTR_STATUS,TW5864_TIMER_INTR);
+		tw_writel(TW5864_PCI_INTR_STATUS,TW5864_TIMER_INTR);
 
 
 	}

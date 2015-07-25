@@ -152,7 +152,8 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	dev->irqmask |= TW5864_INTR_VLC_DONE | TW5864_INTR_PV_OVERFLOW | TW5864_INTR_TIMER | TW5864_INTR_AUD_EOF;
 	tw5864_irqmask_apply(dev);
 	spin_unlock_irqrestore(&dev->slock, flags);
-	w(TW5864_SLICE,0x00008000); // delays required!
+	tw_writel(TW5864_SLICE,0x00008000);
+	mdelay(10); // doesn't work without this (TODO check again or think what to do with this)
 	tw_writel(TW5864_SLICE,0x00000000);
 	return 0;
 }
