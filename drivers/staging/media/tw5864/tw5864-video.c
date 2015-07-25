@@ -101,7 +101,6 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 
 w(TW5864_DSP_ENC_ORG_PTR_REG,0x00000000); /* chip f5880300 */
 w(TW5864_DSP_CODEC,0x00000000); /* chip f5880300 */
-w(TW5864_DSP_PIC_MAX_MB,0x00002D24); /* chip f5880300 */
 w(TW5864_DSP_ENC_REC,0x00000003); /* chip f5880300 */
 w(TW5864_DSP_SKIP,0x00000000); /* chip f5880300 */
 w(TW5864_VLC,0x0000991C); /* chip f5880300 */
@@ -129,10 +128,10 @@ w(TW5864_SLICE,0x00000000); /* chip f5880300 */
 #endif
 
 
-
 	if (fmt == 0x00 /* NTSC */) {
 		tw_indir_writeb(dev, 0x201, 0x3c);
 		tw_indir_writeb(dev, 0x203, 0x3c);
+		w(TW5864_DSP_PIC_MAX_MB, ((720 / 16) << 8) | (480 / 16));
 
 		for (i = 0; i < 4; i++) {
 			tw_writel(TW5864_FRAME_HEIGHT_BUS_A(i), 0x1df);
@@ -141,6 +140,7 @@ w(TW5864_SLICE,0x00000000); /* chip f5880300 */
 	} else {
 		tw_indir_writeb(dev, 0x201, 0x48);
 		tw_indir_writeb(dev, 0x203, 0x48);
+		w(TW5864_DSP_PIC_MAX_MB, ((720 / 16) << 8) | (576 / 16));
 
 		for (i = 0; i < 4; i++) {
 			tw_writel(TW5864_FRAME_HEIGHT_BUS_A(i), 0x23f);
