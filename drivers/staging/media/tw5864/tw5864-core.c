@@ -179,10 +179,12 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		w(0x00000210,(dev->buf_id << 12) | prev_buf_id); /* chip f5880300 */ /* in ISR */
 
 		input->frame_seqno++;
+		input->h264_frame_seqno_in_gop++;
 
 		// TODO Move this section to be done just before encoding job is fired
 		if (input->frame_seqno % 4 == 0) {
 			w(TW5864_MOTION_SEARCH_ETC,0x00000008); // produce intra frame for #4, #8, #12...
+			input->h264_frame_seqno_in_gop = 0;
 			input->h264_idr_pic_id++;
 			input->h264_idr_pic_id &= TW5864_DSP_REF_FRM;
 			tw_writel(TW5864_DSP_REF, (tw_readl(TW5864_DSP_REF) & ~TW5864_DSP_REF_FRM) | input->h264_idr_pic_id);

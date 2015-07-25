@@ -167,9 +167,11 @@ static int tw5864_disable_input(struct tw5864_dev *dev, int input_number) {
 static int tw5864_start_streaming(struct vb2_queue *q, unsigned int count)
 {
 	struct tw5864_input *input = vb2_get_drv_priv(q);
+	struct tw5864_dev *dev = input->root;
 
 	input->frame_seqno = 0;
-	input->h264_idr_pic_id = 0;
+	input->h264_idr_pic_id = 1;
+	tw_writel(TW5864_DSP_REF, (tw_readl(TW5864_DSP_REF) & ~TW5864_DSP_REF_FRM) | input->h264_idr_pic_id);
 	input->h264_frame_seqno_in_gop = 0;
 	input->h264 = tw5864_h264_init();
 	tw5864_enable_input(input->root, input->input_number);
