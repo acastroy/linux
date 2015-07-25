@@ -76,6 +76,7 @@ static void tw5864_buf_finish(struct vb2_buffer *vb)
 }
 
 int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
+	struct tw5864_input *input = &dev->inputs[input_number];
 	unsigned long flags;
 	int i;
 	dev_dbg(&dev->pci->dev, "enabling channel %d\n", input_number);
@@ -116,9 +117,11 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	tw_indir_writeb(dev, 0x200, 0xb4); // indir in width/4
 #if 1 // D1
 	tw_indir_writeb(dev, 0x202, 0xb4); // indir out width/4
+	input->width = 720;
 #endif
 
 	if (fmt == 0x00 /* NTSC */) {
+		input->height = 480;
 		tw_indir_writeb(dev, 0x201, 0x3c);
 		tw_indir_writeb(dev, 0x203, 0x3c);
 		tw_writel(TW5864_DSP_PIC_MAX_MB, ((720 / 16) << 8) | (480 / 16));
@@ -128,6 +131,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 			tw_writel(TW5864_FRAME_HEIGHT_BUS_B(i), 0x1df);
 		}
 	} else {
+		input->height = 576;
 		tw_indir_writeb(dev, 0x201, 0x48);
 		tw_indir_writeb(dev, 0x203, 0x48);
 		tw_writel(TW5864_DSP_PIC_MAX_MB, ((720 / 16) << 8) | (576 / 16));
@@ -688,7 +692,7 @@ void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len) {
 	// Generate H264 headers:
 	// If this is first frame, put SPS and PPS
 	if (input->frame_seqno == 0)
-		tw5864_h264_put_stream_header(input->h264, &dst, &dst_space, QP_VALUE);
+		tw5864_h264_put_stream_header(input->h264, &dst, &dst_space, QP_VALUE, input->width, input->height);
 
 	// Put slice header
 	tw5864_h264_put_slice_header(input->h264, &dst, &dst_space, input->h264_idr_pic_id, input->h264_frame_seqno_in_gop);

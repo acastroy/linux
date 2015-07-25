@@ -250,7 +250,7 @@ void tw5864_video_fini(struct tw5864_dev *dev);
 void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len);
 h264_stream_t *tw5864_h264_init(void);
 void tw5864_h264_destroy(h264_stream_t *h);
-void tw5864_h264_put_stream_header(h264_stream_t* h, u8 **buf, size_t *space_left, int qp);
+void tw5864_h264_put_stream_header(h264_stream_t* h, u8 **buf, size_t *space_left, int qp, int width, int height);
 void tw5864_h264_put_slice_header(h264_stream_t* h, u8 **buf, size_t *space_left, unsigned int idr_pic_id, unsigned int frame_seqno_in_gop);
 
 static const unsigned int   Lambda_lookup_table[52] =

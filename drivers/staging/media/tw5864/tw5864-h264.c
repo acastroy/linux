@@ -14,7 +14,7 @@ void tw5864_h264_destroy(h264_stream_t *h)
 	h264_free(h);
 }
 
-void tw5864_h264_put_stream_header(h264_stream_t* h, u8 **buf, size_t *space_left, int qp)
+void tw5864_h264_put_stream_header(h264_stream_t* h, u8 **buf, size_t *space_left, int qp, int width, int height)
 {
 	u8 nal_buf[64] = {0, };  /* Because of h264bitstream freaking behaviour, it adds zero byte in front of generated NAL header FIXME */
 	int nal_len;
@@ -33,8 +33,8 @@ void tw5864_h264_put_stream_header(h264_stream_t* h, u8 **buf, size_t *space_lef
 	h->sps->log2_max_frame_num_minus4 = 3;//0x0b; //3;  // TODO Comment what this is
 	h->sps->log2_max_pic_order_cnt_lsb_minus4 = 3;//0x0b; //3; // TODO Comment what this is
 	h->sps->num_ref_frames = 0x01;
-	h->sps->pic_width_in_mbs_minus1 = 0x2c;  /* == 44 */  // TODO Unhardcode: depends on NTSC/PAL and D1/CIF setting
-	h->sps->pic_height_in_map_units_minus1 = 35; // 0x1d;  // TODO Unhardcode
+	h->sps->pic_width_in_mbs_minus1 = (width / 16) - 1;
+	h->sps->pic_height_in_map_units_minus1 = (height / 16) - 1;
 	h->sps->frame_mbs_only_flag = 0x01;
 
 	nal_len = write_nal_unit(h, nal_buf, sizeof(nal_buf));
