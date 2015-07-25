@@ -96,6 +96,8 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	//mutex_lock(&dev->lock);
 
 //#include "init6.c"
+	if (tw_readl(TW5864_VLC_BUF))
+		tw_writel(TW5864_VLC_BUF, tw_readl(TW5864_VLC_BUF) & 0x0f);
 
 w(TW5864_DSP_ENC_ORG_PTR_REG,0x00000000); /* chip f5880300 */
 w(TW5864_DSP_CODEC,0x00000000); /* chip f5880300 */

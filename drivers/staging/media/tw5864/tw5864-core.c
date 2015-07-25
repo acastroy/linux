@@ -202,13 +202,15 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 			if (dev->timers_with_vlc_disabled > 10) {
 				dev_dbg(&dev->pci->dev, "enabling VLC irq again\n");
 				dev->timers_with_vlc_disabled = 0;
+
+				if (tw_readl(TW5864_VLC_BUF))
+					tw_writel(TW5864_VLC_BUF, tw_readl(TW5864_VLC_BUF) & 0x0f);
+
 				if (!dev->long_timer_scenario_done) {
 					dev->long_timer_scenario_done = 1;
 #include "timer_intr_6.c"
-					tw_writel(TW5864_DSP_QP, QP_VALUE);
 				} else {
 #include "timer_intr_7.c"
-					tw_writel(TW5864_DSP_QP, QP_VALUE);
 				}
 			}
 		}
