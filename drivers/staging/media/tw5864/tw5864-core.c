@@ -241,9 +241,6 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 				spin_unlock_irqrestore(&dev->slock, flags);
 				w(TW5864_SLICE,0x00008000);
 				w(TW5864_SLICE,0x00000000);
-				w(TW5864_IND_DATA,0x00000000);
-				w(TW5864_IND_CTL,0x03000E08);
-				w(TW5864_IND_CTL,0x02000EE0);
 			}
 		}
 
