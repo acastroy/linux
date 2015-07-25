@@ -121,7 +121,14 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 #if 1 // D1
 	tw_indir_writeb(dev, 0x202, 0xb4); // indir out width/4
 	input->width = 720;
+	for (i = 0; i < 4; i++) {
+		tw_writel(TW5864_FRAME_WIDTH_BUS_A(i), 0x2cf);
+		tw_writel(TW5864_FRAME_WIDTH_BUS_B(i), 0x2cf);
+		tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(i, input_number), 0xffff);
+		tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(i, input_number), 0x3fff);
+	}
 #endif
+
 
 	if (std == STD_NTSC) {
 		input->height = 480;
@@ -133,6 +140,8 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 			tw_writel(TW5864_FRAME_HEIGHT_BUS_A(i), 0x1df);
 			tw_writel(TW5864_FRAME_HEIGHT_BUS_B(i), 0x1df);
 		}
+		tw_writel(TW5864_H264EN_RATE_MAX_LINE_REG1, 0x3bd);
+		tw_writel(TW5864_H264EN_RATE_MAX_LINE_REG2, 0x3bd);
 	} else {
 		input->height = 576;
 		tw_indir_writeb(dev, 0x201, 0x48);
@@ -143,6 +152,8 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 			tw_writel(TW5864_FRAME_HEIGHT_BUS_A(i), 0x23f);
 			tw_writel(TW5864_FRAME_HEIGHT_BUS_B(i), 0x23f);
 		}
+		tw_writel(TW5864_H264EN_RATE_MAX_LINE_REG1, 0x318);
+		tw_writel(TW5864_H264EN_RATE_MAX_LINE_REG2, 0x318);
 	}
 
 	spin_lock_irqsave(&dev->slock, flags);

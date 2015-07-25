@@ -203,7 +203,7 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 			tw_writel(TW5864_DSP_REF, (tw_readl(TW5864_DSP_REF) & ~TW5864_DSP_REF_FRM) | input->h264_idr_pic_id);
 #endif
 		} else {
-			tw_writel(TW5864_MOTION_SEARCH_ETC,0x000000BF);
+			tw_writel(TW5864_MOTION_SEARCH_ETC,0x0000008C);
 		}
 		// End TODO
 
@@ -454,7 +454,22 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 
 	tw_writel(TW5864_SEN_EN_CH, 0x0001);
 
-	tw_writel(0x00000D00,0x00000017);
+	tw_writel(0x00000D00,0x00001C1C);
+	tw_writel(0x00000D04,0x00001C1C);
+	tw_clearl(TW5864_DSP_SEN, TW5864_DSP_SEN_HFULL);
+	tw_writel(TW5864_DDR, TW5864_DDR_MODE | (8 & TW5864_DDR_PAGE_CNTL));
+	tw_writel(TW5864_CS2DAT_CNT, 1);
+	tw_writel(TW5864_DATA_VLD_WIDTH, 1);
+	tw_writel(TW5864_SPLL, 0x15);
+	tw_writel(0x09200, 0x00006540);
+	tw_writel(0x09204, 0x00009871);
+	tw_writel(0x09208, 0x0000cba2);
+	tw_writel(0x0920c, 0x0000fed3);
+
+	tw_writel(0x0000A000,0x000000C5);
+	tw_writel(0x0000A800,0x000000C5);
+
+	// TODO Set DDR self-test end flag in 0xA038?
 
 	return 0;
 
