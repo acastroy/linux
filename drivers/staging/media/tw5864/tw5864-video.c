@@ -729,55 +729,6 @@ void tw5864_video_fini(struct tw5864_dev *dev)
 	}
 }
 
-int tw5864_video_irq(struct tw5864_dev *dev, unsigned long status)
-{
-	return 0;
-#if 0
-	__u32 reg;
-
-	/* reset interrupts handled by this routine */
-	tw_writel(TW5864_INTSTAT, status);
-	/*
-	 * Check most likely first
-	 *
-	 * DMAPI shows we have reached the end of the risc code
-	 * for the current buffer.
-	 */
-	if (status & TW5864_DMAPI) {
-		struct tw5864_buf *buf;
-
-		spin_lock(&dev->slock);
-		buf = list_entry(dev->active.next, struct tw5864_buf, list);
-		list_del(&buf->list);
-		spin_unlock(&dev->slock);
-		v4l2_get_timestamp(&buf->vb.v4l2_buf.timestamp);
-		buf->vb.v4l2_buf.field = dev->field;
-		buf->vb.v4l2_buf.sequence = dev->seqnr++;
-		vb2_buffer_done(&buf->vb, VB2_BUF_STATE_DONE);
-		status &= ~(TW5864_DMAPI);
-		if (0 == status)
-			return;
-	}
-	if (status & (TW5864_VLOCK | TW5864_HLOCK))
-		dev_dbg(&dev->pci->dev, "Lost sync\n");
-	if (status & TW5864_PABORT)
-		dev_err(&dev->pci->dev, "PABORT interrupt\n");
-	if (status & TW5864_DMAPERR)
-		dev_err(&dev->pci->dev, "DMAPERR interrupt\n");
-	if (status & TW5864_FDMIS)
-		dev_dbg(&dev->pci->dev, "FDMIS interrupt\n");
-	if (status & TW5864_FFOF) {
-		/* probably a logic error */
-		reg = tw_readl(TW5864_DMAC) & TW5864_FIFO_EN;
-		tw_clearl(TW5864_DMAC, TW5864_FIFO_EN);
-		dev_dbg(&dev->pci->dev, "FFOF interrupt\n");
-		tw_setl(TW5864_DMAC, reg);
-	}
-	if (status & TW5864_FFERR)
-		dev_dbg(&dev->pci->dev, "FFERR interrupt\n");
-#endif
-}
-
 void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len) {
 	struct tw5864_dev *dev = input->root;
 	struct tw5864_buf *vb = NULL;

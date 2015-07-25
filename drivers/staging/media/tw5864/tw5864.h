@@ -281,7 +281,6 @@ void pci_init_ad(struct tw5864_dev *dev);
 int tw5864_video_init(struct tw5864_dev *dev, int *video_nr);
 int tw5864_video_init_reg_fucking(struct tw5864_dev *dev, int *video_nr);
 void tw5864_video_fini(struct tw5864_dev *dev);
-int tw5864_video_irq(struct tw5864_dev *dev, unsigned long status);
 void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len);
 h264_stream_t *tw5864_h264_init(void);
 void tw5864_h264_destroy(h264_stream_t *h);
