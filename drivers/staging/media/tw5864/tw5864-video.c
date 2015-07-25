@@ -78,9 +78,76 @@ static void tw5864_buf_finish(struct vb2_buffer *vb)
 int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	int i;
 	dev_dbg(&dev->pci->dev, "enabling channel %d\n", input_number);
+
+	u8 indir_0x0Ne = tw_indir_readb(dev, 0x00e + input_number * 0x010);
+	u8 fmt = indir_0x0Ne & 0x70;
+
+	if (indir_0x0Ne & 0x80) {
+		dev_err(&dev->pci->dev, "Video format detection is in progress, please wait\n");
+		return -EAGAIN;
+	}
+
+	if (fmt == 0x70) {
+		dev_err(&dev->pci->dev, "Video format detection done, no valid video format\n");
+		return -1;
+	}
+
+
 	//mutex_lock(&dev->lock);
 
-#include "init6.c"
+//#include "init6.c"
+
+w(TW5864_DSP_ENC_ORG_PTR_REG,0x00000000); /* chip f5880300 */
+w(TW5864_DSP_CODEC,0x00000000); /* chip f5880300 */
+w(TW5864_DSP_PIC_MAX_MB,0x00002D24); /* chip f5880300 */
+w(TW5864_DSP_ENC_REC,0x00000003); /* chip f5880300 */
+w(TW5864_DSP_SKIP,0x00000000); /* chip f5880300 */
+w(TW5864_VLC,0x0000991C); /* chip f5880300 */
+w(TW5864_DSP_QP, QP_VALUE); /* chip f5880300 */
+w(TW5864_DSP_REF_MVP_LAMBDA,Lambda_lookup_table[QP_VALUE]); /* chip f5880300 */
+w(TW5864_INTERLACING,0x00000004); /* chip f5880300 */
+w(TW5864_UNDEF_REG_0x0008,0x00000000); /* chip f5880300 */
+w(TW5864_EMU_EN_VARIOUS_ETC,0x0000001F); /* chip f5880300 */
+w(TW5864_UNDEF_REG_0x0008,0x00000800); /* chip f5880300 */
+w(TW5864_DSP_I4x4_WEIGHT,Intra4X4_Lambda3[QP_VALUE]); /* chip f5880300 */
+w(TW5864_DSP_INTRA_MODE,0x00000070); /* chip f5880300 */
+w(TW5864_DSP,0x00000A20); /* chip f5880300 */
+w(TW5864_MOTION_SEARCH_ETC,0x00000008); /* chip f5880300 */
+w(TW5864_PCI_INTR_CTL,0x00000073); /* chip f5880300 */
+w(TW5864_MASTER_ENB_REG,0x00000032); /* chip f5880300 */
+w(TW5864_INTR_ENABLE_H,0x00000072); /* chip f5880300 */
+w(TW5864_SLICE,0x00008000); /* chip f5880300 */
+w(TW5864_SLICE,0x00000000); /* chip f5880300 */
+
+
+
+	tw_indir_writeb(dev, 0x200, 0xb4); // indir in width/4
+#if 1 // D1
+	tw_indir_writeb(dev, 0x202, 0xb4); // indir out width/4
+#endif
+
+
+
+	if (fmt == 0x00 /* NTSC */) {
+		tw_indir_writeb(dev, 0x201, 0x3c);
+		tw_indir_writeb(dev, 0x203, 0x3c);
+
+		for (i = 0; i < 4; i++) {
+			tw_writel(TW5864_FRAME_HEIGHT_BUS_A(i), 0x1df);
+			tw_writel(TW5864_FRAME_HEIGHT_BUS_B(i), 0x1df);
+		}
+	} else {
+		tw_indir_writeb(dev, 0x201, 0x48);
+		tw_indir_writeb(dev, 0x203, 0x48);
+
+		for (i = 0; i < 4; i++) {
+			tw_writel(TW5864_FRAME_HEIGHT_BUS_A(i), 0x23f);
+			tw_writel(TW5864_FRAME_HEIGHT_BUS_B(i), 0x23f);
+		}
+	}
+
+
+
 
 #if 0
 	u8 indir_0x0Ne = tw_indir_readb(dev, 0x00e + input_number * 0x010);

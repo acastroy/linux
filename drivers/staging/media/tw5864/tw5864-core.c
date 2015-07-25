@@ -462,11 +462,6 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	tw_writel(TW5864_MV_STREAM_BASE_ADDR, dev->h264_mv_buf[0].dma_addr);
 	tw_indir_writeb(dev, 0xefc, 0x00);
 
-	int i;
-	for (i = 0xC100; i <= 0xC17C; i += 8) {
-		tw_writel(i, 1);
-		tw_writel(i + 4, 1);
-	}
 #if 0
 	tw_indir_writeb(dev, 0x00E, 0x0f /* ATREG=1, //PAL */);
 	// maybe just tw_indir_writeb(dev, 0x00f, 0x80); // to initiate auto format recognition
@@ -493,24 +488,9 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	tw_indir_writeb(dev, 0x260, 0x01 /* PAL */);
 #endif
 
-	tw_writel(0xc020, 0);
-	tw_writel(0xc024, 0);
-	
 	tw_indir_writeb(dev, 0x00e, 0x07);
 	tw_indir_writeb(dev, 0x00f, 0xff); // to initiate auto format recognition
 
-	tw_indir_writeb(dev, 0x200, 0xb4);
-	tw_indir_writeb(dev, 0x201, 0x48);
-	tw_indir_writeb(dev, 0x202, 0xb4);
-	tw_indir_writeb(dev, 0x203, 0x48);
-
-	tw_writel(0x0d10, 0x2cf);
-	tw_writel(0x0d14, 0x2cf);
-	tw_writel(0x0d18, 0x23f);
-	tw_writel(0x0d1c, 0x23f);
-
-
-	//tw_writel(TW5864_PCI_PV_CH_EN, 0x0001);
 	tw_writel(TW5864_SEN_EN_CH, 0x0001);
 
 	tw_writel(0x00000D00,0x00000017);
