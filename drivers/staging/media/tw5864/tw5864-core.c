@@ -460,15 +460,7 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 #endif
 	tw_writel(TW5864_VLC_STREAM_BASE_ADDR, dev->h264_vlc_buf[0].dma_addr);
 	tw_writel(TW5864_MV_STREAM_BASE_ADDR, dev->h264_mv_buf[0].dma_addr);
-	w(TW5864_MOTION_SEARCH_ETC,0x00000008);
 	tw_indir_writeb(dev, 0xefc, 0x00);
-	// set real bitalign
-	int bitalign_32;
-	bitalign_32 = 0;
-	w(TW5864_VLC, (tw_readl(TW5864_VLC) & ~TW5864_VLC_BIT_ALIGN_MASK)
-			| ((bitalign_32 << TW5864_VLC_BIT_ALIGN_SHIFT) & TW5864_VLC_BIT_ALIGN_MASK)
-			);
-
 
 	int i;
 	for (i = 0xC100; i <= 0xC17C; i += 8) {
