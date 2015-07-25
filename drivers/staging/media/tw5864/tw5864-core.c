@@ -243,10 +243,7 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 				tw_writel(TW5864_SLICE,0x00000000);
 			}
 		}
-
 		tw_writel(TW5864_PCI_INTR_STATUS,TW5864_TIMER_INTR);
-
-
 	}
 
 	if (!(status & (TW5864_INTR_TIMER | TW5864_INTR_VLC_DONE))){
@@ -414,13 +411,6 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	/* Enable interrupts */
 	tw5864_interrupts_enable(dev);
 
-
-
-
-
-
-
-
 	dev->debugfs_dir = debugfs_create_dir(dev->name, NULL);
 	err = tw5864_video_init(dev, video_nr);
 	if (err)
@@ -438,8 +428,6 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 
 	dev_info(&dev->pci->dev, "hi everybody, it's info\n");
 	dev_dbg(&dev->pci->dev, "hi everybody, it's debug\n");
-
-
 
 	WriteForwardQuantizationTable(dev);
 	WriteInverseQuantizationTable(dev);

@@ -93,8 +93,6 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 		return -1;
 	}
 
-
-
 	if (tw_readl(TW5864_VLC_BUF))
 		tw_writel(TW5864_VLC_BUF, tw_readl(TW5864_VLC_BUF) & 0x0f);
 
@@ -115,13 +113,10 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	tw_writel(TW5864_PCI_INTR_CTL, TW5864_PREV_MAST_ENB | TW5864_PREV_OVERFLOW_ENB | TW5864_TIMER_INTR_ENB | TW5864_PCI_MAST_ENB | (1<<1)  /* TODO try TW5864_MVD_VLC_MAST_ENB*/ /*0x00000073*/);
 	tw_writel(TW5864_MASTER_ENB_REG,TW5864_PCI_VLC_INTR_ENB | TW5864_PCI_PREV_INTR_ENB | TW5864_PCI_PREV_OF_INTR_ENB/*0x00000032*/);
 
-
-
 	tw_indir_writeb(dev, 0x200, 0xb4); // indir in width/4
 #if 1 // D1
 	tw_indir_writeb(dev, 0x202, 0xb4); // indir out width/4
 #endif
-
 
 	if (fmt == 0x00 /* NTSC */) {
 		tw_indir_writeb(dev, 0x201, 0x3c);
@@ -142,10 +137,6 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 			tw_writel(TW5864_FRAME_HEIGHT_BUS_B(i), 0x23f);
 		}
 	}
-
-
-
-
 
 	spin_lock_irqsave(&dev->slock, flags);
 	dev->inputs[input_number].enabled = 1;
