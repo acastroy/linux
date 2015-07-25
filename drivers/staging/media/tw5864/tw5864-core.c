@@ -202,25 +202,30 @@ w(TW5864_UNDEF_REG_0x1807C,0x00000000); /* chip f5880300 */ /* in ISR */
 w(TW5864_VLC_DSP_INTR,0x00000001); /* chip f5880300 */ /* in ISR */
 w(TW5864_PCI_INTR_STATUS, TW5864_VLC_DONE_INTR);
 spin_lock_irqsave(&dev->slock, flags);
+if (dev->inputs[0].enabled)
+	dev->inputs[0].timer_must_readd_encoding_irq = 1;
 dev->irqmask &= ~TW5864_INTR_VLC_DONE;
 tw5864_irqmask_apply(dev);
 spin_unlock_irqrestore(&dev->slock, flags);
 	}
 	
 	if (status & TW5864_INTR_TIMER) {
-		int enabled;
-		unsigned long irqmask;
+		int timer_must_readd_encoding_irq;
 
 		spin_lock_irqsave(&dev->slock, flags);
-		enabled = dev->inputs[0].enabled;
-		irqmask = dev->irqmask;
+		timer_must_readd_encoding_irq = dev->inputs[0].timer_must_readd_encoding_irq;
 		spin_unlock_irqrestore(&dev->slock, flags);
 
-		if (enabled && !(irqmask & TW5864_INTR_VLC_DONE)) {
+		if (timer_must_readd_encoding_irq) {
+			// TODO Replace condition with TW5864_SENIF_ORG_FRM_PTR1 value check
 			dev->timers_with_vlc_disabled++;
 			if (dev->timers_with_vlc_disabled > 10) {
 				dev_dbg(&dev->pci->dev, "enabling VLC irq again\n");
 				dev->timers_with_vlc_disabled = 0;
+
+				spin_lock_irqsave(&dev->slock, flags);
+				dev->inputs[0].timer_must_readd_encoding_irq = 0;
+				spin_unlock_irqrestore(&dev->slock, flags);
 
 				if (tw_readl(TW5864_VLC_BUF))
 					tw_writel(TW5864_VLC_BUF, tw_readl(TW5864_VLC_BUF) & 0x0f);

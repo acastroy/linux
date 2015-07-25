@@ -278,6 +278,7 @@ static int tw5864_g_fmt_vid_cap(struct file *file, void *priv,
 		dev_err(&dev->root->pci->dev, "Video format detection done, no valid video format\n");
 		return -1;
 	}
+	// TODO FIXME shift fmt by 4 bits to right, in all occurances
 
 	f->fmt.pix.width = 720;
 	switch (fmt) {
