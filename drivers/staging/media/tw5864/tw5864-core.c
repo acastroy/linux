@@ -196,8 +196,6 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		}
 		// End TODO
 
-		w(TW5864_UNDEF_REG_0x1807C,0x00000004);
-		w(TW5864_UNDEF_REG_0x1807C,0x00000000);
 		w(TW5864_VLC_DSP_INTR,0x00000001);
 		w(TW5864_PCI_INTR_STATUS, TW5864_VLC_DONE_INTR);
 		spin_lock_irqsave(&dev->slock, flags);
