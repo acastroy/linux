@@ -53,15 +53,6 @@
 	V4L2_STD_NTSC    | V4L2_STD_PAL       | V4L2_STD_SECAM    | \
 	V4L2_STD_PAL_M   | V4L2_STD_PAL_Nc    | V4L2_STD_PAL_60)
 
-#if 0
-#define	TW5864_VID_INTS	(TW5864_FFERR | TW5864_PABORT | TW5864_DMAPERR | \
-			 TW5864_FFOF   | TW5864_DMAPI)
-#define	TW5864_VID_INTSX	(TW5864_FDMIS | TW5864_HLOCK | TW5864_VLOCK)
-
-#define	TW5864_I2C_INTS	(TW5864_SBERR | TW5864_SBDONE | TW5864_SBERR2  | \
-			 TW5864_SBDONE2)
-#endif
-
 typedef struct h264_stream_t h264_stream_t;
 
 /* ----------------------------------------------------------- */
@@ -122,11 +113,6 @@ struct tw5864_buf {
 	struct list_head list;
 
 	unsigned int   size;
-#if 0
-	__le32         *cpu;
-	__le32         *jmp;
-	dma_addr_t     dma;
-#endif
 };
 
 struct tw5864_fmt {
@@ -204,17 +190,6 @@ struct tw5864_dev {
 #define tw_writel(reg, value) writel((value), dev->mmio + reg)
 #define tw_writew(reg, value) writel((value), dev->mmio + reg)
 #define	tw_writeb(reg, value) writel((value), dev->mmio + reg)
-#if 0
-#define tw_andorl(reg, mask, value) \
-		tw_writel((reg), (tw_readl(reg) & ~(mask)) |\
-		((value) & (mask)))
-#define tw_andorw(reg, mask, value) \
-		tw_writew((reg), (tw_readw(reg) & ~(mask)) |\
-		((value) & (mask)))
-#define tw_andorb(reg, mask, value) \
-		tw_writeb((reg), (tw_readb(reg) & ~(mask)) |\
-		((value) & (mask)))
-#endif
 #define	tw_setl(reg, bit)	tw_writel((reg), tw_readl(reg) | (bit))
 #define	tw_setw(reg, bit)	tw_writel((reg), tw_readl(reg) | (bit))
 #define	tw_setb(reg, bit)	tw_writel((reg), tw_readl(reg) | (bit))
@@ -260,18 +235,6 @@ static u8 tw_indir_readb(struct tw5864_dev *dev, u16 addr) {
 
 #include "w.c"
 
-// Don't do any writes, so that we take intact regs dump
-#if 0
-#define tw_writel(reg, value)
-#define tw_writew(reg, value)
-#define	tw_writeb(reg, value)
-#define	tw_setl(reg, bit)
-#define	tw_setw(reg, bit)
-#define	tw_setb(reg, bit)
-#define	tw_clearl(reg, bit)
-#define	tw_clearw(reg, bit)
-#define	tw_clearb(reg, bit)
-#endif
 /* ----------------------------------------------------------- */
 /* tw5864-video.c                                                */
 
@@ -287,18 +250,6 @@ h264_stream_t *tw5864_h264_init(void);
 void tw5864_h264_destroy(h264_stream_t *h);
 void tw5864_h264_put_stream_header(h264_stream_t* h, u8 **buf, size_t *space_left, int qp);
 void tw5864_h264_put_slice_header(h264_stream_t* h, u8 **buf, size_t *space_left, unsigned int idr_pic_id, unsigned int frame_seqno_in_gop);
-#if 0
-int tw5864_video_start_dma(struct tw5864_dev *dev, struct tw5864_buf *buf);
-
-/* ----------------------------------------------------------- */
-/* tw5864-risc.c                                                 */
-
-int tw5864_risc_buffer(struct pci_dev *pci, struct tw5864_buf *buf,
-	struct scatterlist *sglist, unsigned int top_offset,
-	unsigned int bottom_offset, unsigned int bpl,
-	unsigned int padding, unsigned int lines);
-
-#endif
 
 static const unsigned int   Lambda_lookup_table[52] =
 {
