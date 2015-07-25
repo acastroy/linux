@@ -469,6 +469,7 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	tw_writel(0x0000A000,0x000000C5);
 	tw_writel(0x0000A800,0x000000C5);
 
+	tw_writel(0x040c, 0x18);
 	// TODO Set DDR self-test end flag in 0xA038?
 
 	return 0;
