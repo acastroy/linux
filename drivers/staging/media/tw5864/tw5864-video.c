@@ -95,7 +95,6 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 
 	//mutex_lock(&dev->lock);
 
-//#include "init6.c"
 	if (tw_readl(TW5864_VLC_BUF))
 		tw_writel(TW5864_VLC_BUF, tw_readl(TW5864_VLC_BUF) & 0x0f);
 
@@ -154,66 +153,6 @@ tw_writel(TW5864_SLICE,0x00000000);
 
 
 
-#if 0
-	u8 indir_0x0Ne = tw_indir_readb(dev, 0x00e + input_number * 0x010);
-	u8 fmt = indir_0x0Ne & 0x70;
-
-	if (indir_0x0Ne & 0x80) {
-		dev_err(&dev->pci->dev, "Video format detection is in progress, please wait\n");
-		return -EAGAIN;
-	}
-
-	if (fmt == 0x70) {
-		dev_err(&dev->pci->dev, "Video format detection done, no valid video format\n");
-		return -1;
-	}
-
-
-
-	tw_setl(TW5864_SEN_EN_CH, 1 << input_number);
-	tw_setl(TW5864_H264EN_CH_EN, 1 << input_number);
-	w(TW5864_DSP,0x00000A20);
-	tw_setl(TW5864_MASTER_ENB_REG, TW5864_PCI_VLC_INTR_ENB);
-	tw_setl(TW5864_PCI_INTR_CTL, TW5864_PCI_MAST_ENB | TW5864_MVD_VLC_MAST_ENB);
-	dev->irqmask |= TW5864_INTR_VLC_DONE;
-	tw_writel(TW5864_INTR_ENABLE_L, dev->irqmask & 0xffff);
-	tw_writel(TW5864_INTR_ENABLE_H, dev->irqmask >> 16);
-	tw_writel(TW5864_SLICE, 0x00000070);
-	tw_writel(TW5864_SLICE, 0x00008000);
-	tw_writel(TW5864_SLICE, 0x00000000);
-	w(TW5864_DSP_PIC_MAX_MB,0x00002D00 | (fmt==0x00 ? 0x1e : 0x24));
-	tw_writel(0x18044, 0xefff | (fmt==0 ? 0x1000 : 0));
-	tw_writel(TW5864_VLC, 0x8000 | 0x1a /* QP */);
-
-
-	// BUS 0 only setting with 0x0d1x
-	// TODO tune other buses
-	for (i = 0; i < 4; i++) {
-		tw_writel(TW5864_FRAME_WIDTH_BUS_A(i), 0x2cf);
-		tw_writel(TW5864_FRAME_WIDTH_BUS_B(i), 0x2cf);
-	}
-
-	tw_indir_writeb(dev, 0x200, 0xb4);
-	tw_indir_writeb(dev, 0x202, 0xb4);
-
-	if (fmt == 0x00 /* NTSC */) {
-		tw_indir_writeb(dev, 0x201, 0x3c);
-		tw_indir_writeb(dev, 0x203, 0x3c);
-
-		for (i = 0; i < 4; i++) {
-			tw_writel(TW5864_FRAME_HEIGHT_BUS_A(i), 0x1df);
-			tw_writel(TW5864_FRAME_HEIGHT_BUS_B(i), 0x1df);
-		}
-	} else {
-		tw_indir_writeb(dev, 0x201, 0x48);
-		tw_indir_writeb(dev, 0x203, 0x48);
-
-		for (i = 0; i < 4; i++) {
-			tw_writel(TW5864_FRAME_HEIGHT_BUS_A(i), 0x23f);
-			tw_writel(TW5864_FRAME_HEIGHT_BUS_B(i), 0x23f);
-		}
-	}
-#endif
 
 	//mutex_unlock(&dev->lock);
 	return 0;
