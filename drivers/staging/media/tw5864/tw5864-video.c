@@ -98,10 +98,10 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	if (tw_readl(TW5864_VLC_BUF))
 		tw_writel(TW5864_VLC_BUF, tw_readl(TW5864_VLC_BUF) & 0x0f);
 
-tw_writel(TW5864_DSP_ENC_ORG_PTR_REG,0x00000000); /* chip f5880300 */
-tw_writel(TW5864_DSP_CODEC,0x00000000); /* chip f5880300 */
-tw_writel(TW5864_DSP_ENC_REC,0x00000003); /* chip f5880300 */
-//w(TW5864_DSP_SKIP,0x00000000); /* chip f5880300 */
+tw_writel(TW5864_DSP_ENC_ORG_PTR_REG,0x00000000);
+tw_writel(TW5864_DSP_CODEC,0x00000000);
+tw_writel(TW5864_DSP_ENC_REC,0x00000003);
+//w(TW5864_DSP_SKIP,0x00000000);
 
 tw_writel(TW5864_VLC, TW5864_VLC_PCI_SEL | (0x19 /* bitalign */ << 8) | QP_VALUE /* 0x0000991C */);
 
