@@ -235,8 +235,6 @@ static u8 tw_indir_readb(struct tw5864_dev *dev, u16 addr) {
 	return data & 0xff;
 }
 
-#include "w.c"
-
 /* ----------------------------------------------------------- */
 /* tw5864-video.c                                                */
 
