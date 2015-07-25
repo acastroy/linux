@@ -277,6 +277,7 @@ static u8 tw_indir_readb(struct tw5864_dev *dev, u16 addr) {
 
 void tw5864_set_tvnorm_hw(struct tw5864_dev *dev);
 
+void tw5864_irqmask_apply(struct tw5864_dev *dev);
 void pci_init_ad(struct tw5864_dev *dev);
 int tw5864_video_init(struct tw5864_dev *dev, int *video_nr);
 int tw5864_video_init_reg_fucking(struct tw5864_dev *dev, int *video_nr);

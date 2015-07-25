@@ -81,6 +81,12 @@ static void tw5864_interrupts_enable(struct tw5864_dev *dev)
 	mutex_unlock(&dev->lock);
 }
 
+void tw5864_irqmask_apply(struct tw5864_dev *dev)
+{
+	tw_writew(TW5864_INTR_ENABLE_L, dev->irqmask & 0xffff);
+	tw_writew(TW5864_INTR_ENABLE_H, (dev->irqmask >> 16));
+}
+
 static void tw5864_interrupts_disable(struct tw5864_dev *dev)
 {
 	mutex_lock(&dev->lock);
