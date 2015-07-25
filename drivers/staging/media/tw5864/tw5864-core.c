@@ -450,19 +450,8 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	WriteForwardQuantizationTable(dev);
 	WriteInverseQuantizationTable(dev);
 	WriteEncodeVLCLookupTable(dev);
-
 	pci_init_ad(dev);
-//#include "init_no_i2c.c"
-//#if 0
-//#include "init2.c"
-//#include "init3.c"
-//#if 0
-//#include "init4.c"
-//#include "init5.c"
-//#include "init6.c"
-#if 0
-//#include "init7.c"
-#endif
+
 	tw_writel(TW5864_VLC_STREAM_BASE_ADDR, dev->h264_vlc_buf[0].dma_addr);
 	tw_writel(TW5864_MV_STREAM_BASE_ADDR, dev->h264_mv_buf[0].dma_addr);
 	tw_indir_writeb(dev, 0xefc, 0x00);
