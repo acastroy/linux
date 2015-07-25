@@ -107,9 +107,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	tw_writel(TW5864_DSP_QP, QP_VALUE);
 	tw_writel(TW5864_DSP_REF_MVP_LAMBDA,Lambda_lookup_table[QP_VALUE]);
 	tw_writel(TW5864_INTERLACING, TW5864_DI_EN);
-	tw_writel(TW5864_UNDEF_REG_0x0008,0x00000000);
 	tw_writel(TW5864_EMU_EN_VARIOUS_ETC,TW5864_EMU_EN_LPF | TW5864_EMU_EN_BHOST | TW5864_EMU_EN_SEN | TW5864_EMU_EN_ME | TW5864_EMU_EN_DDR);
-	tw_writel(TW5864_UNDEF_REG_0x0008,0x00000800);
 	tw_writel(TW5864_DSP_I4x4_WEIGHT,Intra4X4_Lambda3[QP_VALUE]);
 	tw_writel(TW5864_DSP_INTRA_MODE,0x00000070);
 	tw_writel(TW5864_DSP, 0 /* channel id */ | TW5864_DSP_CHROM_SW | ((0xa << 8) & TW5864_DSP_MB_DELAY) /* 0x00000A20 */);
