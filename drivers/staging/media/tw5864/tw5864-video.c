@@ -206,10 +206,14 @@ static int tw5864_start_streaming(struct vb2_queue *q, unsigned int count)
 
 static void tw5864_stop_streaming(struct vb2_queue *q)
 {
+	unsigned long flags;
 	struct tw5864_input *input = vb2_get_drv_priv(q);
 
 	tw5864_disable_input(input->root, input->input_number);
 
+	spin_lock_irqsave(&input->slock, flags);
+	if (input->vb)
+		vb2_buffer_done(&input->vb->vb, VB2_BUF_STATE_ERROR);
 	while (!list_empty(&input->active)) {
 		struct tw5864_buf *buf =
 			container_of(input->active.next, struct tw5864_buf, list);
@@ -217,6 +221,7 @@ static void tw5864_stop_streaming(struct vb2_queue *q)
 		list_del(&buf->list);
 		vb2_buffer_done(&buf->vb, VB2_BUF_STATE_ERROR);
 	}
+	spin_unlock_irqrestore(&input->slock, flags);
 	tw5864_h264_destroy(input->h264);
 	input->h264 = NULL;
 }
