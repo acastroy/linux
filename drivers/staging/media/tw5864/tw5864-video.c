@@ -720,7 +720,7 @@ void tw5864_prepare_frame_headers(struct tw5864_input *input)
 	input->vb = vb;
 	input->buf_cur_ptr = dst;
 	input->buf_cur_space_left = dst_space;
-	dev_dbg(&dev->pci->dev, "Tail: %d bits, 0x%02x\n", input->tail_nb_bits, input->tail);
+	dev_dbg(&dev->pci->dev, "Prepared slice header for frame #%d in GOP #%d. Tail: %d bits, 0x%02x\n", input->h264_frame_seqno_in_gop, input->h264_idr_pic_id, input->tail_nb_bits, input->tail);
 }
 
 void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len)
