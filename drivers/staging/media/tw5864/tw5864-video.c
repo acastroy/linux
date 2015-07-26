@@ -745,6 +745,8 @@ void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len)
 	for (i = 0; i < 8 - input->tail_nb_bits; i++)
 		vlc_mask |= 1 << i;
 	tail_mask = (~vlc_mask) & 0xff;
+
+	tail_mask = vlc_mask = 0xff;
 	u8 vlc_first_byte = ((u8 *)(dev->h264_vlc_buf[0].addr + skip_bytes))[0];
 	dst[0] = (input->tail & tail_mask) | (vlc_first_byte  & vlc_mask );
 	skip_bytes++;
