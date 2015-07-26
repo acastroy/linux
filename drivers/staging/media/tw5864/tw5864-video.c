@@ -720,6 +720,7 @@ void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len)
 	struct tw5864_buf *vb = input->vb;
 	if (!vb)
 		return;
+	input->vb = NULL;
 	u8 *dst = input->buf_cur_ptr;
 	unsigned long dst_size = vb2_plane_size(&vb->vb, 0);
 	unsigned long dst_space = input->buf_cur_space_left;
@@ -735,9 +736,8 @@ void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len)
 	memcpy(dst, dev->h264_vlc_buf[0].addr + skip_bytes, frame_len);
 	dst_space -= frame_len;
 	vb2_set_plane_payload(&vb->vb, 0, dst_size - dst_space);
-end:
-	if (vb)
-		vb2_buffer_done(&vb->vb, VB2_BUF_STATE_DONE);
+
+	vb2_buffer_done(&vb->vb, VB2_BUF_STATE_DONE);
 }
 
 v4l2_std_id tw5864_get_v4l2_std(enum tw5864_vid_std std)
