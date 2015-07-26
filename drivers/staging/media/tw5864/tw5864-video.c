@@ -104,7 +104,6 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	tw_writel(TW5864_DSP_CODEC,0x00000000);
 	tw_writel(TW5864_DSP_ENC_REC,0x00000003);
 
-	tw_writel(TW5864_VLC, TW5864_VLC_PCI_SEL | ((input->tail_nb_bits + 24) << TW5864_VLC_BIT_ALIGN_SHIFT) | QP_VALUE);
 
 	tw_writel(TW5864_DSP_QP, QP_VALUE);
 	tw_writel(TW5864_DSP_REF_MVP_LAMBDA,Lambda_lookup_table[QP_VALUE]);
@@ -157,6 +156,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	}
 
 	tw5864_prepare_frame_headers(input);
+	tw_writel(TW5864_VLC, TW5864_VLC_PCI_SEL | ((input->tail_nb_bits + 24) << TW5864_VLC_BIT_ALIGN_SHIFT) | QP_VALUE);
 
 	spin_lock_irqsave(&dev->slock, flags);
 	dev->inputs[input_number].enabled = 1;
