@@ -156,7 +156,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	}
 
 	tw5864_prepare_frame_headers(input);
-	tw_writel(TW5864_VLC, TW5864_VLC_PCI_SEL | ((input->tail_nb_bits) << TW5864_VLC_BIT_ALIGN_SHIFT) | QP_VALUE);
+	tw_writel(TW5864_VLC, TW5864_VLC_PCI_SEL | ((input->tail_nb_bits + 24) << TW5864_VLC_BIT_ALIGN_SHIFT) | QP_VALUE);
 
 	spin_lock_irqsave(&dev->slock, flags);
 	dev->inputs[input_number].enabled = 1;
@@ -725,7 +725,7 @@ void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len)
 	u8 *dst = input->buf_cur_ptr;
 	unsigned long dst_size = vb2_plane_size(&vb->vb, 0);
 	unsigned long dst_space = input->buf_cur_space_left;
-	int skip_bytes = 0;
+	int skip_bytes = 3;
 	frame_len -= skip_bytes;  // skip first bytes of frame produced by hardware
 	if (WARN_ON_ONCE(dst_space < frame_len)) {
 		dev_err_once(&dev->pci->dev, "Left space in vb2 buffer %lu is insufficient for frame length %lu, writing truncated frame\n", dst_space, frame_len);
