@@ -167,6 +167,11 @@ struct tw5864_input {
 	int discard_frames;
 	enum tw5864_vid_std     std;
 	v4l2_std_id             v4l2_std;
+	int tail_nb_bits;
+	u8 tail;
+	u8 *buf_cur_ptr;
+	int buf_cur_space_left;
+	struct tw5864_buf *vb;
 };
 
 /* global device status */
@@ -262,11 +267,12 @@ void pci_init_ad(struct tw5864_dev *dev);
 int tw5864_video_init(struct tw5864_dev *dev, int *video_nr);
 int tw5864_video_init_reg_fucking(struct tw5864_dev *dev, int *video_nr);
 void tw5864_video_fini(struct tw5864_dev *dev);
+void tw5864_prepare_frame_headers(struct tw5864_input *input);
 void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len);
 h264_stream_t *tw5864_h264_init(void);
 void tw5864_h264_destroy(h264_stream_t *h);
 void tw5864_h264_put_stream_header(h264_stream_t* h, u8 **buf, size_t *space_left, int qp, int width, int height);
-void tw5864_h264_put_slice_header(h264_stream_t* h, u8 **buf, size_t *space_left, unsigned int idr_pic_id, unsigned int frame_seqno_in_gop);
+void tw5864_h264_put_slice_header(h264_stream_t* h, u8 **buf, size_t *space_left, unsigned int idr_pic_id, unsigned int frame_seqno_in_gop, int *tail_nb_bits, u8 *tail);
 
 static const unsigned int   Lambda_lookup_table[52] =
 {

@@ -76,7 +76,7 @@ void tw5864_h264_put_stream_header(h264_stream_t* h, u8 **buf, size_t *space_lef
 	*space_left -= nal_len - 1;
 }
 
-void tw5864_h264_put_slice_header(h264_stream_t* h, u8 **buf, size_t *space_left, unsigned int idr_pic_id, unsigned int frame_seqno_in_gop)
+void tw5864_h264_put_slice_header(h264_stream_t* h, u8 **buf, size_t *space_left, unsigned int idr_pic_id, unsigned int frame_seqno_in_gop, int *tail_nb_bits, u8 *tail)
 {
 	u8 nal_buf[64] = {0, };  /* Because of h264bitstream freaking behaviour, it adds zero byte in front of generated NAL header FIXME */
 	int nal_len;
@@ -103,7 +103,7 @@ void tw5864_h264_put_slice_header(h264_stream_t* h, u8 **buf, size_t *space_left
 	h->sh->drpm.long_term_reference_flag = 0;
 	h->sh->slice_qp_delta = 0;
 
-	nal_len = write_nal_unit(h, nal_buf, sizeof(nal_buf));
+	nal_len = write_nal_unit_and_return_tail(h, nal_buf, sizeof(nal_buf), tail_nb_bits, tail);
 	WARN_ON_ONCE(nal_len >= sizeof(nal_buf));
 	memcpy(*buf, nal_buf + 1, nal_len - 1);
 	*buf += nal_len - 1;

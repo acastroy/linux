@@ -104,7 +104,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	tw_writel(TW5864_DSP_CODEC,0x00000000);
 	tw_writel(TW5864_DSP_ENC_REC,0x00000003);
 
-	tw_writel(TW5864_VLC, TW5864_VLC_PCI_SEL | (BITALIGN_VALUE_IN_INIT << TW5864_VLC_BIT_ALIGN_SHIFT) | QP_VALUE);
+	tw_writel(TW5864_VLC, TW5864_VLC_PCI_SEL | ((input->tail_nb_bits + 24) << TW5864_VLC_BIT_ALIGN_SHIFT) | QP_VALUE);
 
 	tw_writel(TW5864_DSP_QP, QP_VALUE);
 	tw_writel(TW5864_DSP_REF_MVP_LAMBDA,Lambda_lookup_table[QP_VALUE]);
@@ -198,6 +198,7 @@ static int tw5864_start_streaming(struct vb2_queue *q, unsigned int count)
 	tw_writel(TW5864_DSP_REF, (tw_readl(TW5864_DSP_REF) & ~TW5864_DSP_REF_FRM) | input->h264_idr_pic_id);
 	input->h264_frame_seqno_in_gop = 0;
 	input->h264 = tw5864_h264_init();
+	tw5864_prepare_frame_headers(input);
 	tw5864_enable_input(input->root, input->input_number);
 	return 0;
 }
@@ -678,7 +679,8 @@ void tw5864_video_fini(struct tw5864_dev *dev)
 	}
 }
 
-void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len) {
+void tw5864_prepare_frame_headers(struct tw5864_input *input)
+{
 	struct tw5864_dev *dev = input->root;
 	struct tw5864_buf *vb = NULL;
 	u8 *dst;
@@ -687,11 +689,15 @@ void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len) {
 	int skip_bytes = 3;
 
 	spin_lock(&input->slock);
-	if (list_empty(&input->active))
-		goto end;
+	if (list_empty(&input->active)) {
+		spin_unlock(&input->slock);
+		input->vb = NULL;
+		return;
+	}
 
 	vb = list_first_entry(&input->active, struct tw5864_buf, list);
 	list_del(&vb->list);
+	spin_unlock(&input->slock);
 	dst = vb2_plane_vaddr(&vb->vb, 0);
 	dst_size = vb2_plane_size(&vb->vb, 0);
 	dst_space = dst_size;
@@ -702,18 +708,34 @@ void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len) {
 		tw5864_h264_put_stream_header(input->h264, &dst, &dst_space, QP_VALUE, input->width, input->height);
 
 	// Put slice header
-	tw5864_h264_put_slice_header(input->h264, &dst, &dst_space, input->h264_idr_pic_id, input->h264_frame_seqno_in_gop);
+	tw5864_h264_put_slice_header(input->h264, &dst, &dst_space, input->h264_idr_pic_id, input->h264_frame_seqno_in_gop, &input->tail_nb_bits, &input->tail);
+	input->vb = vb;
+	input->buf_cur_ptr = dst;
+	input->buf_cur_space_left = dst_space;
+}
 
+void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len)
+{
+	struct tw5864_dev *dev = input->root;
+	struct tw5864_buf *vb = input->vb;
+	if (!vb)
+		return;
+	u8 *dst = input->buf_cur_ptr;
+	unsigned long dst_size = vb2_plane_size(&vb->vb, 0);
+	unsigned long dst_space = input->buf_cur_space_left;
+	int skip_bytes = 3;
 	frame_len -= skip_bytes;  // skip first bytes of frame produced by hardware
 	if (WARN_ON_ONCE(dst_space < frame_len)) {
 		dev_err_once(&dev->pci->dev, "Left space in vb2 buffer %lu is insufficient for frame length %lu, writing truncated frame\n", dst_space, frame_len);
 		frame_len = dst_space;
 	}
+	dst[0] = input->tail | ((u8 *)(dev->h264_vlc_buf[0].addr + skip_bytes))[0];
+	skip_bytes++;
+	frame_len--;
 	memcpy(dst, dev->h264_vlc_buf[0].addr + skip_bytes, frame_len);
 	dst_space -= frame_len;
 	vb2_set_plane_payload(&vb->vb, 0, dst_size - dst_space);
 end:
-	spin_unlock(&input->slock);
 	if (vb)
 		vb2_buffer_done(&vb->vb, VB2_BUF_STATE_DONE);
 }
