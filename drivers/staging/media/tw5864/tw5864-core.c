@@ -177,10 +177,10 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 			tw5864_handle_frame(input, vlc_len);
 			input->frame_seqno++;
 			input->h264_frame_seqno_in_gop++;
-			tw5864_prepare_frame_headers(input);
 		} else {
 			input->discard_frames--;
 		}
+		tw5864_prepare_frame_headers(input);
 		// TODO Do whatever needed, e.g. dump contents elsewhere
 		dma_sync_single_for_device(&dev->pci->dev, dev->h264_vlc_buf[0].dma_addr, H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
 		//dma_sync_single_for_device(&dev->pci->dev, dev->h264_mv_buf[0].dma_addr, H264_MV_BUF_SIZE, DMA_FROM_DEVICE);

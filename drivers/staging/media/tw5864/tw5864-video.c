@@ -683,22 +683,24 @@ void tw5864_video_fini(struct tw5864_dev *dev)
 void tw5864_prepare_frame_headers(struct tw5864_input *input)
 {
 	struct tw5864_dev *dev = input->root;
-	struct tw5864_buf *vb = NULL;
+	struct tw5864_buf *vb = input->vb;
 	u8 *dst;
 	unsigned long dst_size;
 	unsigned long dst_space;
 	int skip_bytes = 3;
 
-	spin_lock(&input->slock);
-	if (list_empty(&input->active)) {
+	if (!vb) {
+		spin_lock(&input->slock);
+		if (list_empty(&input->active)) {
+			spin_unlock(&input->slock);
+			input->vb = NULL;
+			return;
+		}
+		vb = list_first_entry(&input->active, struct tw5864_buf, list);
+		list_del(&vb->list);
 		spin_unlock(&input->slock);
-		input->vb = NULL;
-		return;
 	}
 
-	vb = list_first_entry(&input->active, struct tw5864_buf, list);
-	list_del(&vb->list);
-	spin_unlock(&input->slock);
 	dst = vb2_plane_vaddr(&vb->vb, 0);
 	dst_size = vb2_plane_size(&vb->vb, 0);
 	dst_space = dst_size;
@@ -720,8 +722,7 @@ void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len)
 {
 	struct tw5864_dev *dev = input->root;
 	struct tw5864_buf *vb = input->vb;
-	if (!vb)
-		return;
+	WARN_ON(!vb);
 	input->vb = NULL;
 	u8 *dst = input->buf_cur_ptr;
 	unsigned long dst_size = vb2_plane_size(&vb->vb, 0);
