@@ -102,7 +102,7 @@ struct tw5864_format {
 #define QP_VALUE 28
 #define BITALIGN_VALUE_IN_TIMER 0
 #define BITALIGN_VALUE_IN_INIT 0
-#define GOP_SIZE 4
+#define GOP_SIZE 8
 
 
 /* ----------------------------------------------------------- */
