@@ -156,6 +156,8 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 		tw_writel(TW5864_H264EN_RATE_MAX_LINE_REG2, 0x318);
 	}
 
+	tw5864_prepare_frame_headers(input);
+
 	spin_lock_irqsave(&dev->slock, flags);
 	dev->inputs[input_number].enabled = 1;
 	dev->irqmask |= TW5864_INTR_VLC_DONE | TW5864_INTR_PV_OVERFLOW | TW5864_INTR_TIMER | TW5864_INTR_AUD_EOF;
@@ -198,7 +200,6 @@ static int tw5864_start_streaming(struct vb2_queue *q, unsigned int count)
 	tw_writel(TW5864_DSP_REF, (tw_readl(TW5864_DSP_REF) & ~TW5864_DSP_REF_FRM) | input->h264_idr_pic_id);
 	input->h264_frame_seqno_in_gop = 0;
 	input->h264 = tw5864_h264_init();
-	tw5864_prepare_frame_headers(input);
 	tw5864_enable_input(input->root, input->input_number);
 	return 0;
 }
