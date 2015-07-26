@@ -175,9 +175,9 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 
 		if (!input->discard_frames) {
 			tw5864_handle_frame(input, vlc_len);
-			tw5864_prepare_frame_headers(input);
 			input->frame_seqno++;
 			input->h264_frame_seqno_in_gop++;
+			tw5864_prepare_frame_headers(input);
 		} else {
 			input->discard_frames--;
 			input->frame_seqno = 0;

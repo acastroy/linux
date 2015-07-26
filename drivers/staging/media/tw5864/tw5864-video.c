@@ -731,9 +731,17 @@ void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len)
 		dev_err_once(&dev->pci->dev, "Left space in vb2 buffer %lu is insufficient for frame length %lu, writing truncated frame\n", dst_space, frame_len);
 		frame_len = dst_space;
 	}
-	dst[0] = input->tail | ((u8 *)(dev->h264_vlc_buf[0].addr + skip_bytes))[0];
+	u8 tail_mask = 0xff, vlc_mask = 0;
+	int i;
+	for (i = 0; i < 8 - input->tail_nb_bits; i++)
+		vlc_mask |= 1 << i;
+	tail_mask = (~vlc_mask) & 0xff;
+	u8 vlc_first_byte = ((u8 *)(dev->h264_vlc_buf[0].addr + skip_bytes))[0];
+	dst[0] = (input->tail & tail_mask) | (vlc_first_byte  & vlc_mask );
 	skip_bytes++;
 	frame_len--;
+	dst++;
+	dst_space--;
 	memcpy(dst, dev->h264_vlc_buf[0].addr + skip_bytes, frame_len);
 	dst_space -= frame_len;
 	vb2_set_plane_payload(&vb->vb, 0, dst_size - dst_space);
