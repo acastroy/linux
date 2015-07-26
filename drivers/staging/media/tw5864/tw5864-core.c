@@ -176,7 +176,6 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		if (!input->discard_frames) {
 			tw5864_handle_frame(input, vlc_len);
 			input->frame_seqno++;
-			input->h264_frame_seqno_in_gop++;
 		} else {
 			input->discard_frames--;
 		}
@@ -203,6 +202,7 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 #endif
 		} else {
 			tw_writel(TW5864_MOTION_SEARCH_ETC,0x0000008C);
+			input->h264_frame_seqno_in_gop++;
 		}
 		// End TODO
 
