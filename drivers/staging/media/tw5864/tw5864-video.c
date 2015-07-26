@@ -102,7 +102,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 
 	tw_writel(TW5864_DSP_ENC_ORG_PTR_REG,0x00000000);
 	tw_writel(TW5864_DSP_CODEC,0x00000000);
-	tw_writel(TW5864_DSP_ENC_REC,0x00000003);
+	tw_writel(TW5864_DSP_ENC_REC,0x00000000);
 
 
 	tw_writel(TW5864_DSP_QP, QP_VALUE);
