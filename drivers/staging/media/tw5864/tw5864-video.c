@@ -100,6 +100,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	if (tw_readl(TW5864_VLC_BUF))
 		tw_writel(TW5864_VLC_BUF, tw_readl(TW5864_VLC_BUF) & 0x0f);
 
+	tw_setl(TW5864_SEN_EN_CH, 1 << input_number);
 	tw_writel(TW5864_DSP_ENC_ORG_PTR_REG,0x00000000);
 	tw_writel(TW5864_DSP_CODEC,0x00000000);
 	tw_writel(TW5864_DSP_ENC_REC,0x00000000);
