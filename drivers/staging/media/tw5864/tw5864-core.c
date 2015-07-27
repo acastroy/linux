@@ -388,7 +388,7 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 
 	pci_set_master(pci_dev);
 
-	if ((pci_name(pci_dev))[9] != '4')
+	if (((pci_name(pci_dev))[9] != '4') && ((pci_name(pci_dev))[9] != '5'))
 		return -1;
 
 	/* FIXME: What exactly for is this needed? Which mask(s) this driver needs? */
