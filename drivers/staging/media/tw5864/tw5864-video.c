@@ -213,8 +213,10 @@ static void tw5864_stop_streaming(struct vb2_queue *q)
 	tw5864_disable_input(input->root, input->input_number);
 
 	spin_lock_irqsave(&input->slock, flags);
-	if (input->vb)
+	if (input->vb) {
 		vb2_buffer_done(&input->vb->vb, VB2_BUF_STATE_ERROR);
+		input->vb = NULL;
+	}
 	while (!list_empty(&input->active)) {
 		struct tw5864_buf *buf =
 			container_of(input->active.next, struct tw5864_buf, list);
@@ -727,12 +729,9 @@ void tw5864_prepare_frame_headers(struct tw5864_input *input)
 void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len)
 {
 	struct tw5864_dev *dev = input->root;
-	struct tw5864_buf *vb = input->vb;
-	WARN_ON(!vb);
-	input->vb = NULL;
-	u8 *dst = input->buf_cur_ptr;
-	unsigned long dst_size = vb2_plane_size(&vb->vb, 0);
-	unsigned long dst_space = input->buf_cur_space_left;
+	struct tw5864_buf *vb;
+	unsigned long dst_size;
+	unsigned long dst_space;
 	int skip_bytes = 3;
 
 	dev_dbg(&dev->pci->dev, "Total VLC bits: %u, residue: %u, bitalign: %u, our tail_nb_bits: %u\n",
@@ -742,6 +741,18 @@ void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len)
 			input->tail_nb_bits
 	       );
 
+	spin_lock(&input->slock);
+	vb = input->vb;
+	input->vb = NULL;
+	spin_unlock(&input->slock);
+
+	if (!vb)  /* Gone because of disabling */
+		return;
+
+	u8 *dst = input->buf_cur_ptr;
+	dst_size = vb2_plane_size(&vb->vb, 0);
+
+	dst_space = input->buf_cur_space_left;
 	frame_len -= skip_bytes;  // skip first bytes of frame produced by hardware
 	if (WARN_ON_ONCE(dst_space < frame_len)) {
 		dev_err_once(&dev->pci->dev, "Left space in vb2 buffer %lu is insufficient for frame length %lu, writing truncated frame\n", dst_space, frame_len);
