@@ -142,6 +142,10 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 		}
 		tw_writel(TW5864_H264EN_RATE_MAX_LINE_REG1, 0x3bd);
 		tw_writel(TW5864_H264EN_RATE_MAX_LINE_REG2, 0x3bd);
+
+		// Force special NTSC 50 Hz mode
+
+		tw_indir_writeb(dev, 0x053, 0xff);
 	} else {
 		input->height = 576;
 		tw_indir_writeb(dev, 0x201, 0x48);
