@@ -256,8 +256,13 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		tw_writel(TW5864_PCI_INTR_STATUS,TW5864_TIMER_INTR);
 	}
 
-	if (!(status & (TW5864_INTR_TIMER | TW5864_INTR_VLC_DONE))){
-		dev_dbg(&dev->pci->dev, "tw5864_isr: not timer and not vlc, status 0x%08X\n", status);
+	if (status & TW5864_INTR_AD_VSYNC) {
+		dev_dbg(&dev->pci->dev, "TW5864_INTR_AD_VSYNC\n");
+		tw_setl(TW5864_PCI_INTR_STATUS, TW5864_AD_VSYNC_INTR | TW5864_AD_INTR_REG);
+	}
+
+	if (!(status & (TW5864_INTR_TIMER | TW5864_INTR_VLC_DONE | TW5864_INTR_AD_VSYNC))){
+		dev_dbg(&dev->pci->dev, "tw5864_isr: unknown intr, status 0x%08X\n", status);
 	}
 
 
@@ -471,6 +476,9 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	tw_writel(0x040c, 0x18);
 	// TODO Set DDR self-test end flag in 0xA038?
 
+	tw_setl(TW5864_PCI_INTR_CTL, TW5864_AD_MAST_ENB | TW5864_AD_INTR_ENB);
+	dev->irqmask |= TW5864_INTR_AD_VSYNC | TW5864_INTR_TIMER;
+	tw5864_irqmask_apply(dev);
 	return 0;
 
 irq_req_fail:
