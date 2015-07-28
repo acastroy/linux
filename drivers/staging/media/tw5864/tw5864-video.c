@@ -165,7 +165,6 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	tw5864_irqmask_apply(dev);
 	spin_unlock_irqrestore(&dev->slock, flags);
 	tw_writel(TW5864_SLICE,0x00008000);
-	mdelay(10); // doesn't work stable without this
 	tw_writel(TW5864_SLICE,0x00000000);
 	return 0;
 }
