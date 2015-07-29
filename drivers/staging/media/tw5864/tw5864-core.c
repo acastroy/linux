@@ -474,10 +474,10 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	tw_writel(TW5864_CS2DAT_CNT, 1);
 	tw_writel(TW5864_DATA_VLD_WIDTH, 1);
 	tw_writel(TW5864_SPLL, 0x15);
-	tw_writel(0x09200, 0x0000cdef);
-	tw_writel(0x09204, 0x000089ab);
-	tw_writel(0x09208, 0x00004567);
-	tw_writel(0x0920c, 0x00000123);
+	tw_writel(0x09200, 0x00006540);
+	tw_writel(0x09204, 0x00009871);
+	tw_writel(0x09208, 0x0000cba2);
+	tw_writel(0x0920c, 0x0000fed3);
 
 	tw_writel(0x0000A000,0x000000C5);
 	tw_writel(0x0000A800,0x000000C5);
