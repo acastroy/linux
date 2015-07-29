@@ -261,7 +261,13 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		tw_setl(TW5864_PCI_INTR_STATUS, TW5864_AD_VSYNC_INTR | TW5864_AD_INTR_REG);
 	}
 
-	if (!(status & (TW5864_INTR_TIMER | TW5864_INTR_VLC_DONE | TW5864_INTR_AD_VSYNC))){
+	if (status & TW5864_INTR_PV_OVERFLOW) {
+		tw_writel(TW5864_PCI_INTR_STATUS, TW5864_PREV_OVERFLOW_INTR);
+		tw_writel(0xc02c, 1);
+
+	}
+
+	if (!(status & (TW5864_INTR_TIMER | TW5864_INTR_VLC_DONE | TW5864_INTR_AD_VSYNC | TW5864_INTR_PV_OVERFLOW))){
 		dev_dbg(&dev->pci->dev, "tw5864_isr: unknown intr, status 0x%08X\n", status);
 	}
 
