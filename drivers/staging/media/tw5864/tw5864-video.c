@@ -117,9 +117,9 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	tw_writel(TW5864_PCI_INTR_CTL, TW5864_PREV_MAST_ENB | TW5864_PREV_OVERFLOW_ENB | TW5864_TIMER_INTR_ENB | TW5864_PCI_MAST_ENB | (1<<1)  /* TODO try TW5864_MVD_VLC_MAST_ENB*/ /*0x00000073*/);
 	tw_writel(TW5864_MASTER_ENB_REG,TW5864_PCI_VLC_INTR_ENB | TW5864_PCI_PREV_INTR_ENB | TW5864_PCI_PREV_OF_INTR_ENB/*0x00000032*/);
 
-	tw_indir_writeb(dev, 0x200, 0xb4); // indir in width/4
-#if 1 // D1
-	tw_indir_writeb(dev, 0x202, 0xb4); // indir out width/4
+	tw_indir_writeb(dev, 0x200, 720 / 4); // indir in width/4
+#if 0 // D1
+	tw_indir_writeb(dev, 0x202, 720 / 4); // indir out width/4
 	input->width = 720;
 	for (i = 0; i < 4; i++) {
 		tw_writel(TW5864_FRAME_WIDTH_BUS_A(i), 0x2cf);
@@ -127,18 +127,36 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 		tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(i, input_number), 0xffff);
 		tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(i, input_number), 0x3fff);
 	}
+#else // CIF
+	tw_indir_writeb(dev, 0x202, 720 / 8); // indir out width/8
+	input->width = 720;
+	for (i = 0; i < 4; i++) {
+		tw_writel(TW5864_FRAME_WIDTH_BUS_A(i), 0x15f);
+		tw_writel(TW5864_FRAME_WIDTH_BUS_B(i), 0x15f);
+		tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(i, input_number), 0xffff);
+		tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(i, input_number), 0x3fff);
+	}
 #endif
 
 
 	if (std == STD_NTSC) {
+#if 0 // D1
 		input->height = 480;
-		tw_indir_writeb(dev, 0x201, 0x3c);
-		tw_indir_writeb(dev, 0x203, 0x3c);
-		tw_writel(TW5864_DSP_PIC_MAX_MB, ((720 / 16) << 8) | (480 / 16));
+#else
+		input->height = 240;
+#endif
+		tw_indir_writeb(dev, 0x201, input->height / 4);
+		tw_indir_writeb(dev, 0x203, input->height / 8);
+		tw_writel(TW5864_DSP_PIC_MAX_MB, ((input->width / 16) << 8) | (input->width / 16));
 
 		for (i = 0; i < 4; i++) {
+#if 0 // D1
 			tw_writel(TW5864_FRAME_HEIGHT_BUS_A(i), 0x1df);
 			tw_writel(TW5864_FRAME_HEIGHT_BUS_B(i), 0x1df);
+#else
+			tw_writel(TW5864_FRAME_HEIGHT_BUS_A(i), 0x0ef);
+			tw_writel(TW5864_FRAME_HEIGHT_BUS_B(i), 0x0ef);
+#endif
 		}
 		tw_writel(TW5864_H264EN_RATE_MAX_LINE_REG1, 0x3bd);
 		tw_writel(TW5864_H264EN_RATE_MAX_LINE_REG2, 0x3bd);
