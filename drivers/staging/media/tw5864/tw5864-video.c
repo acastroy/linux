@@ -180,7 +180,6 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	tw5864_prepare_frame_headers(input);
 	tw_writel(TW5864_VLC, TW5864_VLC_PCI_SEL | ((input->tail_nb_bits + 24) << TW5864_VLC_BIT_ALIGN_SHIFT) | QP_VALUE);
 
-	mdelay(1000);
 	spin_lock_irqsave(&dev->slock, flags);
 	dev->inputs[input_number].enabled = 1;
 	dev->irqmask |= TW5864_INTR_VLC_DONE | TW5864_INTR_PV_OVERFLOW | TW5864_INTR_TIMER | TW5864_INTR_AUD_EOF;
