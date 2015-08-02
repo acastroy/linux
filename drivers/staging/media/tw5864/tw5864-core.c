@@ -185,10 +185,12 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		//dma_sync_single_for_device(&dev->pci->dev, dev->h264_mv_buf[0].dma_addr, H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
 
 
-		u32 prev_buf_id = dev->buf_id;
-		dev->buf_id = (dev->buf_id + 1) % 4;
-		tw_writel(TW5864_DSP_ENC_ORG_PTR_REG, dev->buf_id << 12);
-		tw_writel(TW5864_DSP_ENC_REC,(dev->buf_id << 12) | prev_buf_id);
+		u32 enc_buf_id = tw_readl(TW5864_ENC_BUF_PTR_REC1) & 0x3;
+		//u32 next_buf_id = (prev_buf_id + 1) % 4;
+		u32 capture_buf_id = tw_readl(TW5864_SENIF_ORG_FRM_PTR1) & 0x3;
+		dev->buf_id = capture_buf_id;
+		tw_writel(TW5864_DSP_ENC_ORG_PTR_REG, enc_buf_id << 12);
+		tw_writel(TW5864_DSP_ENC_REC,(enc_buf_id << 12) | ((enc_buf_id+3) & 0x3));
 
 
 		// TODO Move this section to be done just before encoding job is fired
@@ -206,6 +208,7 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		}
 		// End TODO
 
+		tw_writel(TW5864_SEN_EN_CH, 0x0001);
 		tw_writel(TW5864_VLC_DSP_INTR,0x00000001);
 		tw_writel(TW5864_PCI_INTR_STATUS, TW5864_VLC_DONE_INTR);
 		spin_lock_irqsave(&dev->slock, flags);
@@ -224,9 +227,19 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		spin_unlock_irqrestore(&dev->slock, flags);
 
 		if (timer_must_readd_encoding_irq) {
+			int fire = 0;
 			// TODO Replace condition with TW5864_SENIF_ORG_FRM_PTR1 value check
 			dev->timers_with_vlc_disabled++;
-			if (dev->timers_with_vlc_disabled > 10) {
+			if (dev->timers_with_vlc_disabled > 1000) {
+				dev_dbg(&dev->pci->dev, "enabling VLC irq again thru count reaching\n");
+				fire = 1;
+			}
+			if (dev->buf_id != tw_readl(TW5864_SENIF_ORG_FRM_PTR1)) {
+				dev_dbg(&dev->pci->dev, "enabling VLC irq again thru capture_buf_id update!!!!!!!!!!!!!!!\n");
+				fire = 1;
+			}
+
+			if (fire) {
 				dev_dbg(&dev->pci->dev, "enabling VLC irq again\n");
 				dev->timers_with_vlc_disabled = 0;
 
@@ -237,6 +250,7 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 				if (tw_readl(TW5864_VLC_BUF))
 					tw_writel(TW5864_VLC_BUF, tw_readl(TW5864_VLC_BUF) & 0x0f);
 
+				tw_writel(TW5864_SEN_EN_CH, 0x0001);
 				tw_writel(TW5864_DSP_CODEC,0x00000000);
 				tw_writel(TW5864_VLC, QP_VALUE | TW5864_VLC_PCI_SEL | ((input->tail_nb_bits + 24) << TW5864_VLC_BIT_ALIGN_SHIFT));
 				tw_writel(TW5864_UNDEF_REG_0x0008,0x00000000);
@@ -270,6 +284,27 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 	if (!(status & (TW5864_INTR_TIMER | TW5864_INTR_VLC_DONE | TW5864_INTR_AD_VSYNC | TW5864_INTR_PV_OVERFLOW))){
 		dev_dbg(&dev->pci->dev, "tw5864_isr: unknown intr, status 0x%08X\n", status);
 	}
+
+
+
+	if (tw_indir_readb(dev, 0x2F0))
+		tw_indir_writeb(dev, 0x2F0, 0xFF);
+	if (tw_indir_readb(dev, 0x2F1))
+		tw_indir_writeb(dev, 0x2F1, 0xFF);
+	tw_indir_writeb(dev, 0x382, 0);
+
+	u32 indir_int_regs[] = {0x2d0, 0x2d1, 0x2d2, 0x2d3, 0x2d4, 0x2d5, 0x2d6, 0x2d7,  0x2e0, 0x2e1, 0x2e2, 0x2e3, 0};
+	u32 tmp;
+	for (i = 0; indir_int_regs[i] != 0; i++) {
+		tmp = tw_indir_readb(dev, indir_int_regs[i]);
+		if (tmp) {
+			if (i != 0)
+				dev_dbg(&dev->pci->dev, "indir[0x%03X] = 0x%02X\n", indir_int_regs[i], tmp);
+			tw_indir_writeb(dev, indir_int_regs[i], 0xff);
+		}
+	}
+
+
 
 
 	return IRQ_HANDLED;
