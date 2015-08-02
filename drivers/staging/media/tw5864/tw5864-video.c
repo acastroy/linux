@@ -493,11 +493,11 @@ static const struct v4l2_file_operations video_fops = {
 static int vb2_ioctl_dqbuf_proxy(struct file *file, void *priv, struct v4l2_buffer *p) {
 	int ret;
 	struct tw5864_input *dev = video_drvdata(file);
-	dev_dbg(&dev->root->pci->dev, "calling vb2_ioctl_dqbuf\n");
+	//dev_dbg(&dev->root->pci->dev, "calling vb2_ioctl_dqbuf\n");
 	ret = vb2_ioctl_dqbuf(file, priv, p);
-	dev_dbg(&dev->root->pci->dev, "vb2_ioctl_dqbuf ret %d\n", ret);
-	if (ret)
-		mdelay(100);
+	//dev_dbg(&dev->root->pci->dev, "vb2_ioctl_dqbuf ret %d\n", ret);
+	//if (ret)
+	//	mdelay(100);
 	return ret;
 }
 
