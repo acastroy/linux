@@ -179,16 +179,18 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		} else {
 			input->discard_frames--;
 		}
-		tw5864_prepare_frame_headers(input);
 		// TODO Do whatever needed, e.g. dump contents elsewhere
 		dma_sync_single_for_device(&dev->pci->dev, dev->h264_vlc_buf[0].dma_addr, H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
 		//dma_sync_single_for_device(&dev->pci->dev, dev->h264_mv_buf[0].dma_addr, H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
 
 
+		//u32 orig_enc_buf_id = tw_readl(0x0010);
 		u32 enc_buf_id = tw_readl(TW5864_ENC_BUF_PTR_REC1) & 0x3;
+		//u32 enc_buf_id = ((tw_readl(TW5864_DSP_ENC_ORG_PTR_REG) >> 12) + 1) & 0x3;
 		//u32 next_buf_id = (prev_buf_id + 1) % 4;
 		u32 capture_buf_id = tw_readl(TW5864_SENIF_ORG_FRM_PTR1) & 0x3;
-		dev->buf_id = capture_buf_id;
+
+		//dev->buf_id = orig_enc_buf_id; // capture_buf_id
 		tw_writel(TW5864_DSP_ENC_ORG_PTR_REG, enc_buf_id << 12);
 		tw_writel(TW5864_DSP_ENC_REC,(enc_buf_id << 12) | ((enc_buf_id+3) & 0x3));
 
@@ -206,6 +208,7 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 			tw_writel(TW5864_MOTION_SEARCH_ETC,0x0000008C);
 			input->h264_frame_seqno_in_gop++;
 		}
+		tw5864_prepare_frame_headers(input);
 		// End TODO
 
 		tw_writel(TW5864_SEN_EN_CH, 0x0001);
@@ -234,9 +237,10 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 				dev_dbg(&dev->pci->dev, "enabling VLC irq again thru count reaching\n");
 				fire = 1;
 			}
-			if (dev->buf_id != tw_readl(TW5864_SENIF_ORG_FRM_PTR1)) {
+			if (dev->buf_id != tw_readl(0x0010/*TW5864_SENIF_ORG_FRM_PTR1*/)) {
 				dev_dbg(&dev->pci->dev, "enabling VLC irq again thru capture_buf_id update!!!!!!!!!!!!!!!\n");
 				fire = 1;
+				dev->buf_id = tw_readl(0x0010);
 			}
 
 			if (fire) {
@@ -251,6 +255,7 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 					tw_writel(TW5864_VLC_BUF, tw_readl(TW5864_VLC_BUF) & 0x0f);
 
 				tw_writel(TW5864_SEN_EN_CH, 0x0001);
+				tw_writel(TW5864_H264EN_CH_EN, 0x0001);
 				tw_writel(TW5864_DSP_CODEC,0x00000000);
 				tw_writel(TW5864_VLC, QP_VALUE | TW5864_VLC_PCI_SEL | ((input->tail_nb_bits + 24) << TW5864_VLC_BIT_ALIGN_SHIFT));
 				tw_writel(TW5864_UNDEF_REG_0x0008,0x00000000);
@@ -485,14 +490,42 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	dev_info(&dev->pci->dev, "hi everybody, it's info\n");
 	dev_dbg(&dev->pci->dev, "hi everybody, it's debug\n");
 
+	tw_setl(0xa038, 0x8000); // stop ddr self-test?
+	tw_setl(0xa838, 0x8000); // stop ddr self-test?
+
 	WriteForwardQuantizationTable(dev);
 	WriteInverseQuantizationTable(dev);
 	WriteEncodeVLCLookupTable(dev);
 	pci_init_ad(dev);
 
+	tw_setl(0xa038, 0x8000); // stop ddr self-test?
+	tw_setl(0xa838, 0x8000); // stop ddr self-test?
+
+	tw_indir_writeb(dev, 0x041, 0x03); // mpb_write(chip, ISIL_VI_VD_EDGE, 0x03);/*use falling edge to sample ,54M to 108M*/
+	tw_indir_writeb(dev, 0xefe, 0x00);
+
+	tw_indir_writeb(dev, 0xee6, 0x02);
+	tw_indir_writeb(dev, 0xee7, 0x02);
+	tw_indir_writeb(dev, 0xee8, 0x02);
+	tw_indir_writeb(dev, 0xeeb, 0x02);
+	tw_indir_writeb(dev, 0xeec, 0x02);
+	tw_indir_writeb(dev, 0xeed, 0x02);
+
+	/* vi reset */
+	tw_indir_writeb(dev, 0xef0, 0x00);
+	tw_indir_writeb(dev, 0xef0, 0xe0);
+	mdelay(10);
+
+	tw_writel(0x00000D54,0x00000000);
+
+	tw_indir_writeb(dev, 0xefa, 0x44);
+	tw_indir_writeb(dev, 0xefb, 0x44);
+
+	tw_indir_writeb(dev, 0xefc, 0x00);
+	tw_indir_writeb(dev, 0xefd, 0xf0);
+
 	tw_writel(TW5864_VLC_STREAM_BASE_ADDR, dev->h264_vlc_buf[0].dma_addr);
 	tw_writel(TW5864_MV_STREAM_BASE_ADDR, dev->h264_mv_buf[0].dma_addr);
-	tw_indir_writeb(dev, 0xefc, 0x00);
 
 	// Disable forcing special NTSC 50 Hz mode
 	tw_indir_writeb(dev, 0x053, 0x00);

@@ -103,9 +103,6 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	//tw_writel(TW5864_DSP_ENC_ORG_PTR_REG,0x00000000);
 	tw_writel(TW5864_DSP_CODEC,0x00000000);
 	//tw_writel(TW5864_DSP_ENC_REC,0x00000000);
-	tw_writel(0x0000021C,0x00000000);
-	tw_writel(0x00000210,0x00000003);
-
 
 
 	tw_writel(TW5864_DSP_QP, QP_VALUE);
@@ -142,6 +139,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 
 
 	if (std == STD_NTSC) {
+		tw_indir_writeb(dev, 0x260, 0);
 #if 0 // D1
 		input->height = 480;
 #else
@@ -164,6 +162,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 		tw_writel(TW5864_H264EN_RATE_MAX_LINE_REG1, 0x3bd);
 		tw_writel(TW5864_H264EN_RATE_MAX_LINE_REG2, 0x3bd);
 	} else {
+		tw_indir_writeb(dev, 0x260, 1);
 		input->height = 576;
 		tw_indir_writeb(dev, 0x201, 0x48);
 		tw_indir_writeb(dev, 0x203, 0x48);
@@ -179,6 +178,24 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 
 	tw5864_prepare_frame_headers(input);
 	tw_writel(TW5864_VLC, TW5864_VLC_PCI_SEL | ((input->tail_nb_bits + 24) << TW5864_VLC_BIT_ALIGN_SHIFT) | QP_VALUE);
+
+	tw_writel(0x0000021C,0x00030000);
+	tw_writel(0x00000210,0x00000003);
+	mdelay(40);
+	tw_writel(0x0010, 0);
+	tw_indir_writeb(dev, 0x382, 0);
+	mdelay(40);
+	tw_writel(0x0010, 1);
+	tw_indir_writeb(dev, 0x382, 0);
+	mdelay(40);
+	tw_writel(0x0010, 2);
+	tw_indir_writeb(dev, 0x382, 0);
+	mdelay(40);
+	tw_writel(0x0010, 3);
+	tw_indir_writeb(dev, 0x382, 0);
+	mdelay(40);
+	tw_writel(0x0000021C,0x00000000);
+	tw_writel(0x00000210,0x00000003);
 
 	spin_lock_irqsave(&dev->slock, flags);
 	dev->inputs[input_number].enabled = 1;
