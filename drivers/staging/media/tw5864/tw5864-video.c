@@ -123,7 +123,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	for (i = 0; i < 4; i++) {
 		tw_writel(TW5864_FRAME_WIDTH_BUS_A(i), 0x2cf);
 		tw_writel(TW5864_FRAME_WIDTH_BUS_B(i), 0x2cf);
-		tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(i, input_number), 0xffff);
+		tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(i, input_number), 0x3fffffff);
 		tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(i, input_number), 0x3fff);
 	}
 #else // CIF
@@ -132,7 +132,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	for (i = 0; i < 4; i++) {
 		tw_writel(TW5864_FRAME_WIDTH_BUS_A(i), 0x15f);
 		tw_writel(TW5864_FRAME_WIDTH_BUS_B(i), 0x15f);
-		tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(i, input_number), 0xffff);
+		tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(i, input_number), 0x3fffffff);
 		tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(i, input_number), 0x3fff);
 	}
 #endif
@@ -181,6 +181,15 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 
 	tw_writel(0x0000021C,0x00030000);
 	tw_writel(0x00000210,0x00000003);
+	if (tw_readl(0x9218))
+		tw_writel(0x9218, 1);
+
+	spin_lock_irqsave(&dev->slock, flags);
+	dev->inputs[input_number].enabled = 1;
+	dev->irqmask |= TW5864_INTR_VLC_DONE | TW5864_INTR_PV_OVERFLOW | TW5864_INTR_TIMER | TW5864_INTR_AUD_EOF;
+	tw5864_irqmask_apply(dev);
+	spin_unlock_irqrestore(&dev->slock, flags);
+#if 0
 	mdelay(40);
 	tw_writel(0x0010, 0);
 	tw_indir_writeb(dev, 0x382, 0);
@@ -194,14 +203,12 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	tw_writel(0x0010, 3);
 	tw_indir_writeb(dev, 0x382, 0);
 	mdelay(40);
+#endif
 	tw_writel(0x0000021C,0x00000000);
 	tw_writel(0x00000210,0x00000003);
-
-	spin_lock_irqsave(&dev->slock, flags);
-	dev->inputs[input_number].enabled = 1;
-	dev->irqmask |= TW5864_INTR_VLC_DONE | TW5864_INTR_PV_OVERFLOW | TW5864_INTR_TIMER | TW5864_INTR_AUD_EOF;
-	tw5864_irqmask_apply(dev);
-	spin_unlock_irqrestore(&dev->slock, flags);
+	mdelay(40);
+	if (tw_readl(0x9218))
+		tw_writel(0x9218, 1);
 	tw_writel(TW5864_SLICE,0x00008000);
 	tw_writel(TW5864_SLICE,0x00000000);
 	return 0;

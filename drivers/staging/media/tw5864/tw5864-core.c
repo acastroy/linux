@@ -184,7 +184,8 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		//dma_sync_single_for_device(&dev->pci->dev, dev->h264_mv_buf[0].dma_addr, H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
 
 
-		//u32 orig_enc_buf_id = tw_readl(0x0010);
+		u32 orig_enc_buf_id = tw_readl(0x0010);
+		tw_writel(0x0010, (orig_enc_buf_id + 1) % 4);
 		u32 enc_buf_id = tw_readl(TW5864_ENC_BUF_PTR_REC1) & 0x3;
 		//u32 enc_buf_id = ((tw_readl(TW5864_DSP_ENC_ORG_PTR_REG) >> 12) + 1) & 0x3;
 		//u32 next_buf_id = (prev_buf_id + 1) % 4;
@@ -291,6 +292,9 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 	}
 
 
+
+	if (tw_readl(0x9218))
+		tw_writel(0x9218, 1);
 
 	if (tw_indir_readb(dev, 0x2F0))
 		tw_indir_writeb(dev, 0x2F0, 0xFF);
@@ -536,7 +540,7 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 
 	tw_writel(TW5864_SEN_EN_CH, 0x0001);
 
-#if 0 // D1
+#if 1 // D1
 	tw_writel(0x00000D00,0x00001C1C);
 	tw_writel(0x00000D04,0x00001C1C);
 #else
