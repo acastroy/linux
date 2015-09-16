@@ -212,6 +212,7 @@ static int tw5864_disable_input(struct tw5864_dev *dev, int input_number) {
 	tw_clearl(TW5864_PCI_INTR_CTL, TW5864_PCI_MAST_ENB | TW5864_MVD_VLC_MAST_ENB);
 	spin_lock_irqsave(&dev->slock, flags);
 	dev->inputs[input_number].enabled = 0;
+	dev->inputs[input_number].timer_must_readd_encoding_irq = 0;
 	dev->irqmask &= ~TW5864_INTR_VLC_DONE;  // timer doesn't like to get turned off?
 	tw5864_irqmask_apply(dev);
 	spin_unlock_irqrestore(&dev->slock, flags);
