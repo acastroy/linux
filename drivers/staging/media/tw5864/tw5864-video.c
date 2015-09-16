@@ -100,9 +100,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	if (tw_readl(TW5864_VLC_BUF))
 		tw_writel(TW5864_VLC_BUF, tw_readl(TW5864_VLC_BUF) & 0x0f);
 
-	//tw_writel(TW5864_DSP_ENC_ORG_PTR_REG,0x00000000);
 	tw_writel(TW5864_DSP_CODEC,0x00000000);
-	//tw_writel(TW5864_DSP_ENC_REC,0x00000000);
 
 
 	tw_writel(TW5864_DSP_QP, QP_VALUE);
@@ -179,8 +177,6 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	tw5864_prepare_frame_headers(input);
 	tw_writel(TW5864_VLC, TW5864_VLC_PCI_SEL | ((input->tail_nb_bits + 24) << TW5864_VLC_BIT_ALIGN_SHIFT) | QP_VALUE);
 
-	tw_writel(0x0000021C,0x00030000);
-	tw_writel(0x00000210,0x00000003);
 	if (tw_readl(0x9218))
 		tw_writel(0x9218, 1);
 
@@ -192,11 +188,14 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	dev->buf_id = tw_readl(TW5864_SENIF_ORG_FRM_PTR1);
 	u32 orig_enc_buf_id = tw_readl(TW5864_ENC_BUF_PTR_REC1);
 	tw_writel(TW5864_ENC_BUF_PTR_REC1, (orig_enc_buf_id + 1) % 4);
-	tw_writel(0x0000021C,0x00000000);
-	tw_writel(0x00000210,0x00000003);
 	mdelay(40);
 	if (tw_readl(0x9218))
 		tw_writel(0x9218, 1);
+
+	u32 enc_buf_id = tw_readl(TW5864_ENC_BUF_PTR_REC1) & 0x3;
+	tw_writel(TW5864_DSP_ENC_ORG_PTR_REG, enc_buf_id << 12);
+	tw_writel(TW5864_DSP_ENC_REC,(enc_buf_id << 12) | ((enc_buf_id+3) & 0x3));
+
 	tw_writel(TW5864_SLICE,0x00008000);
 	tw_writel(TW5864_SLICE,0x00000000);
 	return 0;
