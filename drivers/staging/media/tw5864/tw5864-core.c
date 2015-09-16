@@ -241,7 +241,7 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 				fire = 1;
 			}
 			if (dev->buf_id != tw_readl(TW5864_SENIF_ORG_FRM_PTR1)) {
-				dev_dbg(&dev->pci->dev, "enabling VLC irq again thru capture_buf_id update!!!!!!!!!!!!!!!\n");
+				dev_dbg(&dev->pci->dev, "enabling VLC irq again thru TW5864_SENIF_ORG_FRM_PTR1 update from %u to %u\n", dev->buf_id, tw_readl(TW5864_SENIF_ORG_FRM_PTR1));
 				fire = 1;
 				dev->buf_id = tw_readl(TW5864_SENIF_ORG_FRM_PTR1);
 			}
