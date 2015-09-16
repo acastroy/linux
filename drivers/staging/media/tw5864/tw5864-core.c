@@ -183,36 +183,42 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		dma_sync_single_for_device(&dev->pci->dev, dev->h264_vlc_buf[0].dma_addr, H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
 		//dma_sync_single_for_device(&dev->pci->dev, dev->h264_mv_buf[0].dma_addr, H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
 
+		int enabled;
+		spin_lock_irqsave(&dev->slock, flags);
+		enabled = input->enabled;
+		spin_unlock_irqrestore(&dev->slock, flags);
 
-		u32 orig_enc_buf_id = tw_readl(0x0010);
-		tw_writel(0x0010, (orig_enc_buf_id + 1) % 4);
-		u32 enc_buf_id = tw_readl(TW5864_ENC_BUF_PTR_REC1) & 0x3;
-		//u32 enc_buf_id = ((tw_readl(TW5864_DSP_ENC_ORG_PTR_REG) >> 12) + 1) & 0x3;
-		//u32 next_buf_id = (prev_buf_id + 1) % 4;
-		u32 capture_buf_id = tw_readl(TW5864_SENIF_ORG_FRM_PTR1) & 0x3;
+		if (enabled) {
+			u32 orig_enc_buf_id = tw_readl(0x0010);
+			tw_writel(0x0010, (orig_enc_buf_id + 1) % 4);
+			u32 enc_buf_id = tw_readl(TW5864_ENC_BUF_PTR_REC1) & 0x3;
+			//u32 enc_buf_id = ((tw_readl(TW5864_DSP_ENC_ORG_PTR_REG) >> 12) + 1) & 0x3;
+			//u32 next_buf_id = (prev_buf_id + 1) % 4;
+			u32 capture_buf_id = tw_readl(TW5864_SENIF_ORG_FRM_PTR1) & 0x3;
 
-		//dev->buf_id = orig_enc_buf_id; // capture_buf_id
-		tw_writel(TW5864_DSP_ENC_ORG_PTR_REG, enc_buf_id << 12);
-		tw_writel(TW5864_DSP_ENC_REC,(enc_buf_id << 12) | ((enc_buf_id+3) & 0x3));
+			//dev->buf_id = orig_enc_buf_id; // capture_buf_id
+			tw_writel(TW5864_DSP_ENC_ORG_PTR_REG, enc_buf_id << 12);
+			tw_writel(TW5864_DSP_ENC_REC,(enc_buf_id << 12) | ((enc_buf_id+3) & 0x3));
 
 
-		// TODO Move this section to be done just before encoding job is fired
-		if (input->frame_seqno % GOP_SIZE == 0) {
-			tw_writel(TW5864_MOTION_SEARCH_ETC,0x00000008); // produce intra frame for #4, #8, #12...
-			input->h264_frame_seqno_in_gop = 0;
-			input->h264_idr_pic_id++;
-			input->h264_idr_pic_id &= TW5864_DSP_REF_FRM;
+			// TODO Move this section to be done just before encoding job is fired
+			if (input->frame_seqno % GOP_SIZE == 0) {
+				tw_writel(TW5864_MOTION_SEARCH_ETC,0x00000008); // produce intra frame for #4, #8, #12...
+				input->h264_frame_seqno_in_gop = 0;
+				input->h264_idr_pic_id++;
+				input->h264_idr_pic_id &= TW5864_DSP_REF_FRM;
 #if GOP_SIZE == 1
-			tw_writel(TW5864_DSP_REF, (tw_readl(TW5864_DSP_REF) & ~TW5864_DSP_REF_FRM) | input->h264_idr_pic_id);
+				tw_writel(TW5864_DSP_REF, (tw_readl(TW5864_DSP_REF) & ~TW5864_DSP_REF_FRM) | input->h264_idr_pic_id);
 #endif
-		} else {
-			tw_writel(TW5864_MOTION_SEARCH_ETC,0x0000008C);
-			input->h264_frame_seqno_in_gop++;
-		}
-		tw5864_prepare_frame_headers(input);
-		// End TODO
+			} else {
+				tw_writel(TW5864_MOTION_SEARCH_ETC,0x0000008C);
+				input->h264_frame_seqno_in_gop++;
+			}
+			tw5864_prepare_frame_headers(input);
+			// End TODO
 
-		tw_writel(TW5864_SEN_EN_CH, 0x0001);
+			tw_writel(TW5864_SEN_EN_CH, 0x0001);
+		}
 		tw_writel(TW5864_VLC_DSP_INTR,0x00000001);
 		tw_writel(TW5864_PCI_INTR_STATUS, TW5864_VLC_DONE_INTR);
 		spin_lock_irqsave(&dev->slock, flags);
@@ -238,10 +244,10 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 				dev_dbg(&dev->pci->dev, "enabling VLC irq again thru count reaching\n");
 				fire = 1;
 			}
-			if (dev->buf_id != tw_readl(0x0010/*TW5864_SENIF_ORG_FRM_PTR1*/)) {
+			if (dev->buf_id != tw_readl(TW5864_SENIF_ORG_FRM_PTR1)) {
 				dev_dbg(&dev->pci->dev, "enabling VLC irq again thru capture_buf_id update!!!!!!!!!!!!!!!\n");
 				fire = 1;
-				dev->buf_id = tw_readl(0x0010);
+				dev->buf_id = tw_readl(TW5864_SENIF_ORG_FRM_PTR1);
 			}
 
 			if (fire) {

@@ -204,6 +204,9 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	tw_indir_writeb(dev, 0x382, 0);
 	mdelay(40);
 #endif
+	dev->buf_id = tw_readl(TW5864_SENIF_ORG_FRM_PTR1);
+	u32 orig_enc_buf_id = tw_readl(TW5864_ENC_BUF_PTR_REC1);
+	tw_writel(TW5864_ENC_BUF_PTR_REC1, (orig_enc_buf_id + 1) % 4);
 	tw_writel(0x0000021C,0x00000000);
 	tw_writel(0x00000210,0x00000003);
 	mdelay(40);
