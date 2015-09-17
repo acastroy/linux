@@ -220,8 +220,6 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		spin_lock_irqsave(&dev->slock, flags);
 		if (input->enabled)
 			input->timer_must_readd_encoding_irq = 1;
-		dev->irqmask &= ~TW5864_INTR_VLC_DONE;
-		tw5864_irqmask_apply(dev);
 		spin_unlock_irqrestore(&dev->slock, flags);
 	}
 
@@ -267,10 +265,6 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 				tw_writel(TW5864_DSP,0x00000A20);
 				tw_writel(TW5864_PCI_INTR_CTL,0x00000073);
 				tw_writel(TW5864_MASTER_ENB_REG,0x00000032);
-				spin_lock_irqsave(&dev->slock, flags);
-				dev->irqmask |= TW5864_INTR_VLC_DONE;
-				tw5864_irqmask_apply(dev);
-				spin_unlock_irqrestore(&dev->slock, flags);
 				tw_writel(TW5864_SLICE,0x00008000);
 				tw_writel(TW5864_SLICE,0x00000000);
 			}
