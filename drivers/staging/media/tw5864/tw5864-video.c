@@ -115,7 +115,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	tw_writel(TW5864_MASTER_ENB_REG,TW5864_PCI_VLC_INTR_ENB | TW5864_PCI_PREV_INTR_ENB | TW5864_PCI_PREV_OF_INTR_ENB/*0x00000032*/);
 
 	tw_indir_writeb(dev, 0x200, 720 / 4); // indir in width/4
-#if 0 // D1
+#if 1 // D1
 	tw_indir_writeb(dev, 0x202, 720 / 4); // indir out width/4
 	input->width = 720;
 	for (i = 0; i < 4; i++) {
@@ -138,7 +138,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 
 	if (std == STD_NTSC) {
 		tw_indir_writeb(dev, 0x260, 0);
-#if 0 // D1
+#if 1 // D1
 		input->height = 480;
 #else
 		input->height = 240;
@@ -146,10 +146,10 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 		tw_indir_writeb(dev, 0x201, input->height / 4);
 		tw_indir_writeb(dev, 0x203, input->height / 8);
 		input->height = 480;
-		tw_writel(TW5864_DSP_PIC_MAX_MB, ((input->width / 16) << 8) | (input->width / 16));
+		tw_writel(TW5864_DSP_PIC_MAX_MB, ((input->width / 16) << 8) | (input->height / 16));
 
 		for (i = 0; i < 4; i++) {
-#if 0 // D1
+#if 1 // D1
 			tw_writel(TW5864_FRAME_HEIGHT_BUS_A(i), 0x1df);
 			tw_writel(TW5864_FRAME_HEIGHT_BUS_B(i), 0x1df);
 #else
