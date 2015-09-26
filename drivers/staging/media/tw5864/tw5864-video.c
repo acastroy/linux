@@ -124,28 +124,38 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 
 	int frame_width_bus_value = 0;
 	int frame_height_bus_value = 0;
+	int fmt_reg_value = 0;
+	int downscale_enabled = 0;
 
 	switch (input->resolution) {
 		case D1: break;
 			 frame_width_bus_value = 0x2cf;
 			 frame_height_bus_value = input->height - 1;
+			 fmt_reg_value = 0;
+			 downscale_enabled = 0;
 		case HD1:
 			 input->height /= 2;
 			 input->width /= 2;
 			 frame_width_bus_value = 0x2cf;
 			 frame_height_bus_value = input->height * 2 - 1;
+			 fmt_reg_value = 0;
+			 downscale_enabled = 0;
 			 break;
 		case CIF:
 			 input->height /= 4;
 			 input->width /= 2;
 			 frame_width_bus_value = 0x15f;
 			 frame_height_bus_value = input->height * 2 - 1;
+			 fmt_reg_value = 1;
+			 downscale_enabled = 1;
 			 break;
 		case QCIF:
 			 input->height /= 4;
 			 input->width /= 4;
 			 frame_width_bus_value = 0x15f;
 			 frame_height_bus_value = input->height * 2 - 1;
+			 fmt_reg_value = 1;
+			 downscale_enabled = 1;
 			 break;
 	}
 
@@ -163,15 +173,24 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 		tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(i, input_number), 0x3fff);
 	}
 
+	tw_writel(TW5864_H264EN_CH_DNS, downscale_enabled << input_number);  /* TODO merge with existing value for other channels */
+	tw_writel(TW5864_H264EN_CH_FMT_REG1, fmt_reg_value \
+			| fmt_reg_value << 2 \
+			| fmt_reg_value << 4 \
+			| fmt_reg_value << 6);
+	tw_writel(TW5864_H264EN_CH_FMT_REG2, fmt_reg_value \
+			| fmt_reg_value << 2 \
+			| fmt_reg_value << 4 \
+			| fmt_reg_value << 6);
 
 	if (std == STD_NTSC) {
 		tw_indir_writeb(dev, 0x260, 0);
-		tw_writel(TW5864_H264EN_RATE_MAX_LINE_REG1, 0x3bd);
-		tw_writel(TW5864_H264EN_RATE_MAX_LINE_REG2, 0x3bd);
+		tw_writel(TW5864_H264EN_RATE_MAX_LINE_REG1, 0x3ff);
+		tw_writel(TW5864_H264EN_RATE_MAX_LINE_REG2, 0x3ff);
 	} else {
 		tw_indir_writeb(dev, 0x260, 1);
-		tw_writel(TW5864_H264EN_RATE_MAX_LINE_REG1, 0x318);
-		tw_writel(TW5864_H264EN_RATE_MAX_LINE_REG2, 0x318);
+		tw_writel(TW5864_H264EN_RATE_MAX_LINE_REG1, 0x3ff);
+		tw_writel(TW5864_H264EN_RATE_MAX_LINE_REG2, 0x3ff);
 	}
 
 	if (input->resolution == D1) {
