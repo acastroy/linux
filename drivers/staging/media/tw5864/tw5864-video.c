@@ -147,7 +147,6 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 		}
 		tw_indir_writeb(dev, 0x201, input->height / 4);
 		tw_indir_writeb(dev, 0x203, input->height / 8);
-		input->height = 480;
 		tw_writel(TW5864_DSP_PIC_MAX_MB, ((input->width / 16) << 8) | (input->height / 16));
 
 		for (i = 0; i < 4; i++) {
