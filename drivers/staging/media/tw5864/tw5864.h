@@ -104,6 +104,10 @@ struct tw5864_format {
 #define BITALIGN_VALUE_IN_INIT 0
 #define GOP_SIZE 8
 
+enum resolution {
+	D1 = 1,
+	CIF = 2,
+};
 
 /* ----------------------------------------------------------- */
 /* device / file handle status                                 */
@@ -156,6 +160,7 @@ struct tw5864_input {
 	struct vb2_queue	vidq;
 	struct list_head	active;
 	const struct tw5864_format *fmt;
+	enum resolution         resolution;
 	unsigned		width, height;
 	unsigned		frame_seqno;
 	unsigned		field;
