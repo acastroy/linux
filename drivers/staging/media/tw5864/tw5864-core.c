@@ -198,7 +198,7 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 
 
 			// TODO Move this section to be done just before encoding job is fired
-			if (input->frame_seqno % GOP_SIZE == 0) {
+			if (1 /* FIXME HARDCODE all are I-frames */ || input->frame_seqno % GOP_SIZE == 0) {
 				tw_writel(TW5864_MOTION_SEARCH_ETC,0x00000008); // produce intra frame for #4, #8, #12...
 				input->h264_frame_seqno_in_gop = 0;
 				input->h264_idr_pic_id++;
