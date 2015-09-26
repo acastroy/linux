@@ -114,10 +114,11 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	tw_writel(TW5864_PCI_INTR_CTL, TW5864_PREV_MAST_ENB | TW5864_PREV_OVERFLOW_ENB | TW5864_TIMER_INTR_ENB | TW5864_PCI_MAST_ENB | (1<<1)  /* TODO try TW5864_MVD_VLC_MAST_ENB*/ /*0x00000073*/);
 	tw_writel(TW5864_MASTER_ENB_REG,TW5864_PCI_VLC_INTR_ENB | TW5864_PCI_PREV_INTR_ENB | TW5864_PCI_PREV_OF_INTR_ENB/*0x00000032*/);
 
-	input->resolution = HD1;
+	input->resolution = CIF;
 
 	int d1_width = 720;
 	int d1_height = (std == STD_NTSC) ? 480 : 576;
+	int cif_height = d1_height / 4;
 
 	input->width = d1_width;
 	input->height = d1_height;
@@ -163,43 +164,78 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	tw_indir_writeb(dev, 0x201, d1_height / 4);
 
 	tw_indir_writeb(dev, 0x202, input->width / 4); // indir out width/4
-	tw_indir_writeb(dev, 0x203, input->height / 4);
+	tw_indir_writeb(dev, 0x203, cif_height / 4);
 	tw_writel(TW5864_DSP_PIC_MAX_MB, ((input->width / 16) << 8) | (input->height / 16));
 
 	for (i = 0; i < 4; i++) {
 		tw_writel(TW5864_FRAME_WIDTH_BUS_A(i), frame_width_bus_value);
 		tw_writel(TW5864_FRAME_WIDTH_BUS_B(i), frame_width_bus_value);
-		tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(i, input_number), 0x3fffffff);
-		tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(i, input_number), 0x3fff);
+		tw_writel(TW5864_FRAME_HEIGHT_BUS_A(i), frame_height_bus_value);
+		tw_writel(TW5864_FRAME_HEIGHT_BUS_B(i), frame_height_bus_value);
+		tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(i, input_number), 0xffff);
+		tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(i, input_number), 0xffff);
 	}
+#if 1
+	for (i = 0; i < 4; i++) {
+#if 1
+		if (i != input_number) {
+			tw_writel(TW5864_FRAME_WIDTH_BUS_A(i), 0);
+			tw_writel(TW5864_FRAME_WIDTH_BUS_B(i), 0);
+		}
+#endif
+		int j;
+		for (j = 0; j < 4; j++) {
+			if (j != input_number) {
+				tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(i, j), 0);
+				tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(i, j), 0);
+			}
+		}
+	}
+#endif
 
 	tw_writel(TW5864_H264EN_CH_DNS, downscale_enabled << input_number);  /* TODO merge with existing value for other channels */
 	tw_writel(TW5864_H264EN_CH_FMT_REG1, fmt_reg_value \
+
+#if 0
 			| fmt_reg_value << 2 \
 			| fmt_reg_value << 4 \
-			| fmt_reg_value << 6);
+			| fmt_reg_value << 6
+#endif
+			);
 	tw_writel(TW5864_H264EN_CH_FMT_REG2, fmt_reg_value \
+
+#if 0
 			| fmt_reg_value << 2 \
 			| fmt_reg_value << 4 \
-			| fmt_reg_value << 6);
+			| fmt_reg_value << 6
+#endif
+			);
 
 	if (std == STD_NTSC) {
 		tw_indir_writeb(dev, 0x260, 0);
-		tw_writel(TW5864_H264EN_RATE_MAX_LINE_REG1, 0x3ff);
-		tw_writel(TW5864_H264EN_RATE_MAX_LINE_REG2, 0x3ff);
 	} else {
 		tw_indir_writeb(dev, 0x260, 1);
-		tw_writel(TW5864_H264EN_RATE_MAX_LINE_REG1, 0x3ff);
-		tw_writel(TW5864_H264EN_RATE_MAX_LINE_REG2, 0x3ff);
 	}
+
+	tw_writel(TW5864_H264EN_RATE_MAX_LINE_REG1, 0x3ff);
+	tw_writel(TW5864_H264EN_RATE_MAX_LINE_REG2, 0x3ff);
+#if 0
+	tw_writel(TW5864_H264EN_RATE_MAX_LINE_REG1, 0x1f);
+	tw_writel(TW5864_H264EN_RATE_MAX_LINE_REG2, 0);
+#endif
 
 	if (input->resolution == D1) {
 		tw_writel(0x00000D00,0x00001C1C);
 		tw_writel(0x00000D04,0x00001C1C);
+	} else if (input->resolution == CIF) {
+		tw_writel(0x00000D00,0x00000707);
+		tw_writel(0x00000D04,0x00000707);
 	} else {
 		tw_writel(0x00000D00,0x00000707);
 		tw_writel(0x00000D04,0x00000707);
 	}
+
+	tw_writel(TW5864_H264EN_BUS_MAX_CH, 0xf);
 
 	tw5864_prepare_frame_headers(input);
 	tw_writel(TW5864_VLC, TW5864_VLC_PCI_SEL | ((input->tail_nb_bits + 24) << TW5864_VLC_BIT_ALIGN_SHIFT) | QP_VALUE);

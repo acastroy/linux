@@ -527,9 +527,15 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	tw_writel(TW5864_VLC_STREAM_BASE_ADDR, dev->h264_vlc_buf[0].dma_addr);
 	tw_writel(TW5864_MV_STREAM_BASE_ADDR, dev->h264_mv_buf[0].dma_addr);
 
+#if 1
 	// Disable forcing special NTSC 50 Hz mode
 	tw_indir_writeb(dev, 0x053, 0x00);
 	tw_indir_writeb(dev, 0x054, tw_indir_readb(dev, 0x054) & ~0xc0);
+#else
+	// Enable forcing special NTSC 50 Hz mode
+	tw_indir_writeb(dev, 0x053, 0xc0);
+	tw_indir_writeb(dev, 0x054, tw_indir_readb(dev, 0x054) | 0xc0);
+#endif
 
 	tw_indir_writeb(dev, 0x00e, 0x07);
 	tw_indir_writeb(dev, 0x00f, 0xff); // to initiate auto format recognition
@@ -541,10 +547,10 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	tw_writel(TW5864_CS2DAT_CNT, 1);
 	tw_writel(TW5864_DATA_VLD_WIDTH, 1);
 	tw_writel(TW5864_SPLL, 0x15);
-	tw_writel(0x09200, 0x00006540);
-	tw_writel(0x09204, 0x00009871);
-	tw_writel(0x09208, 0x0000cba2);
-	tw_writel(0x0920c, 0x0000fed3);
+	tw_writel(0x09200, 0x00000000);
+	tw_writel(0x09204, 0x00000000);
+	tw_writel(0x09208, 0x00000000);
+	tw_writel(0x0920c, 0x00000000);
 
 	tw_writel(0x0000A000,0x000000C5);
 	tw_writel(0x0000A800,0x000000C5);
