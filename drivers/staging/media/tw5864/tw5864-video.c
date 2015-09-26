@@ -126,7 +126,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	}
 #else // CIF
 	tw_indir_writeb(dev, 0x202, 720 / 8); // indir out width/8
-	input->width = 720;
+	input->width = 360;
 	for (i = 0; i < 4; i++) {
 		tw_writel(TW5864_FRAME_WIDTH_BUS_A(i), 0x15f);
 		tw_writel(TW5864_FRAME_WIDTH_BUS_B(i), 0x15f);
@@ -161,7 +161,11 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 		tw_writel(TW5864_H264EN_RATE_MAX_LINE_REG2, 0x3bd);
 	} else {
 		tw_indir_writeb(dev, 0x260, 1);
+#if 1 // D1
 		input->height = 576;
+#else
+		input->height = 576 / 2;
+#endif
 		tw_indir_writeb(dev, 0x201, 0x48);
 		tw_indir_writeb(dev, 0x203, 0x48);
 		tw_writel(TW5864_DSP_PIC_MAX_MB, ((720 / 16) << 8) | (576 / 16));
