@@ -248,7 +248,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	dev->irqmask |= TW5864_INTR_VLC_DONE | TW5864_INTR_PV_OVERFLOW | TW5864_INTR_TIMER | TW5864_INTR_AUD_EOF;
 	tw5864_irqmask_apply(dev);
 	spin_unlock_irqrestore(&dev->slock, flags);
-	dev->buf_id = tw_readl(TW5864_SENIF_ORG_FRM_PTR1);
+	dev->buf_id = tw_readl(TW5864_SENIF_ORG_FRM_PTR1) & 0x3;
 	u32 orig_enc_buf_id = tw_readl(TW5864_ENC_BUF_PTR_REC1);
 	tw_writel(TW5864_ENC_BUF_PTR_REC1, (orig_enc_buf_id + 1) % 4);
 	mdelay(40);
