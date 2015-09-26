@@ -114,7 +114,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	tw_writel(TW5864_PCI_INTR_CTL, TW5864_PREV_MAST_ENB | TW5864_PREV_OVERFLOW_ENB | TW5864_TIMER_INTR_ENB | TW5864_PCI_MAST_ENB | (1<<1)  /* TODO try TW5864_MVD_VLC_MAST_ENB*/ /*0x00000073*/);
 	tw_writel(TW5864_MASTER_ENB_REG,TW5864_PCI_VLC_INTR_ENB | TW5864_PCI_PREV_INTR_ENB | TW5864_PCI_PREV_OF_INTR_ENB/*0x00000032*/);
 
-	input->resolution = D1;
+	input->resolution = HD1;
 
 	tw_indir_writeb(dev, 0x200, 720 / 4); // indir in width/4
 	if (input->resolution == D1) {
