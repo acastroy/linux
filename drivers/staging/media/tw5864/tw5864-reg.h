@@ -686,8 +686,8 @@ Note: To be used with 0x9008 register to configure the frame size
                                               ..., [15:14]: H264EN_CH15_FMT (?) */
 
 /* H264EN_RATE_CNTL_BUSm_CHn H264 Encoding Path BUS m Rate Control for Channel n */
-#define TW5864_H264EN_RATE_CNTL_LO_WORD(bus, channel) (0x9100 + bus * 0x20 + channel * 0x04)
-#define TW5864_H264EN_RATE_CNTL_HI_WORD(bus, channel) (0x9104 + bus * 0x20 + channel * 0x04)
+#define TW5864_H264EN_RATE_CNTL_LO_WORD(bus, channel) (0x9100 + bus * 0x20 + channel * 0x08)
+#define TW5864_H264EN_RATE_CNTL_HI_WORD(bus, channel) (0x9104 + bus * 0x20 + channel * 0x08)
 
 /*
 H264EN_BUSm_MAP_CHn The 16-to-1 MUX configuration register for each encoding
