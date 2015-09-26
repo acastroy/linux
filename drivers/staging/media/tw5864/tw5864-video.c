@@ -193,8 +193,8 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 		}
 		for (j = 0; j < 4; j++) {
 			if (i == 0 && j == 0) {
-				tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(i, j), 0xffff);
-				tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(i, j), 0xffff);
+				tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(i, j), 0x1111);
+				tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(i, j), 0x1111);
 			} else {
 				tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(i, j), 0);
 				tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(i, j), 0);
