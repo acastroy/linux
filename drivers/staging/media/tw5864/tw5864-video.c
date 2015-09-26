@@ -167,31 +167,40 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	tw_indir_writeb(dev, 0x203, cif_height / 4);
 	tw_writel(TW5864_DSP_PIC_MAX_MB, ((input->width / 16) << 8) | (input->height / 16));
 
+	int j;
 	for (i = 0; i < 4; i++) {
-		tw_writel(TW5864_FRAME_WIDTH_BUS_A(i), frame_width_bus_value);
-		tw_writel(TW5864_FRAME_WIDTH_BUS_B(i), frame_width_bus_value);
-		tw_writel(TW5864_FRAME_HEIGHT_BUS_A(i), frame_height_bus_value);
-		tw_writel(TW5864_FRAME_HEIGHT_BUS_B(i), frame_height_bus_value);
-		tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(i, input_number), 0xffff);
-		tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(i, input_number), 0xffff);
+		tw_writel(TW5864_FRAME_WIDTH_BUS_A(i), 0);
+		tw_writel(TW5864_FRAME_WIDTH_BUS_B(i), 0);
+		tw_writel(TW5864_FRAME_HEIGHT_BUS_A(i), 0);
+		tw_writel(TW5864_FRAME_HEIGHT_BUS_B(i), 0);
+		for (j = 0; j < 4; j++) {
+			tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(i, j), 0);
+			tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(i, j), 0);
+		}
 	}
-#if 1
+
 	for (i = 0; i < 4; i++) {
-#if 1
-		if (i != input_number) {
+		if (i == 0) {
+			tw_writel(TW5864_FRAME_WIDTH_BUS_A(i), frame_width_bus_value);
+			tw_writel(TW5864_FRAME_WIDTH_BUS_B(i), frame_width_bus_value);
+			tw_writel(TW5864_FRAME_HEIGHT_BUS_A(i), frame_height_bus_value);
+			tw_writel(TW5864_FRAME_HEIGHT_BUS_B(i), frame_height_bus_value);
+		} else {
 			tw_writel(TW5864_FRAME_WIDTH_BUS_A(i), 0);
 			tw_writel(TW5864_FRAME_WIDTH_BUS_B(i), 0);
+			tw_writel(TW5864_FRAME_HEIGHT_BUS_A(i), 0);
+			tw_writel(TW5864_FRAME_HEIGHT_BUS_B(i), 0);
 		}
-#endif
-		int j;
 		for (j = 0; j < 4; j++) {
-			if (j != input_number) {
+			if (i == 0 && j == 0) {
+				tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(i, j), 0xffff);
+				tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(i, j), 0xffff);
+			} else {
 				tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(i, j), 0);
 				tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(i, j), 0);
 			}
 		}
 	}
-#endif
 
 	tw_writel(TW5864_H264EN_CH_DNS, downscale_enabled << input_number);  /* TODO merge with existing value for other channels */
 	tw_writel(TW5864_H264EN_CH_FMT_REG1, fmt_reg_value \
