@@ -118,32 +118,32 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 
 	tw_indir_writeb(dev, 0x200, 720 / 4); // indir in width/4
 	if (input->resolution == D1) {
-	tw_indir_writeb(dev, 0x202, 720 / 4); // indir out width/4
-	input->width = 720;
-	for (i = 0; i < 4; i++) {
-		tw_writel(TW5864_FRAME_WIDTH_BUS_A(i), 0x2cf);
-		tw_writel(TW5864_FRAME_WIDTH_BUS_B(i), 0x2cf);
-		tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(i, input_number), 0x3fffffff);
-		tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(i, input_number), 0x3fff);
-	}
+		tw_indir_writeb(dev, 0x202, 720 / 4); // indir out width/4
+		input->width = 720;
+		for (i = 0; i < 4; i++) {
+			tw_writel(TW5864_FRAME_WIDTH_BUS_A(i), 0x2cf);
+			tw_writel(TW5864_FRAME_WIDTH_BUS_B(i), 0x2cf);
+			tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(i, input_number), 0x3fffffff);
+			tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(i, input_number), 0x3fff);
+		}
 	} else {
-	tw_indir_writeb(dev, 0x202, 720 / 8); // indir out width/8
-	input->width = 360;
-	for (i = 0; i < 4; i++) {
-		tw_writel(TW5864_FRAME_WIDTH_BUS_A(i), 0x15f);
-		tw_writel(TW5864_FRAME_WIDTH_BUS_B(i), 0x15f);
-		tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(i, input_number), 0x3fffffff);
-		tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(i, input_number), 0x3fff);
-	}
+		tw_indir_writeb(dev, 0x202, 720 / 8); // indir out width/8
+		input->width = 360;
+		for (i = 0; i < 4; i++) {
+			tw_writel(TW5864_FRAME_WIDTH_BUS_A(i), 0x15f);
+			tw_writel(TW5864_FRAME_WIDTH_BUS_B(i), 0x15f);
+			tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(i, input_number), 0x3fffffff);
+			tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(i, input_number), 0x3fff);
+		}
 	}
 
 
 	if (std == STD_NTSC) {
 		tw_indir_writeb(dev, 0x260, 0);
 		if (input->resolution == D1) {
-		input->height = 480;
+			input->height = 480;
 		} else {
-		input->height = 240;
+			input->height = 240;
 		}
 		tw_indir_writeb(dev, 0x201, input->height / 4);
 		tw_indir_writeb(dev, 0x203, input->height / 8);
@@ -151,11 +151,11 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 
 		for (i = 0; i < 4; i++) {
 			if (input->resolution == D1) {
-			tw_writel(TW5864_FRAME_HEIGHT_BUS_A(i), 0x1df);
-			tw_writel(TW5864_FRAME_HEIGHT_BUS_B(i), 0x1df);
+				tw_writel(TW5864_FRAME_HEIGHT_BUS_A(i), 0x1df);
+				tw_writel(TW5864_FRAME_HEIGHT_BUS_B(i), 0x1df);
 			} else {
-			tw_writel(TW5864_FRAME_HEIGHT_BUS_A(i), 0x0ef);
-			tw_writel(TW5864_FRAME_HEIGHT_BUS_B(i), 0x0ef);
+				tw_writel(TW5864_FRAME_HEIGHT_BUS_A(i), 0x0ef);
+				tw_writel(TW5864_FRAME_HEIGHT_BUS_B(i), 0x0ef);
 			}
 		}
 		tw_writel(TW5864_H264EN_RATE_MAX_LINE_REG1, 0x3bd);
@@ -163,9 +163,9 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	} else {
 		tw_indir_writeb(dev, 0x260, 1);
 		if (input->resolution == D1) {
-		input->height = 576;
+			input->height = 576;
 		} else {
-		input->height = 576 / 2;
+			input->height = 576 / 2;
 		}
 		tw_indir_writeb(dev, 0x201, 0x48);
 		tw_indir_writeb(dev, 0x203, 0x48);
