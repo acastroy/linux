@@ -109,7 +109,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	tw_writel(TW5864_EMU_EN_VARIOUS_ETC,TW5864_EMU_EN_LPF | TW5864_EMU_EN_BHOST | TW5864_EMU_EN_SEN | TW5864_EMU_EN_ME | TW5864_EMU_EN_DDR);
 	tw_writel(TW5864_DSP_I4x4_WEIGHT,Intra4X4_Lambda3[QP_VALUE]);
 	tw_writel(TW5864_DSP_INTRA_MODE,0x00000070);
-	tw_writel(TW5864_DSP, 0 /* channel id */ | TW5864_DSP_CHROM_SW | ((0xa << 8) & TW5864_DSP_MB_DELAY) /* 0x00000A20 */);
+	tw_writel(TW5864_DSP, 0 /* channel id */ | TW5864_DSP_CHROM_SW | ((0xa << 8) & TW5864_DSP_MB_DELAY) /* 0x00000A20 */ | TW5864_DSP_FLW_CNTL);
 	tw_writel(TW5864_MOTION_SEARCH_ETC, TW5864_INTRA_EN);
 	tw_writel(TW5864_PCI_INTR_CTL, TW5864_PREV_MAST_ENB | TW5864_PREV_OVERFLOW_ENB | TW5864_TIMER_INTR_ENB | TW5864_PCI_MAST_ENB | (1<<1)  /* TODO try TW5864_MVD_VLC_MAST_ENB*/ /*0x00000073*/);
 	tw_writel(TW5864_MASTER_ENB_REG,TW5864_PCI_VLC_INTR_ENB | TW5864_PCI_PREV_INTR_ENB | TW5864_PCI_PREV_OF_INTR_ENB/*0x00000032*/);
@@ -135,6 +135,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 			 fmt_reg_value = 0;
 			 downscale_enabled = 0;
 			 tw_clearl(TW5864_DSP_CODEC, TW5864_HD1_MAP_MD);
+			 tw_setl(TW5864_FULL_HALF_FLAG, 1 << input_number);
 		case HD1:
 			 input->height /= 2;
 			 input->width /= 2;
@@ -143,6 +144,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 			 fmt_reg_value = 0;
 			 downscale_enabled = 0;
 			 tw_setl(TW5864_DSP_CODEC, TW5864_HD1_MAP_MD);
+			 tw_clearl(TW5864_FULL_HALF_FLAG, 1 << input_number);
 			 break;
 		case CIF:
 			 input->height /= 4;
@@ -152,6 +154,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 			 fmt_reg_value = 1;
 			 downscale_enabled = 1;
 			 tw_setl(TW5864_DSP_CODEC, TW5864_CIF_MAP_MD);
+			 tw_setl(TW5864_FULL_HALF_FLAG, 1 << input_number);
 			 break;
 		case QCIF:
 			 input->height /= 4;
@@ -161,9 +164,11 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 			 fmt_reg_value = 1;
 			 downscale_enabled = 1;
 			 tw_setl(TW5864_DSP_CODEC, TW5864_CIF_MAP_MD);
+			 tw_clearl(TW5864_FULL_HALF_FLAG, 1 << input_number);
 			 break;
 	}
 
+	tw_clearl(TW5864_FULL_HALF_MODE_SEL, 1 << input_number);
 	tw_indir_writeb(dev, 0x200, d1_width / 4); // indir in width/4
 	tw_indir_writeb(dev, 0x201, d1_height / 4);
 
@@ -263,14 +268,16 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	spin_unlock_irqrestore(&dev->slock, flags);
 	dev->buf_id = tw_readl(TW5864_SENIF_ORG_FRM_PTR1) & 0x3;
 	u32 orig_enc_buf_id = tw_readl(TW5864_ENC_BUF_PTR_REC1);
-	tw_writel(TW5864_ENC_BUF_PTR_REC1, (orig_enc_buf_id + 1) % 4);
-	mdelay(40);
+	tw_writel(TW5864_ENC_BUF_PTR_REC1, (dev->buf_id + 1) % 4);
+	//mdelay(40);
 	if (tw_readl(0x9218))
 		tw_writel(0x9218, 1);
 
-	u32 enc_buf_id = tw_readl(TW5864_ENC_BUF_PTR_REC1) & 0x3;
-	tw_writel(TW5864_DSP_ENC_ORG_PTR_REG, enc_buf_id << 12);
-	tw_writel(TW5864_DSP_ENC_REC,(enc_buf_id << 12) | ((enc_buf_id+3) & 0x3));
+
+	tw_writel(TW5864_DSP_ENC_ORG_PTR_REG, ((dev->buf_id + 0) % 4) << 12);
+	tw_writel(TW5864_DSP_ENC_REC,(((dev->buf_id + 0) % 4)  /* try diff values */<< 12) | ((dev->buf_id + 3) & 0x3));
+	dev_dbg(&dev->pci->dev, "enc_org %04x, enc_rec %04x\n", tw_readl(TW5864_DSP_ENC_ORG_PTR_REG), tw_readl(TW5864_DSP_ENC_REC));
+
 
 	tw_writel(TW5864_SLICE,0x00008000);
 	tw_writel(TW5864_SLICE,0x00000000);

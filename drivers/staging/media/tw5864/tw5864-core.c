@@ -189,14 +189,6 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		spin_unlock_irqrestore(&dev->slock, flags);
 
 		if (enabled) {
-			u32 orig_enc_buf_id = tw_readl(TW5864_ENC_BUF_PTR_REC1);
-			tw_writel(TW5864_ENC_BUF_PTR_REC1, (orig_enc_buf_id + 1) % 4);
-			u32 enc_buf_id = tw_readl(TW5864_ENC_BUF_PTR_REC1) & 0x3;
-
-			tw_writel(TW5864_DSP_ENC_ORG_PTR_REG, enc_buf_id << 12);
-			tw_writel(TW5864_DSP_ENC_REC,(enc_buf_id << 12) | ((enc_buf_id+3) & 0x3));
-
-
 			// TODO Move this section to be done just before encoding job is fired
 			if (1 /* FIXME HARDCODE all are I-frames */ || input->frame_seqno % GOP_SIZE == 0) {
 				tw_writel(TW5864_MOTION_SEARCH_ETC,0x00000008); // produce intra frame for #4, #8, #12...
@@ -232,11 +224,13 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 
 		if (timer_must_readd_encoding_irq) {
 			int fire = 0;
+			int stuck = 0;
 			// TODO Replace condition with TW5864_SENIF_ORG_FRM_PTR1 value check
 			dev->timers_with_vlc_disabled++;
 			if (dev->timers_with_vlc_disabled > 1000) {
 				dev_dbg(&dev->pci->dev, "enabling VLC irq again thru count reaching\n");
 				fire = 1;
+				stuck = 1;
 			}
 			int senif_org_frm_ptr = tw_readl(TW5864_SENIF_ORG_FRM_PTR1) & 0x03;
 			if (dev->buf_id != senif_org_frm_ptr) {
@@ -253,6 +247,22 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 				input->timer_must_readd_encoding_irq = 0;
 				spin_unlock_irqrestore(&dev->slock, flags);
 
+				u32 enc_buf_id = tw_readl(TW5864_ENC_BUF_PTR_REC1) & 0x3;
+				int enc_buf_id_new = enc_buf_id;
+				dev_dbg(&dev->pci->dev, "0x0010 is %d\n", enc_buf_id);
+				if (stuck) {
+					enc_buf_id_new += 1;
+					enc_buf_id_new %= 4;
+					tw_writel(TW5864_ENC_BUF_PTR_REC1, enc_buf_id_new);
+					dev_dbg(&dev->pci->dev, "0x0010 set to %d (was %d)\n", enc_buf_id_new, enc_buf_id);
+				}
+
+
+				tw_writel(TW5864_DSP_ENC_ORG_PTR_REG, ((enc_buf_id_new + 1) % 4) << 12);
+				tw_writel(TW5864_DSP_ENC_REC,(((enc_buf_id_new  + 1/*senif_org_frm_ptr + 0*/) % 4)  /* try diff values */<< 12) | ((enc_buf_id_new + 0/*senif_org_frm_ptr + 3*/) & 0x3));
+				dev_dbg(&dev->pci->dev, "enc_org %04x, enc_rec %04x\n", tw_readl(TW5864_DSP_ENC_ORG_PTR_REG), tw_readl(TW5864_DSP_ENC_REC));
+
+
 				if (tw_readl(TW5864_VLC_BUF))
 					tw_writel(TW5864_VLC_BUF, tw_readl(TW5864_VLC_BUF) & 0x0f);
 
@@ -263,7 +273,7 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 				tw_writel(TW5864_UNDEF_REG_0x0008,0x00000000);
 				tw_writel(TW5864_EMU_EN_VARIOUS_ETC,0x0000001F);
 				tw_writel(TW5864_UNDEF_REG_0x0008,0x00000800);
-				tw_writel(TW5864_DSP,0x00000A20);
+				tw_writel(TW5864_DSP,0x00000A20 | TW5864_DSP_FLW_CNTL);
 				tw_writel(TW5864_PCI_INTR_CTL,0x00000073);
 				tw_writel(TW5864_MASTER_ENB_REG,0x00000032);
 				tw_writel(TW5864_SLICE,0x00008000);
@@ -543,7 +553,7 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 
 	tw_writel(TW5864_SEN_EN_CH, 0x0001);
 
-	tw_clearl(TW5864_DSP_SEN, TW5864_DSP_SEN_HFULL);
+	//tw_clearl(TW5864_DSP_SEN, TW5864_DSP_SEN_HFULL);
 	tw_writel(TW5864_DDR, TW5864_DDR_MODE | (8 & TW5864_DDR_PAGE_CNTL));
 	tw_writel(TW5864_CS2DAT_CNT, 1);
 	tw_writel(TW5864_DATA_VLD_WIDTH, 1);
