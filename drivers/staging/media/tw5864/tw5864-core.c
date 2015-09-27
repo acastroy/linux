@@ -189,8 +189,8 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		spin_unlock_irqrestore(&dev->slock, flags);
 
 		if (enabled) {
-			u32 orig_enc_buf_id = tw_readl(0x0010);
-			tw_writel(0x0010, (orig_enc_buf_id + 1) % 4);
+			u32 orig_enc_buf_id = tw_readl(TW5864_ENC_BUF_PTR_REC1);
+			tw_writel(TW5864_ENC_BUF_PTR_REC1, (orig_enc_buf_id + 1) % 4);
 			u32 enc_buf_id = tw_readl(TW5864_ENC_BUF_PTR_REC1) & 0x3;
 
 			tw_writel(TW5864_DSP_ENC_ORG_PTR_REG, enc_buf_id << 12);
