@@ -134,6 +134,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 			 frame_height_bus_value = input->height - 1;
 			 fmt_reg_value = 0;
 			 downscale_enabled = 0;
+			 tw_clearl(TW5864_DSP_CODEC, TW5864_HD1_MAP_MD);
 		case HD1:
 			 input->height /= 2;
 			 input->width /= 2;
@@ -141,6 +142,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 			 frame_height_bus_value = input->height * 2 - 1;
 			 fmt_reg_value = 0;
 			 downscale_enabled = 0;
+			 tw_setl(TW5864_DSP_CODEC, TW5864_HD1_MAP_MD);
 			 break;
 		case CIF:
 			 input->height /= 4;
@@ -149,6 +151,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 			 frame_height_bus_value = input->height * 2 - 1;
 			 fmt_reg_value = 1;
 			 downscale_enabled = 1;
+			 tw_setl(TW5864_DSP_CODEC, TW5864_CIF_MAP_MD);
 			 break;
 		case QCIF:
 			 input->height /= 4;
@@ -157,6 +160,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 			 frame_height_bus_value = input->height * 2 - 1;
 			 fmt_reg_value = 1;
 			 downscale_enabled = 1;
+			 tw_setl(TW5864_DSP_CODEC, TW5864_CIF_MAP_MD);
 			 break;
 	}
 
