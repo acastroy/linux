@@ -243,14 +243,14 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 #endif
 
 	if (input->resolution == D1) {
-		tw_writel(0x00000D00,0x00001C1C);
-		tw_writel(0x00000D04,0x00001C1C);
+		tw_writel(TW5864_FRAME_BUS1,0x00001C1C);
+		tw_writel(TW5864_FRAME_BUS2,0x00001C1C);
 	} else if (input->resolution == CIF) {
-		tw_writel(0x00000D00,0x00000707);
-		tw_writel(0x00000D04,0x00000707);
+		tw_writel(TW5864_FRAME_BUS1,0x00000707);
+		tw_writel(TW5864_FRAME_BUS2,0x00000707);
 	} else {
-		tw_writel(0x00000D00,0x00000707);
-		tw_writel(0x00000D04,0x00000707);
+		tw_writel(TW5864_FRAME_BUS1,0x00000707);
+		tw_writel(TW5864_FRAME_BUS2,0x00000707);
 	}
 
 	tw_writel(TW5864_H264EN_BUS_MAX_CH, 0xf);
