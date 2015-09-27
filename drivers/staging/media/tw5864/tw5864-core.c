@@ -559,6 +559,8 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	tw_writel(0x040c, 0x18);
 	// TODO Set DDR self-test end flag in 0xA038?
 
+	tw_writel(TW5864_PCI_INTTM_SCALE, 3);
+
 	tw_setl(TW5864_PCI_INTR_CTL, TW5864_AD_MAST_ENB | TW5864_AD_INTR_ENB);
 	dev->irqmask |= TW5864_INTR_AD_VSYNC | TW5864_INTR_TIMER;
 	tw5864_irqmask_apply(dev);
