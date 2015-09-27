@@ -114,7 +114,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	tw_writel(TW5864_PCI_INTR_CTL, TW5864_PREV_MAST_ENB | TW5864_PREV_OVERFLOW_ENB | TW5864_TIMER_INTR_ENB | TW5864_PCI_MAST_ENB | (1<<1)  /* TODO try TW5864_MVD_VLC_MAST_ENB*/ /*0x00000073*/);
 	tw_writel(TW5864_MASTER_ENB_REG,TW5864_PCI_VLC_INTR_ENB | TW5864_PCI_PREV_INTR_ENB | TW5864_PCI_PREV_OF_INTR_ENB/*0x00000032*/);
 
-	input->resolution = CIF;
+	input->resolution = D1;
 
 	int d1_width = 720;
 	int d1_height = (std == STD_NTSC) ? 480 : 576;
@@ -128,14 +128,18 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	int fmt_reg_value = 0;
 	int downscale_enabled = 0;
 
+
 	switch (input->resolution) {
 		case D1: break;
 			 frame_width_bus_value = 0x2cf;
-			 frame_height_bus_value = input->height - 1;
+			 frame_height_bus_value = input->height *2 - 1;
 			 fmt_reg_value = 0;
 			 downscale_enabled = 0;
-			 tw_clearl(TW5864_DSP_CODEC, TW5864_HD1_MAP_MD);
+			 tw_setl(TW5864_DSP_CODEC, /* TW5864_CIF_MAP_MD |*/ TW5864_HD1_MAP_MD);
 			 tw_setl(TW5864_FULL_HALF_FLAG, 1 << input_number);
+			 tw_setl(TW5864_DSP_SEN, TW5864_DSP_SEN_HFULL);
+			 tw_setl(TW5864_EMU_EN_VARIOUS_ETC, 1 << 6);
+			 tw_writel(TW5864_INTERLACING, 0x6);
 		case HD1:
 			 input->height /= 2;
 			 input->width /= 2;
@@ -145,6 +149,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 			 downscale_enabled = 0;
 			 tw_setl(TW5864_DSP_CODEC, TW5864_HD1_MAP_MD);
 			 tw_clearl(TW5864_FULL_HALF_FLAG, 1 << input_number);
+			 tw_setl(TW5864_EMU_EN_VARIOUS_ETC, 1 << 6);
 			 break;
 		case CIF:
 			 input->height /= 4;
@@ -155,6 +160,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 			 downscale_enabled = 1;
 			 tw_setl(TW5864_DSP_CODEC, TW5864_CIF_MAP_MD);
 			 tw_setl(TW5864_FULL_HALF_FLAG, 1 << input_number);
+			 tw_clearl(TW5864_EMU_EN_VARIOUS_ETC, 1 << 6);  // TODO fix in ISR
 			 break;
 		case QCIF:
 			 input->height /= 4;
@@ -165,15 +171,18 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 			 downscale_enabled = 1;
 			 tw_setl(TW5864_DSP_CODEC, TW5864_CIF_MAP_MD);
 			 tw_clearl(TW5864_FULL_HALF_FLAG, 1 << input_number);
+			 tw_clearl(TW5864_EMU_EN_VARIOUS_ETC, 1 << 6);
 			 break;
 	}
 
+	tw_writel(TW5864_FULL_HALF_MODE_SEL, 0 );
 	tw_clearl(TW5864_FULL_HALF_MODE_SEL, 1 << input_number);
+
 	tw_indir_writeb(dev, 0x200, d1_width / 4); // indir in width/4
 	tw_indir_writeb(dev, 0x201, d1_height / 4);
 
 	tw_indir_writeb(dev, 0x202, input->width / 4); // indir out width/4
-	tw_indir_writeb(dev, 0x203, cif_height / 4);
+	tw_indir_writeb(dev, 0x203, /* cif_height */ input->height / 4);
 	tw_writel(TW5864_DSP_PIC_MAX_MB, ((input->width / 16) << 8) | (input->height / 16));
 
 	int j;
@@ -191,9 +200,9 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	for (i = 0; i < 4; i++) {
 		if (i == 0) {
 			tw_writel(TW5864_FRAME_WIDTH_BUS_A(i), frame_width_bus_value);
-			tw_writel(TW5864_FRAME_WIDTH_BUS_B(i), frame_width_bus_value);
+			//tw_writel(TW5864_FRAME_WIDTH_BUS_B(i), frame_width_bus_value);
 			tw_writel(TW5864_FRAME_HEIGHT_BUS_A(i), frame_height_bus_value);
-			tw_writel(TW5864_FRAME_HEIGHT_BUS_B(i), frame_height_bus_value);
+			//tw_writel(TW5864_FRAME_HEIGHT_BUS_B(i), frame_height_bus_value);
 		} else {
 			tw_writel(TW5864_FRAME_WIDTH_BUS_A(i), 0);
 			tw_writel(TW5864_FRAME_WIDTH_BUS_B(i), 0);
@@ -243,17 +252,20 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 #endif
 
 	if (input->resolution == D1) {
-		tw_writel(TW5864_FRAME_BUS1,0x00001C1C);
-		tw_writel(TW5864_FRAME_BUS2,0x00001C1C);
+		tw_writel(TW5864_FRAME_BUS1,0x0000001c);
+		tw_writel(TW5864_FRAME_BUS2,0x00001c1c);
+	} else if (input->resolution == HD1) {
+		tw_writel(TW5864_FRAME_BUS1,0x00001515);
+		tw_writel(TW5864_FRAME_BUS2,0x00001515);
 	} else if (input->resolution == CIF) {
-		tw_writel(TW5864_FRAME_BUS1,0x00000707);
-		tw_writel(TW5864_FRAME_BUS2,0x00000707);
+		tw_writel(TW5864_FRAME_BUS1,0x00000505);
+		tw_writel(TW5864_FRAME_BUS2,0x00000505);
 	} else {
 		tw_writel(TW5864_FRAME_BUS1,0x00000707);
 		tw_writel(TW5864_FRAME_BUS2,0x00000707);
 	}
 
-	tw_writel(TW5864_H264EN_BUS_MAX_CH, 0xf);
+	tw_writel(TW5864_H264EN_BUS_MAX_CH, 0/*xf*/);
 
 	tw5864_prepare_frame_headers(input);
 	tw_writel(TW5864_VLC, TW5864_VLC_PCI_SEL | ((input->tail_nb_bits + 24) << TW5864_VLC_BIT_ALIGN_SHIFT) | QP_VALUE);

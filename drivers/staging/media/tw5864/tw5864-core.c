@@ -268,11 +268,12 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 
 				tw_writel(TW5864_SEN_EN_CH, 0x0001);
 				tw_writel(TW5864_H264EN_CH_EN, 0x0001);
-				tw_writel(TW5864_DSP_CODEC,0x00000000);
 				tw_writel(TW5864_VLC, QP_VALUE | TW5864_VLC_PCI_SEL | ((input->tail_nb_bits + 24) << TW5864_VLC_BIT_ALIGN_SHIFT));
 				tw_writel(TW5864_UNDEF_REG_0x0008,0x00000000);
-				tw_writel(TW5864_EMU_EN_VARIOUS_ETC,0x0000001F);
 				tw_writel(TW5864_UNDEF_REG_0x0008,0x00000800);
+				tw_setl(TW5864_DSP_CODEC, TW5864_CIF_MAP_MD | TW5864_HD1_MAP_MD);
+				tw_writel(TW5864_EMU_EN_VARIOUS_ETC,0x0000001F | (1 << 6));
+				tw_writel(TW5864_INTERLACING, 0x6);
 				tw_writel(TW5864_DSP,0x00000A20 | TW5864_DSP_FLW_CNTL);
 				tw_writel(TW5864_PCI_INTR_CTL,0x00000073);
 				tw_writel(TW5864_MASTER_ENB_REG,0x00000032);
@@ -512,6 +513,7 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	tw_setl(0xa038, 0x8000); // stop ddr self-test?
 	tw_setl(0xa838, 0x8000); // stop ddr self-test?
 
+#if 1
 	tw_indir_writeb(dev, 0x041, 0x03); // mpb_write(chip, ISIL_VI_VD_EDGE, 0x03);/*use falling edge to sample ,54M to 108M*/
 	tw_indir_writeb(dev, 0xefe, 0x00);
 
@@ -534,7 +536,7 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 
 	tw_indir_writeb(dev, 0xefc, 0x00);
 	tw_indir_writeb(dev, 0xefd, 0xf0);
-
+#endif
 	tw_writel(TW5864_VLC_STREAM_BASE_ADDR, dev->h264_vlc_buf[0].dma_addr);
 	tw_writel(TW5864_MV_STREAM_BASE_ADDR, dev->h264_mv_buf[0].dma_addr);
 
@@ -566,7 +568,7 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	tw_writel(0x0000A000,0x000000C5);
 	tw_writel(0x0000A800,0x000000C5);
 
-	tw_writel(0x040c, 0x18);
+	//tw_writel(0x040c, 0x18);
 	// TODO Set DDR self-test end flag in 0xA038?
 
 	tw_writel(TW5864_PCI_INTTM_SCALE, 3);
