@@ -111,8 +111,8 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	tw_writel(TW5864_DSP_INTRA_MODE,0x00000070);
 	tw_writel(TW5864_DSP, 0 /* channel id */ | TW5864_DSP_CHROM_SW | ((0xa << 8) & TW5864_DSP_MB_DELAY) /* 0x00000A20 */ | TW5864_DSP_FLW_CNTL);
 	tw_writel(TW5864_MOTION_SEARCH_ETC, TW5864_INTRA_EN);
-	tw_writel(TW5864_PCI_INTR_CTL, TW5864_PREV_MAST_ENB | TW5864_PREV_OVERFLOW_ENB | TW5864_TIMER_INTR_ENB | TW5864_PCI_MAST_ENB | (1<<1)  /* TODO try TW5864_MVD_VLC_MAST_ENB*/ /*0x00000073*/);
-	tw_writel(TW5864_MASTER_ENB_REG,TW5864_PCI_VLC_INTR_ENB | TW5864_PCI_PREV_INTR_ENB | TW5864_PCI_PREV_OF_INTR_ENB/*0x00000032*/);
+	tw_writel(TW5864_PCI_INTR_CTL, TW5864_TIMER_INTR_ENB | TW5864_PCI_MAST_ENB | (1<<1)  /* TODO try TW5864_MVD_VLC_MAST_ENB*/ /*0x00000073*/);
+	tw_writel(TW5864_MASTER_ENB_REG,TW5864_PCI_VLC_INTR_ENB);
 
 	input->resolution = D1;
 
@@ -275,7 +275,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 
 	spin_lock_irqsave(&dev->slock, flags);
 	dev->inputs[input_number].enabled = 1;
-	dev->irqmask |= TW5864_INTR_VLC_DONE | TW5864_INTR_PV_OVERFLOW | TW5864_INTR_TIMER | TW5864_INTR_AUD_EOF;
+	dev->irqmask |= TW5864_INTR_VLC_DONE | TW5864_INTR_TIMER;
 	tw5864_irqmask_apply(dev);
 	spin_unlock_irqrestore(&dev->slock, flags);
 	dev->buf_id = tw_readl(TW5864_SENIF_ORG_FRM_PTR1) & 0x3;
@@ -641,11 +641,6 @@ static struct video_device tw5864_video_template = {
 static int tw5864_video_input_init(struct tw5864_input *dev, int video_nr);
 static void tw5864_video_input_fini(struct tw5864_input *dev);
 
-int tw5864_video_init_reg_fucking(struct tw5864_dev *dev, int *video_nr)
-{
-	return 0;
-}
-
 int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 {
 	int i;
@@ -667,19 +662,6 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 			dev_err(&dev->pci->dev, "dma alloc & map fail: %p %p\n", dev->h264_vlc_buf[i].addr, dev->h264_mv_buf[i].addr);
 			goto dma_alloc_fail;
 		}
-	}
-	for (i = 0; i < 8; i++) {
-		dev->jpeg_buf[i].addr = dma_alloc_coherent(&dev->pci->dev, H264_VLC_BUF_SIZE, &dev->jpeg_buf[i].dma_addr, GFP_KERNEL|GFP_DMA32);
-	}
-
-	ret = tw5864_video_init_reg_fucking(dev, video_nr);
-
-	dev->jpg.data = dev->jpeg_buf[0].addr;
-	dev->jpg.size = 0x1000;
-
-	if (!debugfs_create_blob("jpg", S_IRUGO, dev->debugfs_dir, &dev->jpg)) {
-		dev_err(&dev->pci->dev, "jpg debugfs blob creation failed\n");
-		return 1;
 	}
 
 	for (i = 0; i < VLC_DUMP_CNT; i++) {
@@ -809,9 +791,6 @@ void tw5864_video_fini(struct tw5864_dev *dev)
 	for (i = 0; i < H264_BUF_CNT; i++) {
 		dma_free_coherent(&dev->pci->dev, H264_VLC_BUF_SIZE, dev->h264_vlc_buf[i].addr, dev->h264_vlc_buf[i].dma_addr);
 		dma_free_coherent(&dev->pci->dev, H264_MV_BUF_SIZE, dev->h264_mv_buf[i].addr, dev->h264_mv_buf[i].dma_addr);
-	}
-	for (i = 0; i < 8; i++) {
-		dma_free_coherent(&dev->pci->dev, H264_VLC_BUF_SIZE, dev->jpeg_buf[i].addr, dev->jpeg_buf[i].dma_addr);
 	}
 }
 

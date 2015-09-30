@@ -284,45 +284,9 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		tw_writel(TW5864_PCI_INTR_STATUS,TW5864_TIMER_INTR);
 	}
 
-	if (status & TW5864_INTR_AD_VSYNC) {
-		dev_dbg(&dev->pci->dev, "TW5864_INTR_AD_VSYNC\n");
-		tw_setl(TW5864_PCI_INTR_STATUS, TW5864_AD_VSYNC_INTR | TW5864_AD_INTR_REG);
-	}
-
-	if (status & TW5864_INTR_PV_OVERFLOW) {
-		tw_writel(TW5864_PCI_INTR_STATUS, TW5864_PREV_OVERFLOW_INTR);
-		tw_writel(0xc02c, 1);
-
-	}
-
-	if (!(status & (TW5864_INTR_TIMER | TW5864_INTR_VLC_DONE | TW5864_INTR_AD_VSYNC | TW5864_INTR_PV_OVERFLOW))){
+	if (!(status & (TW5864_INTR_TIMER | TW5864_INTR_VLC_DONE))){
 		dev_dbg(&dev->pci->dev, "tw5864_isr: unknown intr, status 0x%08X\n", status);
 	}
-
-
-
-	if (tw_readl(0x9218))
-		tw_writel(0x9218, 1);
-
-	if (tw_indir_readb(dev, 0x2F0))
-		tw_indir_writeb(dev, 0x2F0, 0xFF);
-	if (tw_indir_readb(dev, 0x2F1))
-		tw_indir_writeb(dev, 0x2F1, 0xFF);
-	tw_indir_writeb(dev, 0x382, 0);
-
-	u32 indir_int_regs[] = {0x2d0, 0x2d1, 0x2d2, 0x2d3, 0x2d4, 0x2d5, 0x2d6, 0x2d7,  0x2e0, 0x2e1, 0x2e2, 0x2e3, 0};
-	u32 tmp;
-	for (i = 0; indir_int_regs[i] != 0; i++) {
-		tmp = tw_indir_readb(dev, indir_int_regs[i]);
-		if (tmp) {
-			if (i != 0)
-				dev_dbg(&dev->pci->dev, "indir[0x%03X] = 0x%02X\n", indir_int_regs[i], tmp);
-			tw_indir_writeb(dev, indir_int_regs[i], 0xff);
-		}
-	}
-
-
-
 
 	return IRQ_HANDLED;
 }
@@ -502,19 +466,14 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	dev_info(&dev->pci->dev, "hi everybody, it's info\n");
 	dev_dbg(&dev->pci->dev, "hi everybody, it's debug\n");
 
-	tw_setl(0xa038, 0x8000); // stop ddr self-test?
-	tw_setl(0xa838, 0x8000); // stop ddr self-test?
-
 	WriteForwardQuantizationTable(dev);
 	WriteInverseQuantizationTable(dev);
 	WriteEncodeVLCLookupTable(dev);
 	pci_init_ad(dev);
 
-	tw_setl(0xa038, 0x8000); // stop ddr self-test?
-	tw_setl(0xa838, 0x8000); // stop ddr self-test?
-
 #if 1
-	tw_indir_writeb(dev, 0x041, 0x03); // mpb_write(chip, ISIL_VI_VD_EDGE, 0x03);/*use falling edge to sample ,54M to 108M*/
+	/* Picture is distorted without this block */
+	tw_indir_writeb(dev, 0x041, 0x03);  /*use falling edge to sample ,54M to 108M*/
 	tw_indir_writeb(dev, 0xefe, 0x00);
 
 	tw_indir_writeb(dev, 0xee6, 0x02);
@@ -528,8 +487,6 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	tw_indir_writeb(dev, 0xef0, 0x00);
 	tw_indir_writeb(dev, 0xef0, 0xe0);
 	mdelay(10);
-
-	tw_writel(0x00000D54,0x00000000);
 
 	tw_indir_writeb(dev, 0xefa, 0x44);
 	tw_indir_writeb(dev, 0xefb, 0x44);
@@ -545,26 +502,15 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 
 	tw_writel(TW5864_SEN_EN_CH, 0x0001);
 
-	//tw_clearl(TW5864_DSP_SEN, TW5864_DSP_SEN_HFULL);
-	tw_writel(TW5864_DDR, TW5864_DDR_MODE | (8 & TW5864_DDR_PAGE_CNTL));
-	tw_writel(TW5864_CS2DAT_CNT, 1);
-	tw_writel(TW5864_DATA_VLD_WIDTH, 1);
-	tw_writel(TW5864_SPLL, 0x15);
 	tw_writel(0x09200, 0x00000000);
 	tw_writel(0x09204, 0x00000000);
 	tw_writel(0x09208, 0x00000000);
 	tw_writel(0x0920c, 0x00000000);
 
-	tw_writel(0x0000A000,0x000000C5);
-	tw_writel(0x0000A800,0x000000C5);
-
-	//tw_writel(0x040c, 0x18);
-	// TODO Set DDR self-test end flag in 0xA038?
-
 	tw_writel(TW5864_PCI_INTTM_SCALE, 3);
 
 	tw_setl(TW5864_PCI_INTR_CTL, TW5864_AD_MAST_ENB | TW5864_AD_INTR_ENB);
-	dev->irqmask |= TW5864_INTR_AD_VSYNC | TW5864_INTR_TIMER;
+	dev->irqmask |= TW5864_INTR_TIMER;
 	tw5864_irqmask_apply(dev);
 	return 0;
 

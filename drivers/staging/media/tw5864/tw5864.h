@@ -190,7 +190,6 @@ struct tw5864_dev {
 #define H264_BUF_CNT 2
 	struct tw5864_recv_buf       h264_vlc_buf[H264_BUF_CNT];
 	struct tw5864_recv_buf       h264_mv_buf[H264_BUF_CNT];
-	struct tw5864_recv_buf       jpeg_buf[8];
 
 	/* TODO audio stuff */
 
@@ -200,14 +199,13 @@ struct tw5864_dev {
 	void                    __iomem *mmio;
 	u32			irqmask;
 	u32                     buf_id;
-	u32                     long_timer_scenario_done;
 	u32                     timers_with_vlc_disabled;
 	u32                     frame_seqno;
 
 	u32                     stored_len;
 
 #define VLC_DUMP_CNT 64
-	struct debugfs_blob_wrapper jpg, vlc[VLC_DUMP_CNT];
+	struct debugfs_blob_wrapper vlc[VLC_DUMP_CNT];
 
 	struct dentry           *debugfs_dir;
 };
@@ -272,7 +270,6 @@ void tw5864_set_tvnorm_hw(struct tw5864_dev *dev);
 void tw5864_irqmask_apply(struct tw5864_dev *dev);
 void pci_init_ad(struct tw5864_dev *dev);
 int tw5864_video_init(struct tw5864_dev *dev, int *video_nr);
-int tw5864_video_init_reg_fucking(struct tw5864_dev *dev, int *video_nr);
 void tw5864_video_fini(struct tw5864_dev *dev);
 void tw5864_prepare_frame_headers(struct tw5864_input *input);
 void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len);
