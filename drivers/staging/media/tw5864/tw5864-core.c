@@ -540,16 +540,6 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	tw_writel(TW5864_VLC_STREAM_BASE_ADDR, dev->h264_vlc_buf[0].dma_addr);
 	tw_writel(TW5864_MV_STREAM_BASE_ADDR, dev->h264_mv_buf[0].dma_addr);
 
-#if 1
-	// Disable forcing special NTSC 50 Hz mode
-	tw_indir_writeb(dev, 0x053, 0x00);
-	tw_indir_writeb(dev, 0x054, tw_indir_readb(dev, 0x054) & ~0xc0);
-#else
-	// Enable forcing special NTSC 50 Hz mode
-	tw_indir_writeb(dev, 0x053, 0xc0);
-	tw_indir_writeb(dev, 0x054, tw_indir_readb(dev, 0x054) | 0xc0);
-#endif
-
 	tw_indir_writeb(dev, 0x00e, 0x07);
 	tw_indir_writeb(dev, 0x00f, 0xff); // to initiate auto format recognition
 
