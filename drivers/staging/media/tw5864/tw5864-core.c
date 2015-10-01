@@ -269,12 +269,11 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 				tw_writel(TW5864_SEN_EN_CH, 0x0001);
 				tw_writel(TW5864_H264EN_CH_EN, 0x0001);
 				tw_writel(TW5864_VLC, QP_VALUE | TW5864_VLC_PCI_SEL | ((input->tail_nb_bits + 24) << TW5864_VLC_BIT_ALIGN_SHIFT));
-				tw_writel(TW5864_UNDEF_REG_0x0008,0x00000000);
-				tw_writel(TW5864_UNDEF_REG_0x0008,0x00000800);
 				tw_setl(TW5864_DSP_CODEC, TW5864_CIF_MAP_MD | TW5864_HD1_MAP_MD);
-				tw_writel(TW5864_EMU_EN_VARIOUS_ETC,0x0000001F | (1 << 6));
-				tw_writel(TW5864_INTERLACING, 0x6);
-				tw_writel(TW5864_DSP,0x00000A20 | TW5864_DSP_FLW_CNTL);
+				tw_writel(TW5864_EMU_EN_VARIOUS_ETC, input->reg_emu_en_various_etc);
+				tw_writel(TW5864_INTERLACING, input->reg_interlacing);
+				tw_writel(TW5864_DSP, input->reg_dsp);
+
 				tw_writel(TW5864_PCI_INTR_CTL,0x00000073);
 				tw_writel(TW5864_MASTER_ENB_REG,0x00000032);
 				tw_writel(TW5864_SLICE,0x00008000);

@@ -178,6 +178,16 @@ struct tw5864_input {
 	u8 tail;
 	u8 *buf_cur_ptr;
 	int buf_cur_space_left;
+
+	u32 reg_interlacing;
+	u32 reg_vlc;
+	u32 reg_dsp_codec;
+	u32 reg_dsp;
+	u32 reg_emu_en_various_etc;
+	u32 reg_dsp_qp;
+	u32                     buf_id;
+
+
 	struct tw5864_buf *vb;
 };
 
@@ -198,7 +208,6 @@ struct tw5864_dev {
 	struct pci_dev		*pci;
 	void                    __iomem *mmio;
 	u32			irqmask;
-	u32                     buf_id;
 	u32                     timers_with_vlc_disabled;
 	u32                     frame_seqno;
 
@@ -213,19 +222,11 @@ struct tw5864_dev {
 /* ----------------------------------------------------------- */
 
 #define tw_readl(reg) readl(dev->mmio + reg)
-#define tw_readw(reg) readw(dev->mmio + reg)
-#define	tw_readb(reg) readb(dev->mmio + reg)
-
 #define tw_writel(reg, value) writel((value), dev->mmio + reg)
-#define tw_writew(reg, value) writel((value), dev->mmio + reg)
-#define	tw_writeb(reg, value) writel((value), dev->mmio + reg)
+#define tw_mask_writel(reg, mask, value) \
+	tw_writel(reg, tw_readl(reg) & ~(mask) | (value) & (mask))
 #define	tw_setl(reg, bit)	tw_writel((reg), tw_readl(reg) | (bit))
-#define	tw_setw(reg, bit)	tw_writel((reg), tw_readl(reg) | (bit))
-#define	tw_setb(reg, bit)	tw_writel((reg), tw_readl(reg) | (bit))
 #define	tw_clearl(reg, bit)	tw_writel((reg), tw_readl(reg) & ~(bit))
-#define	tw_clearw(reg, bit)	tw_writel((reg), tw_readl(reg) & ~(bit))
-#define	tw_clearb(reg, bit)	tw_writel((reg), tw_readl(reg) & ~(bit))
-#define tw_wait(us) { udelay(us); }
 
 static void tw_indir_writeb(struct tw5864_dev *dev, u16 addr, u8 data) {
 	int timeout = 30000;

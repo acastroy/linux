@@ -27,7 +27,7 @@
 /* 0x0000 ~ 0x1FFC - H264 Register Map */
 #define TW5864_H264REV             0x0000  /* [15:0] The Version register for H264 core (Read Only) */
 
-#define TW5864_EMU_EN_VARIOUS_ETC  0x0004  /* */
+#define TW5864_EMU_EN_VARIOUS_ETC  0x0004  /* TODO Improve naming */
 /* Define controls in register TW5864_EMU_EN_VARIOUS_ETC */
 #define TW5864_EMU_EN_DDR        (1 << 0)  /* DDR controller enabled */
 #define TW5864_EMU_EN_ME         (1 << 1)  /* Enable bit for Inter module */
@@ -41,6 +41,7 @@
                                               10 Reserved
                                               11 Reserved
                                            */
+#define TW5864_DSP_FRAME_TYPE_D1 (1 << 6)
 
 #define TW5864_SLICE               0x000C  /*  */
 /* Define controls in register TW5864_SLICE */

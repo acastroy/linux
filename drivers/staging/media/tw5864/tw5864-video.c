@@ -79,6 +79,9 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	struct tw5864_input *input = &dev->inputs[input_number];
 	unsigned long flags;
 	int i;
+
+	BUG_ON(input_number < 0 || input_number >= 4);
+
 	dev_dbg(&dev->pci->dev, "enabling channel %d\n", input_number);
 
 	u8 indir_0x0Ne = tw_indir_readb(dev, 0x00e + input_number * 0x010);
@@ -97,22 +100,42 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	input->std = std;
 	input->v4l2_std = tw5864_get_v4l2_std(std);
 
-	if (tw_readl(TW5864_VLC_BUF))
-		tw_writel(TW5864_VLC_BUF, tw_readl(TW5864_VLC_BUF) & 0x0f);
+	input->reg_dsp_qp = QP_VALUE;
+	input->reg_dsp_ref_mvp_lambda = Lambda_lookup_table[QP_VALUE];
+	input->reg_dsp_i4x4_weight = Intra4X4_Lambda3[QP_VALUE];
+	input->reg_emu_en_various_etc = TW5864_EMU_EN_LPF | TW5864_EMU_EN_BHOST
+		| TW5864_EMU_EN_SEN | TW5864_EMU_EN_ME | TW5864_EMU_EN_DDR;
+	input->reg_dsp = input_number  /* channel id */
+		| TW5864_DSP_CHROM_SW  /* TODO Does this matter? Goes so in reference driver. */
+		| ((0xa << 8) & TW5864_DSP_MB_DELAY)  /* Value from ref driver */
+		| TW5864_DSP_FLW_CNTL  /* Does this matter? Most probably not. Wasn't used in ref driver. TODO Try to drop. */
+		;
 
-	tw_writel(TW5864_DSP_CODEC,0x00000000);
+	/* TODO Move to prep for new frame */
+	tw_writel(TW5864_DSP_QP, input->reg_dsp_qp);
+	tw_writel(TW5864_DSP_REF_MVP_LAMBDA, input->reg_dsp_ref_mvp_lambda);
+	tw_writel(TW5864_DSP_I4x4_WEIGHT, input->reg_dsp_i4x4_weight);
+
+	tw5864_prepare_frame_headers(input);
+	tw_writel(TW5864_VLC, TW5864_VLC_PCI_SEL | ((input->tail_nb_bits + 24) << TW5864_VLC_BIT_ALIGN_SHIFT) | QP_VALUE);
+
+	/* TODO shift, mask... */
+	tw_writel(TW5864_DSP_ENC_ORG_PTR_REG, ((dev->buf_id + 0) % 4) << 12);
+	tw_writel(TW5864_DSP_ENC_REC,(((dev->buf_id + 0) % 4)  /* try diff values */<< 12) | ((dev->buf_id + 3) & 0x3));
+	dev_dbg(&dev->pci->dev, "enc_org %04x, enc_rec %04x\n", tw_readl(TW5864_DSP_ENC_ORG_PTR_REG), tw_readl(TW5864_DSP_ENC_REC));
 
 
-	tw_writel(TW5864_DSP_QP, QP_VALUE);
-	tw_writel(TW5864_DSP_REF_MVP_LAMBDA,Lambda_lookup_table[QP_VALUE]);
+	tw_writel(TW5864_SLICE,0x00008000);
+	tw_writel(TW5864_SLICE,0x00000000);
+	/* TODO END Move to prep for new frame */
+
+	/* TODO Move to global init */
 	tw_writel(TW5864_INTERLACING, TW5864_DI_EN);
-	tw_writel(TW5864_EMU_EN_VARIOUS_ETC,TW5864_EMU_EN_LPF | TW5864_EMU_EN_BHOST | TW5864_EMU_EN_SEN | TW5864_EMU_EN_ME | TW5864_EMU_EN_DDR);
-	tw_writel(TW5864_DSP_I4x4_WEIGHT,Intra4X4_Lambda3[QP_VALUE]);
 	tw_writel(TW5864_DSP_INTRA_MODE,0x00000070);
-	tw_writel(TW5864_DSP, 0 /* channel id */ | TW5864_DSP_CHROM_SW | ((0xa << 8) & TW5864_DSP_MB_DELAY) /* 0x00000A20 */ | TW5864_DSP_FLW_CNTL);
-	tw_writel(TW5864_MOTION_SEARCH_ETC, TW5864_INTRA_EN);
 	tw_writel(TW5864_PCI_INTR_CTL, TW5864_TIMER_INTR_ENB | TW5864_PCI_MAST_ENB | (1<<1)  /* TODO try TW5864_MVD_VLC_MAST_ENB*/ /*0x00000073*/);
 	tw_writel(TW5864_MASTER_ENB_REG,TW5864_PCI_VLC_INTR_ENB);
+	dev->irqmask |= TW5864_INTR_VLC_DONE | TW5864_INTR_TIMER;
+	/* TODO END Move to global init */
 
 	input->resolution = D1;
 
@@ -125,125 +148,122 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 
 	int frame_width_bus_value = 0;
 	int frame_height_bus_value = 0;
+	int reg_frame_bus;
 	int fmt_reg_value = 0;
 	int downscale_enabled = 0;
 
+	input->reg_interlacing = 0x4;
+
+
+	/* TODO FIXME Take some mutex guarding channels enabling stuff since we
+	 * edit values, release when we're done with it. */
 
 	switch (input->resolution) {
 		case D1: break;
 			 frame_width_bus_value = 0x2cf;
 			 frame_height_bus_value = input->height - 1;
+			 reg_frame_bus = 0x1c;
 			 fmt_reg_value = 3;
 			 downscale_enabled = 0;
-			 tw_setl(TW5864_DSP_CODEC,  TW5864_CIF_MAP_MD | TW5864_HD1_MAP_MD);
+			 input->reg_dsp_codec |= TW5864_CIF_MAP_MD
+				 | TW5864_HD1_MAP_MD;
+			 input->reg_emu_en_various_etc |= TW5864_DSP_FRAME_TYPE_D1;
+			 input->reg_interlacing = 0x6;  /* TODO WTF 0x2? Try with default 0x4 */
+
 			 tw_setl(TW5864_FULL_HALF_FLAG, 1 << input_number);
-			 tw_clearl(TW5864_DSP_SEN, TW5864_DSP_SEN_HFULL);
-			 tw_setl(TW5864_EMU_EN_VARIOUS_ETC, 1 << 6);
-			 tw_writel(TW5864_INTERLACING, 0x6);
+
 		case HD1:
 			 input->height /= 2;
 			 input->width /= 2;
 			 frame_width_bus_value = 0x2cf;
 			 frame_height_bus_value = input->height * 2 - 1;
+			 reg_frame_bus = 0x1c;
 			 fmt_reg_value = 0;
 			 downscale_enabled = 0;
-			 tw_setl(TW5864_DSP_CODEC, TW5864_HD1_MAP_MD);
+			 input->reg_dsp_codec |= TW5864_HD1_MAP_MD;
+			 input->reg_emu_en_various_etc |= TW5864_DSP_FRAME_TYPE_D1;
+
 			 tw_clearl(TW5864_FULL_HALF_FLAG, 1 << input_number);
-			 tw_setl(TW5864_EMU_EN_VARIOUS_ETC, 1 << 6);
+
 			 break;
 		case CIF:
 			 input->height /= 4;
 			 input->width /= 2;
 			 frame_width_bus_value = 0x15f;
 			 frame_height_bus_value = input->height * 2 - 1;
+			 reg_frame_bus = 0x07;
 			 fmt_reg_value = 1;
 			 downscale_enabled = 1;
-			 tw_setl(TW5864_DSP_CODEC, TW5864_CIF_MAP_MD);
-			 tw_setl(TW5864_FULL_HALF_FLAG, 1 << input_number);
-			 tw_clearl(TW5864_EMU_EN_VARIOUS_ETC, 1 << 6);  // TODO fix in ISR
+			 input->reg_dsp_codec |= TW5864_CIF_MAP_MD;
+
+			 tw_clearl(TW5864_FULL_HALF_FLAG, 1 << input_number);
 			 break;
 		case QCIF:
 			 input->height /= 4;
 			 input->width /= 4;
 			 frame_width_bus_value = 0x15f;
 			 frame_height_bus_value = input->height * 2 - 1;
+			 reg_frame_bus = 0x07;
 			 fmt_reg_value = 1;
 			 downscale_enabled = 1;
-			 tw_setl(TW5864_DSP_CODEC, TW5864_CIF_MAP_MD);
+			 input->reg_dsp_codec |= TW5864_CIF_MAP_MD;
+
 			 tw_clearl(TW5864_FULL_HALF_FLAG, 1 << input_number);
-			 tw_clearl(TW5864_EMU_EN_VARIOUS_ETC, 1 << 6);
 			 break;
 	}
 
-	tw_writel(TW5864_FULL_HALF_MODE_SEL, 0 );
+#if 0
+	/*
+	 * Select Part A mode. tw_setl instead of tw_clearl for Part B mode.
+	 *
+	 * I guess "Part B" is primarily for downscaled version of same channel
+	 * which goes in Part A of same bus
+	 */
 	tw_clearl(TW5864_FULL_HALF_MODE_SEL, 1 << input_number);
+#endif
 
-	tw_indir_writeb(dev, 0x200, d1_width / 4); // indir in width/4
+	tw_indir_writeb(dev, 0x200, d1_width / 4); // analog input width / 4
 	tw_indir_writeb(dev, 0x201, d1_height / 4);
 
-	tw_indir_writeb(dev, 0x202, input->width / 4); // indir out width/4
-	tw_indir_writeb(dev, 0x203, /* cif_height */ input->height / 4);
-	tw_writel(TW5864_DSP_PIC_MAX_MB, ((input->width / 16) << 8) | (input->height / 16));
+	tw_indir_writeb(dev, 0x202, input->width / 4); // output width / 4
+	tw_indir_writeb(dev, 0x203, /* cif_height */ input->height / 4);  /* TODO Should use cif_height, not input's? */
+	tw_writel(TW5864_DSP_PIC_MAX_MB, ((input->width / 16) << 8) | (input->height / 16));  /* FIXME 8 pixels lacking from CIF. If we want CIF to work at all. */
 
+	tw_writel(TW5864_FRAME_WIDTH_BUS_A(input_number), frame_width_bus_value);
+	tw_writel(TW5864_FRAME_WIDTH_BUS_B(input_number), frame_width_bus_value);
+	tw_writel(TW5864_FRAME_HEIGHT_BUS_A(input_number), frame_height_bus_value);
+	tw_writel(TW5864_FRAME_HEIGHT_BUS_B(input_number), (frame_height_bus_value + 1) / 2 - 1);
 	int j;
-	for (i = 0; i < 4; i++) {
-		tw_writel(TW5864_FRAME_WIDTH_BUS_A(i), 0);
-		tw_writel(TW5864_FRAME_WIDTH_BUS_B(i), 0);
-		tw_writel(TW5864_FRAME_HEIGHT_BUS_A(i), 0);
-		tw_writel(TW5864_FRAME_HEIGHT_BUS_B(i), 0);
-		for (j = 0; j < 4; j++) {
-			tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(i, j), 0);
-			tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(i, j), 0);
-		}
-	}
-
-	for (i = 0; i < 4; i++) {
-		if (i == 0) {
-			tw_writel(TW5864_FRAME_WIDTH_BUS_A(i), frame_width_bus_value);
-			tw_writel(TW5864_FRAME_WIDTH_BUS_B(i), frame_width_bus_value);
-			tw_writel(TW5864_FRAME_HEIGHT_BUS_A(i), frame_height_bus_value);
-			tw_writel(TW5864_FRAME_HEIGHT_BUS_B(i), (frame_height_bus_value + 1) / 2 - 1);
+	for (j = 0; j < 4; j++) {
+		if (j == 0) {
+			tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(input_number, j), 0xffff);
+			tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(input_number, j), 0xffff);
 		} else {
-			tw_writel(TW5864_FRAME_WIDTH_BUS_A(i), 0);
-			tw_writel(TW5864_FRAME_WIDTH_BUS_B(i), 0);
-			tw_writel(TW5864_FRAME_HEIGHT_BUS_A(i), 0);
-			tw_writel(TW5864_FRAME_HEIGHT_BUS_B(i), 0);
-		}
-		for (j = 0; j < 4; j++) {
-			if (i == 0 && j == 0) {
-				tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(i, j), 0xffff);
-				tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(i, j), 0xffff);
-			} else {
-				tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(i, j), 0);
-				tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(i, j), 0);
-			}
+			tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(input_number, j), 0);
+			tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(input_number, j), 0);
 		}
 	}
 
-	tw_writel(TW5864_H264EN_CH_DNS, downscale_enabled << input_number);  /* TODO merge with existing value for other channels */
-	tw_writel(TW5864_H264EN_CH_FMT_REG1, fmt_reg_value \
+	if (downscale_enabled)
+		tw_setl(TW5864_H264EN_CH_DNS, 1 << input_number);
 
-#if 0
-			| fmt_reg_value << 2 \
-			| fmt_reg_value << 4 \
-			| fmt_reg_value << 6
-#endif
-			);
-	tw_writel(TW5864_H264EN_CH_FMT_REG2, fmt_reg_value \
-
-#if 0
-			| fmt_reg_value << 2 \
-			| fmt_reg_value << 4 \
-			| fmt_reg_value << 6
-#endif
+	/* TODO Unify operation (see below) */
+	u32 ch_fmt_reg_mask = 0x3 << (2 * input_number);
+	tw_writel(TW5864_H264EN_CH_FMT_REG1,
+			tw_readl(TW5864_H264EN_CH_FMT_REG1) & ~ch_fmt_reg_mask
+			| (fmt_reg_value << (2 * input_number))
 			);
 
+
+	/* Try without */
 	if (std == STD_NTSC) {
 		tw_indir_writeb(dev, 0x260, 0);
 	} else {
 		tw_indir_writeb(dev, 0x260, 1);
 	}
 
+	/* Some undocumented kind of framerate control... TODO Figure out, at
+	 * last change only needed bus here, not all */
 	tw_writel(TW5864_H264EN_RATE_MAX_LINE_REG1, std == STD_NTSC ? 0x3bd : 0x318);
 	tw_writel(TW5864_H264EN_RATE_MAX_LINE_REG2, std == STD_NTSC ? 0x3bd : 0x318);
 #if 0
@@ -251,48 +271,51 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	tw_writel(TW5864_H264EN_RATE_MAX_LINE_REG2, 0);
 #endif
 
-	if (input->resolution == D1) {
-		tw_writel(TW5864_FRAME_BUS1,0x0000001c);
-		tw_writel(TW5864_FRAME_BUS2,0x00001c1c);
-	} else if (input->resolution == HD1) {
-		tw_writel(TW5864_FRAME_BUS1,0x00001515);
-		tw_writel(TW5864_FRAME_BUS2,0x00001515);
-	} else if (input->resolution == CIF) {
-		tw_writel(TW5864_FRAME_BUS1,0x00000505);
-		tw_writel(TW5864_FRAME_BUS2,0x00000505);
-	} else {
-		tw_writel(TW5864_FRAME_BUS1,0x00000707);
-		tw_writel(TW5864_FRAME_BUS2,0x00000707);
+	/* TODO Unify operation (see above) */
+	{
+		int shift = (input_number % 2) * 8;
+		u32 mask = 0xff << shift;
+		u32 reg = (input_number < 2) ? TW5864_FRAME_BUS1 : TW5864_FRAME_BUS2;
+		tw_writel(reg, tw_readl(reg) & ~mask | (reg_frame_bus << shift));
 	}
 
-	tw_writel(TW5864_H264EN_BUS_MAX_CH, 0/*xf*/);
 
-	tw5864_prepare_frame_headers(input);
-	tw_writel(TW5864_VLC, TW5864_VLC_PCI_SEL | ((input->tail_nb_bits + 24) << TW5864_VLC_BIT_ALIGN_SHIFT) | QP_VALUE);
-
-	if (tw_readl(0x9218))
-		tw_writel(0x9218, 1);
 
 	spin_lock_irqsave(&dev->slock, flags);
 	dev->inputs[input_number].enabled = 1;
-	dev->irqmask |= TW5864_INTR_VLC_DONE | TW5864_INTR_TIMER;
 	tw5864_irqmask_apply(dev);
 	spin_unlock_irqrestore(&dev->slock, flags);
-	dev->buf_id = tw_readl(TW5864_SENIF_ORG_FRM_PTR1) & 0x3;
-	u32 orig_enc_buf_id = tw_readl(TW5864_ENC_BUF_PTR_REC1);
-	tw_writel(TW5864_ENC_BUF_PTR_REC1, (dev->buf_id + 1) % 4);
-	//mdelay(40);
-	if (tw_readl(0x9218))
-		tw_writel(0x9218, 1);
 
+	/*
+	 * AFAIU we need to update input's part of TW5864_ENC_BUF_PTR_REC1 just
+	 * to anything different, then it and TW5864_SENIF_ORG_FRM_PTR1
+	 * occasionally start to roll by themselves.
+	 *
+	 * Quote from Intersil (manufacturer):
+	 * 0x0038 is managed by HW, and by default it won't pass the pointer set
+	 * at 0x0010. So if you don't do encoding, 0x0038 should stay at '3'
+	 * (with 4 frames in buffer). If you encode one frame and then move
+	 * 0x0010 to '1' for example, HW will take one more frame and set it to
+	 * buffer #0, and then you should see 0x0038 is set to '0'.
+	 * There is only one HW encoder engine, so 4 channels cannot get encoded
+	 * simultaneously. But each channel does have its own buffer (for
+	 * original frames and reconstructed frames). So there is no problem to
+	 * manage encoding for 4 channels at same time and no need to force
+	 * I-frames in switching channels.
+	 * End of quote.
+	 */
+	/* TODO Use spec procedure to update value with a mask */
+	{
+		int shift = input_number * 2;
+		u32 mask = 0x3 << shift;
+		input->buf_id =
+			(tw_readl(TW5864_SENIF_ORG_FRM_PTR1) & mask) >> shift;
+		tw_writel(TW5864_ENC_BUF_PTR_REC1,
+				tw_readl(TW5864_ENC_BUF_PTR_REC1) & ~mask
+				| (((input->buf_id + 1) % 4) << shift)
+				);
+	}
 
-	tw_writel(TW5864_DSP_ENC_ORG_PTR_REG, ((dev->buf_id + 0) % 4) << 12);
-	tw_writel(TW5864_DSP_ENC_REC,(((dev->buf_id + 0) % 4)  /* try diff values */<< 12) | ((dev->buf_id + 3) & 0x3));
-	dev_dbg(&dev->pci->dev, "enc_org %04x, enc_rec %04x\n", tw_readl(TW5864_DSP_ENC_ORG_PTR_REG), tw_readl(TW5864_DSP_ENC_REC));
-
-
-	tw_writel(TW5864_SLICE,0x00008000);
-	tw_writel(TW5864_SLICE,0x00000000);
 	return 0;
 }
 
