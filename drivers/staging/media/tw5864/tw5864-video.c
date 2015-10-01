@@ -111,23 +111,6 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 		| TW5864_DSP_FLW_CNTL  /* Does this matter? Most probably not. Wasn't used in ref driver. TODO Try to drop. */
 		;
 
-	/* TODO Move to prep for new frame */
-	tw_writel(TW5864_DSP_QP, input->reg_dsp_qp);
-	tw_writel(TW5864_DSP_REF_MVP_LAMBDA, input->reg_dsp_ref_mvp_lambda);
-	tw_writel(TW5864_DSP_I4x4_WEIGHT, input->reg_dsp_i4x4_weight);
-
-	tw5864_prepare_frame_headers(input);
-	tw_writel(TW5864_VLC, TW5864_VLC_PCI_SEL | ((input->tail_nb_bits + 24) << TW5864_VLC_BIT_ALIGN_SHIFT) | QP_VALUE);
-
-	/* TODO shift, mask... */
-	tw_writel(TW5864_DSP_ENC_ORG_PTR_REG, ((dev->buf_id + 0) % 4) << 12);
-	tw_writel(TW5864_DSP_ENC_REC,(((dev->buf_id + 0) % 4)  /* try diff values */<< 12) | ((dev->buf_id + 3) & 0x3));
-	dev_dbg(&dev->pci->dev, "enc_org %04x, enc_rec %04x\n", tw_readl(TW5864_DSP_ENC_ORG_PTR_REG), tw_readl(TW5864_DSP_ENC_REC));
-
-
-	tw_writel(TW5864_SLICE,0x00008000);
-	tw_writel(TW5864_SLICE,0x00000000);
-	/* TODO END Move to prep for new frame */
 
 	/* TODO Move to global init */
 	tw_writel(TW5864_INTERLACING, TW5864_DI_EN);
@@ -148,7 +131,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 
 	int frame_width_bus_value = 0;
 	int frame_height_bus_value = 0;
-	int reg_frame_bus;
+	int reg_frame_bus = 0x1c;
 	int fmt_reg_value = 0;
 	int downscale_enabled = 0;
 
@@ -247,12 +230,8 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	if (downscale_enabled)
 		tw_setl(TW5864_H264EN_CH_DNS, 1 << input_number);
 
-	/* TODO Unify operation (see below) */
-	u32 ch_fmt_reg_mask = 0x3 << (2 * input_number);
-	tw_writel(TW5864_H264EN_CH_FMT_REG1,
-			tw_readl(TW5864_H264EN_CH_FMT_REG1) & ~ch_fmt_reg_mask
-			| (fmt_reg_value << (2 * input_number))
-			);
+	tw_mask_shift_writel(TW5864_H264EN_CH_FMT_REG1, 0x3, 2 * input_number,
+			fmt_reg_value);
 
 
 	/* Try without */
@@ -271,13 +250,11 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	tw_writel(TW5864_H264EN_RATE_MAX_LINE_REG2, 0);
 #endif
 
-	/* TODO Unify operation (see above) */
-	{
-		int shift = (input_number % 2) * 8;
-		u32 mask = 0xff << shift;
-		u32 reg = (input_number < 2) ? TW5864_FRAME_BUS1 : TW5864_FRAME_BUS2;
-		tw_writel(reg, tw_readl(reg) & ~mask | (reg_frame_bus << shift));
-	}
+	tw_mask_shift_writel(
+			(input_number < 2)
+			? TW5864_FRAME_BUS1 : TW5864_FRAME_BUS2,
+			0xff, (input_number % 2) * 8,
+			reg_frame_bus);
 
 
 
@@ -286,37 +263,47 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	tw5864_irqmask_apply(dev);
 	spin_unlock_irqrestore(&dev->slock, flags);
 
-	/*
-	 * AFAIU we need to update input's part of TW5864_ENC_BUF_PTR_REC1 just
-	 * to anything different, then it and TW5864_SENIF_ORG_FRM_PTR1
-	 * occasionally start to roll by themselves.
-	 *
-	 * Quote from Intersil (manufacturer):
-	 * 0x0038 is managed by HW, and by default it won't pass the pointer set
-	 * at 0x0010. So if you don't do encoding, 0x0038 should stay at '3'
-	 * (with 4 frames in buffer). If you encode one frame and then move
-	 * 0x0010 to '1' for example, HW will take one more frame and set it to
-	 * buffer #0, and then you should see 0x0038 is set to '0'.
-	 * There is only one HW encoder engine, so 4 channels cannot get encoded
-	 * simultaneously. But each channel does have its own buffer (for
-	 * original frames and reconstructed frames). So there is no problem to
-	 * manage encoding for 4 channels at same time and no need to force
-	 * I-frames in switching channels.
-	 * End of quote.
-	 */
-	/* TODO Use spec procedure to update value with a mask */
-	{
-		int shift = input_number * 2;
-		u32 mask = 0x3 << shift;
-		input->buf_id =
-			(tw_readl(TW5864_SENIF_ORG_FRM_PTR1) & mask) >> shift;
-		tw_writel(TW5864_ENC_BUF_PTR_REC1,
-				tw_readl(TW5864_ENC_BUF_PTR_REC1) & ~mask
-				| (((input->buf_id + 1) % 4) << shift)
-				);
-	}
+	tw5864_request_encoded_frame(input);
 
 	return 0;
+}
+
+void tw5864_request_encoded_frame(struct tw5864_input *input)
+{
+	struct tw5864_dev *dev = input->root;
+
+	if (tw_readl(TW5864_VLC_BUF))
+		tw_writel(TW5864_VLC_BUF, tw_readl(TW5864_VLC_BUF) & 0x0f);  /* TODO Unneeded? */
+
+	tw_setl(TW5864_SEN_EN_CH, 1 << input->input_number);  /* TODO Unneeded? */
+	tw_setl(TW5864_H264EN_CH_EN, 1 << input->input_number);  /* TODO Unneeded? */
+	tw_writel(TW5864_VLC, QP_VALUE | TW5864_VLC_PCI_SEL | ((input->tail_nb_bits + 24) << TW5864_VLC_BIT_ALIGN_SHIFT));
+	tw_setl(TW5864_DSP_CODEC, TW5864_CIF_MAP_MD | TW5864_HD1_MAP_MD);
+	tw_writel(TW5864_EMU_EN_VARIOUS_ETC, input->reg_emu_en_various_etc);
+	tw_writel(TW5864_INTERLACING, input->reg_interlacing);
+	tw_writel(TW5864_DSP, input->reg_dsp);
+
+	tw_writel(TW5864_DSP_QP, input->reg_dsp_qp);
+	tw_writel(TW5864_DSP_REF_MVP_LAMBDA, input->reg_dsp_ref_mvp_lambda);
+	tw_writel(TW5864_DSP_I4x4_WEIGHT, input->reg_dsp_i4x4_weight);
+
+	tw5864_prepare_frame_headers(input);
+	tw_writel(TW5864_VLC, TW5864_VLC_PCI_SEL | ((input->tail_nb_bits + 24) << TW5864_VLC_BIT_ALIGN_SHIFT) | QP_VALUE);
+
+	u32 enc_buf_id = tw_mask_shift_readl(TW5864_ENC_BUF_PTR_REC1, 0x3, 2 * input->input_number);
+	int enc_buf_id_new = enc_buf_id;
+
+	tw_writel(TW5864_DSP_ENC_ORG_PTR_REG, ((enc_buf_id_new + 1) % 4) << TW5864_DSP_ENC_ORG_PTR_SHIFT);
+	tw_writel(TW5864_DSP_ENC_REC,(((enc_buf_id_new  + 1) % 4) << 12) | (enc_buf_id_new & 0x3));
+	dev_dbg(&dev->pci->dev, "enc_org %04x, enc_rec %04x\n", tw_readl(TW5864_DSP_ENC_ORG_PTR_REG), tw_readl(TW5864_DSP_ENC_REC));
+
+	tw_writel(TW5864_PCI_INTR_CTL,0x00000073);  /* Unneeded? TODO decode, remove unneeded bits */
+	tw_writel(TW5864_MASTER_ENB_REG,TW5864_PCI_VLC_INTR_ENB);  /* TODO Unneeded? */
+
+	/* TODO FIXME Set bitstream output address, have more than single buffer
+	 * for all channels, to enable bottom half processing approach */
+	tw_writel(TW5864_SLICE,0x00008000);
+	tw_writel(TW5864_SLICE,0x00000000);
 }
 
 static int tw5864_disable_input(struct tw5864_dev *dev, int input_number) {
@@ -915,6 +902,7 @@ v4l2_std_id tw5864_get_v4l2_std(enum tw5864_vid_std std)
 		case STD_SECAM: return V4L2_STD_SECAM_B;
 		case STD_INVALID: WARN_ON_ONCE(1); return 0;
 	}
+	return 0;
 }
 
 enum tw5864_vid_std tw5864_from_v4l2_std(v4l2_std_id v4l2_std)

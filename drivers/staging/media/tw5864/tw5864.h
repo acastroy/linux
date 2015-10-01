@@ -170,7 +170,7 @@ struct tw5864_input {
 	unsigned int h264_idr_pic_id;
 	unsigned int h264_frame_seqno_in_gop;
 	int enabled;
-	int timer_must_readd_encoding_irq;
+	int timer_must_readd_encoding_irq;  /* TODO Better naming */
 	int discard_frames;
 	enum tw5864_vid_std     std;
 	v4l2_std_id             v4l2_std;
@@ -185,6 +185,8 @@ struct tw5864_input {
 	u32 reg_dsp;
 	u32 reg_emu_en_various_etc;
 	u32 reg_dsp_qp;
+	u32 reg_dsp_ref_mvp_lambda;
+	u32 reg_dsp_i4x4_weight;
 	u32                     buf_id;
 
 
@@ -222,9 +224,17 @@ struct tw5864_dev {
 /* ----------------------------------------------------------- */
 
 #define tw_readl(reg) readl(dev->mmio + reg)
+#define tw_mask_readl(reg, mask) \
+	(tw_readl(reg) & (mask))
+#define tw_mask_shift_readl(reg, mask, shift) \
+	(tw_mask_readl((reg), ((mask) << (shift))) >> (shift))
+
 #define tw_writel(reg, value) writel((value), dev->mmio + reg)
 #define tw_mask_writel(reg, mask, value) \
-	tw_writel(reg, tw_readl(reg) & ~(mask) | (value) & (mask))
+	tw_writel(reg, (tw_readl(reg) & ~(mask)) | ((value) & (mask)))
+#define tw_mask_shift_writel(reg, mask, shift, value) \
+	tw_mask_writel((reg), ((mask) << (shift)), ((value) << (shift)))
+
 #define	tw_setl(reg, bit)	tw_writel((reg), tw_readl(reg) | (bit))
 #define	tw_clearl(reg, bit)	tw_writel((reg), tw_readl(reg) & ~(bit))
 
@@ -278,6 +288,7 @@ h264_stream_t *tw5864_h264_init(void);
 void tw5864_h264_destroy(h264_stream_t *h);
 void tw5864_h264_put_stream_header(h264_stream_t* h, u8 **buf, size_t *space_left, int qp, int width, int height);
 void tw5864_h264_put_slice_header(h264_stream_t* h, u8 **buf, size_t *space_left, unsigned int idr_pic_id, unsigned int frame_seqno_in_gop, int *tail_nb_bits, u8 *tail);
+void tw5864_request_encoded_frame(struct tw5864_input *input);
 
 static const unsigned int   Lambda_lookup_table[52] =
 {
