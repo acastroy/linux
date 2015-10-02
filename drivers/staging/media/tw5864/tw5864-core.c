@@ -507,9 +507,14 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 
 	tw_writel(TW5864_PCI_INTTM_SCALE, 3);
 
-	tw_setl(TW5864_PCI_INTR_CTL, TW5864_AD_MAST_ENB | TW5864_AD_INTR_ENB);
-	dev->irqmask |= TW5864_INTR_TIMER;
+	tw_writel(TW5864_INTERLACING, TW5864_DI_EN);
+	tw_writel(TW5864_DSP_INTRA_MODE,0x00000070);
+	tw_writel(TW5864_MASTER_ENB_REG,TW5864_PCI_VLC_INTR_ENB);
+	tw_writel(TW5864_PCI_INTR_CTL, TW5864_TIMER_INTR_ENB | TW5864_PCI_MAST_ENB | TW5864_MVD_VLC_MAST_ENB);
+	/* TODO Enable timer irq on demand, or don't use it at all */
+	dev->irqmask |= TW5864_INTR_VLC_DONE | TW5864_INTR_TIMER;
 	tw5864_irqmask_apply(dev);
+
 	return 0;
 
 irq_req_fail:

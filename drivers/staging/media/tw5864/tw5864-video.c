@@ -119,14 +119,6 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 		;
 
 
-	/* TODO Move to global init */
-	tw_writel(TW5864_INTERLACING, TW5864_DI_EN);
-	tw_writel(TW5864_DSP_INTRA_MODE,0x00000070);
-	tw_writel(TW5864_PCI_INTR_CTL, TW5864_TIMER_INTR_ENB | TW5864_PCI_MAST_ENB | (1<<1)  /* TODO try TW5864_MVD_VLC_MAST_ENB*/ /*0x00000073*/);
-	tw_writel(TW5864_MASTER_ENB_REG,TW5864_PCI_VLC_INTR_ENB);
-	dev->irqmask |= TW5864_INTR_VLC_DONE | TW5864_INTR_TIMER;
-	/* TODO END Move to global init */
-
 	input->resolution = D1;
 
 	int d1_width = 720;
