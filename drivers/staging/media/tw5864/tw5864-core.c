@@ -495,8 +495,10 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	tw_writel(TW5864_VLC_STREAM_BASE_ADDR, dev->h264_vlc_buf[0].dma_addr);
 	tw_writel(TW5864_MV_STREAM_BASE_ADDR, dev->h264_mv_buf[0].dma_addr);
 
-	tw_indir_writeb(dev, 0x00e, 0x07);
-	tw_indir_writeb(dev, 0x00f, 0xff); // to initiate auto format recognition
+	for (int i = 0; i < TW5864_INPUTS; i++) {
+		tw_indir_writeb(dev, 0x00e + i * 0x010, 0x07);
+		tw_indir_writeb(dev, 0x00f + i * 0x010, 0xff); // to initiate auto format recognition
+	}
 
 	tw_writel(TW5864_SEN_EN_CH, 0x0001);
 
