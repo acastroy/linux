@@ -100,6 +100,13 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	input->std = std;
 	input->v4l2_std = tw5864_get_v4l2_std(std);
 
+	input->discard_frames = GOP_SIZE;
+	input->frame_seqno = 0;
+	input->h264_idr_pic_id = 1;
+	tw_writel(TW5864_DSP_REF, (tw_readl(TW5864_DSP_REF) & ~TW5864_DSP_REF_FRM) | input->h264_idr_pic_id);
+	input->h264_frame_seqno_in_gop = 0;
+	input->h264 = tw5864_h264_init();
+
 	input->reg_dsp_qp = QP_VALUE;
 	input->reg_dsp_ref_mvp_lambda = Lambda_lookup_table[QP_VALUE];
 	input->reg_dsp_i4x4_weight = Intra4X4_Lambda3[QP_VALUE];
@@ -311,18 +318,12 @@ static int tw5864_disable_input(struct tw5864_dev *dev, int input_number) {
 	dev_dbg(&dev->pci->dev, "disabling channel %d\n", input_number);
 	mutex_lock(&dev->lock);
 
+	spin_lock_irqsave(&dev->slock, flags);
 	tw_clearl(TW5864_H264EN_CH_EN, 1 << input_number);
 	tw_clearl(TW5864_SEN_EN_CH, 1 << input_number);
-	tw_clearl(TW5864_MASTER_ENB_REG, TW5864_PCI_VLC_INTR_ENB);
-	tw_clearl(TW5864_PCI_INTR_CTL, TW5864_PCI_MAST_ENB | TW5864_MVD_VLC_MAST_ENB);
-	spin_lock_irqsave(&dev->slock, flags);
 	dev->inputs[input_number].enabled = 0;
 	dev->inputs[input_number].timer_must_readd_encoding_irq = 0;
-	dev->irqmask &= ~TW5864_INTR_VLC_DONE;  // timer doesn't like to get turned off?
-	tw5864_irqmask_apply(dev);
 	spin_unlock_irqrestore(&dev->slock, flags);
-	tw_clearl(TW5864_VLC, 0x8000);
-
 	mutex_unlock(&dev->lock);
 	return 0;
 }
@@ -332,12 +333,6 @@ static int tw5864_start_streaming(struct vb2_queue *q, unsigned int count)
 	struct tw5864_input *input = vb2_get_drv_priv(q);
 	struct tw5864_dev *dev = input->root;
 
-	input->discard_frames = GOP_SIZE;
-	input->frame_seqno = 0;
-	input->h264_idr_pic_id = 1;
-	tw_writel(TW5864_DSP_REF, (tw_readl(TW5864_DSP_REF) & ~TW5864_DSP_REF_FRM) | input->h264_idr_pic_id);
-	input->h264_frame_seqno_in_gop = 0;
-	input->h264 = tw5864_h264_init();
 	tw5864_enable_input(input->root, input->input_number);
 	return 0;
 }
