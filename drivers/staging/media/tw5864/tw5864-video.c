@@ -149,11 +149,11 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	 * edit values, release when we're done with it. */
 
 	switch (input->resolution) {
-		case D1: break;
+		case D1:
 			 frame_width_bus_value = 0x2cf;
 			 frame_height_bus_value = input->height - 1;
 			 reg_frame_bus = 0x1c;
-			 fmt_reg_value = 3;
+			 fmt_reg_value = 0;
 			 downscale_enabled = 0;
 			 input->reg_dsp_codec |= TW5864_CIF_MAP_MD
 				 | TW5864_HD1_MAP_MD;
@@ -161,7 +161,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 			 input->reg_interlacing = 0x6;  /* TODO WTF 0x2? Try with default 0x4 */
 
 			 tw_setl(TW5864_FULL_HALF_FLAG, 1 << input_number);
-
+			 break;
 		case HD1:
 			 input->height /= 2;
 			 input->width /= 2;
