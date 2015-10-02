@@ -129,10 +129,7 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 	u32 mv_reg;
 	u32 vlc_buf_reg;  // TW5864_VLC_BUF
 	int channel;
-	int pci_intr_status;
 	int i;
-	u32 ddr_ctl_status;
-	u32 pci_intr_ctl;
 	unsigned long flags;
 	struct tw5864_input *input = &dev->inputs[0];  // TODO FIXME HARDCODE
 
@@ -143,13 +140,6 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 
 	tw_writel(TW5864_INTR_CLR_L, 0xffff);
 	tw_writel(TW5864_INTR_CLR_H, 0xffff);
-
-	pci_intr_status = tw_readl(TW5864_PCI_INTR_STATUS);
-
-	pci_intr_ctl = tw_readl(TW5864_PCI_INTR_CTL);
-
-	ddr_ctl_status = tw_readl(TW5864_DDR_CTL);
-
 
 	if (status & TW5864_INTR_VLC_DONE) {
 		u32 chunk[4];
@@ -412,9 +402,6 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	}
 
 	pci_set_master(pci_dev);
-
-	if (((pci_name(pci_dev))[9] != '4') && ((pci_name(pci_dev))[9] != '5'))
-		return -1;
 
 	/* FIXME: What exactly for is this needed? Which mask(s) this driver needs? */
 	if (!pci_dma_supported(pci_dev, DMA_BIT_MASK(32))) {
