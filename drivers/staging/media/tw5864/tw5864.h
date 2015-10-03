@@ -189,6 +189,7 @@ struct tw5864_input {
 	u32 reg_dsp_i4x4_weight;
 	u32                     buf_id;
 
+	u32                     timers_with_vlc_disabled;
 
 	struct tw5864_buf *vb;
 };
@@ -210,7 +211,6 @@ struct tw5864_dev {
 	struct pci_dev		*pci;
 	void                    __iomem *mmio;
 	u32			irqmask;
-	u32                     timers_with_vlc_disabled;
 	u32                     frame_seqno;
 
 	u32                     stored_len;
