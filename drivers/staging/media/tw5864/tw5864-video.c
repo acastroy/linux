@@ -316,7 +316,7 @@ void tw5864_push_to_make_it_roll(struct tw5864_input *input) {
 	 * Maybe make such pushing write when the device is initialized, so that
 	 * we don't need to do it during streaming?
 	 */
-	u32 enc_buf_id = tw_mask_shift_readl(TW5864_ENC_BUF_PTR_REC1, 0x3, 2 * input->input_number);
+	u32 enc_buf_id = tw_mask_shift_readl(TW5864_SENIF_ORG_FRM_PTR1, 0x3, 2 * input->input_number);
 	int enc_buf_id_new = enc_buf_id;
 	enc_buf_id_new += 1;
 	enc_buf_id_new %= 4;
