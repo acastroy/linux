@@ -211,45 +211,45 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		int timer_must_readd_encoding_irq;
 
 		for (i = 0; i < TW5864_INPUTS; i++) {
-		input = &dev->inputs[i];
+			input = &dev->inputs[i];
 
-		spin_lock_irqsave(&dev->slock, flags);
-		timer_must_readd_encoding_irq = input->timer_must_readd_encoding_irq;
-		spin_unlock_irqrestore(&dev->slock, flags);
+			spin_lock_irqsave(&dev->slock, flags);
+			timer_must_readd_encoding_irq = input->timer_must_readd_encoding_irq;
+			spin_unlock_irqrestore(&dev->slock, flags);
 
-		if (timer_must_readd_encoding_irq) {
-			int fire = 0;
-			int stuck = 0;
-			input->timers_with_vlc_disabled++;
-			if (input->timers_with_vlc_disabled > 1000) {
-				dev_dbg(&dev->pci->dev, "enabling VLC irq again thru count reaching\n");
-				fire = 1;
-				stuck = 1;
-			}
-			int senif_org_frm_ptr = tw_mask_shift_readl(TW5864_SENIF_ORG_FRM_PTR1, 0x3, 2 * input->input_number);
-			if (input->buf_id != senif_org_frm_ptr) {
-				dev_dbg(&dev->pci->dev, "enabling VLC irq again thru TW5864_SENIF_ORG_FRM_PTR1 update from %u to %u\n", input->buf_id, senif_org_frm_ptr);
-				fire = 1;
-				input->buf_id = senif_org_frm_ptr;
-			}
-
-			if (fire) {
-				dev_dbg(&dev->pci->dev, "enabling VLC irq again\n");
-				input->timers_with_vlc_disabled = 0;
-
-				spin_lock_irqsave(&dev->slock, flags);
-				input->timer_must_readd_encoding_irq = 0;
-				spin_unlock_irqrestore(&dev->slock, flags);
-
-				if (stuck) {
-					dev_dbg(&dev->pci->dev, "input %d stuck! pushing...\n", input->input_number);
-					tw5864_push_to_make_it_roll(input);
+			if (timer_must_readd_encoding_irq) {
+				int fire = 0;
+				int stuck = 0;
+				input->timers_with_vlc_disabled++;
+				if (input->timers_with_vlc_disabled > 1000) {
+					dev_dbg(&dev->pci->dev, "enabling VLC irq again thru count reaching\n");
+					fire = 1;
+					stuck = 1;
 				}
-				tw5864_request_encoded_frame(input);
+				int senif_org_frm_ptr = tw_mask_shift_readl(TW5864_SENIF_ORG_FRM_PTR1, 0x3, 2 * input->input_number);
+				if (input->buf_id != senif_org_frm_ptr) {
+					dev_dbg(&dev->pci->dev, "enabling VLC irq again thru TW5864_SENIF_ORG_FRM_PTR1 update from %u to %u\n", input->buf_id, senif_org_frm_ptr);
+					fire = 1;
+					input->buf_id = senif_org_frm_ptr;
+				}
 
+				if (fire) {
+					dev_dbg(&dev->pci->dev, "enabling VLC irq again\n");
+					input->timers_with_vlc_disabled = 0;
+
+					spin_lock_irqsave(&dev->slock, flags);
+					input->timer_must_readd_encoding_irq = 0;
+					spin_unlock_irqrestore(&dev->slock, flags);
+
+					if (stuck) {
+						dev_dbg(&dev->pci->dev, "input %d stuck! pushing...\n", input->input_number);
+						tw5864_push_to_make_it_roll(input);
+					}
+					tw5864_request_encoded_frame(input);
+
+				}
 			}
-		}
-		tw_writel(TW5864_PCI_INTR_STATUS,TW5864_TIMER_INTR);
+			tw_writel(TW5864_PCI_INTR_STATUS,TW5864_TIMER_INTR);
 
 		}  /* for(...) inputs traversal */
 	}
