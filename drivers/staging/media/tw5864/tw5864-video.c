@@ -112,12 +112,11 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	input->reg_dsp_i4x4_weight = Intra4X4_Lambda3[QP_VALUE];
 	input->reg_emu_en_various_etc = TW5864_EMU_EN_LPF | TW5864_EMU_EN_BHOST
 		| TW5864_EMU_EN_SEN | TW5864_EMU_EN_ME | TW5864_EMU_EN_DDR;
-	input->reg_dsp = input_number  /* channel id */
+	input->reg_dsp = input_number * 4  /* channel id */
 		| TW5864_DSP_CHROM_SW  /* TODO Does this matter? Goes so in reference driver. */
 		| ((0xa << 8) & TW5864_DSP_MB_DELAY)  /* Value from ref driver */
 		| TW5864_DSP_FLW_CNTL  /* Does this matter? Most probably not. Wasn't used in ref driver. TODO Try to drop. */
 		;
-
 
 	input->resolution = D1;
 
@@ -204,11 +203,28 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	tw_clearl(TW5864_FULL_HALF_MODE_SEL, 1 << input_number);
 #endif
 
-	tw_indir_writeb(dev, 0x200, d1_width / 4); // analog input width / 4
-	tw_indir_writeb(dev, 0x201, d1_height / 4);
+	tw_indir_writeb(dev, 0x200 + 4 * input_number, d1_width / 4); // analog input width / 4
+	tw_indir_writeb(dev, 0x201 + 4 * input_number, d1_height / 4);
 
-	tw_indir_writeb(dev, 0x202, input->width / 4); // output width / 4
-	tw_indir_writeb(dev, 0x203, /* cif_height */ input->height / 4);  /* TODO Should use cif_height, not input's? */
+	tw_indir_writeb(dev, 0x202 + 4 * input_number, input->width / 4); // output width / 4
+	tw_indir_writeb(dev, 0x203 + 4 * input_number, /* cif_height */ input->height / 4);  /* TODO Should use cif_height, not input's? */
+
+#if 0
+	tw_indir_writeb(dev, 0x200 + 4 * 4 * input_number, d1_width / 4); // analog input width / 4
+	tw_indir_writeb(dev, 0x201 + 4 * 4 * input_number, d1_height / 4);
+
+	tw_indir_writeb(dev, 0x202 + 4 * 4 * input_number, input->width / 4); // output width / 4
+	tw_indir_writeb(dev, 0x203 + 4 * 4 * input_number, /* cif_height */ input->height / 4);  /* TODO Should use cif_height, not input's? */
+#endif
+
+	for (int i = 0; i < 4 * TW5864_INPUTS; i++) {
+		tw_indir_writeb(dev, 0x200 + 4 * i, d1_width / 4); // analog input width / 4
+		tw_indir_writeb(dev, 0x201 + 4 * i, d1_height / 4);
+
+		tw_indir_writeb(dev, 0x202 + 4 * i, input->width / 4); // output width / 4
+		tw_indir_writeb(dev, 0x203 + 4 * i, /* cif_height */ input->height / 4);  /* TODO Should use cif_height, not input's? */
+	}
+
 	tw_writel(TW5864_DSP_PIC_MAX_MB, ((input->width / 16) << 8) | (input->height / 16));  /* FIXME 8 pixels lacking from CIF. If we want CIF to work at all. */
 
 	tw_writel(TW5864_FRAME_WIDTH_BUS_A(input_number), frame_width_bus_value);
@@ -217,6 +233,10 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	tw_writel(TW5864_FRAME_HEIGHT_BUS_B(input_number), (frame_height_bus_value + 1) / 2 - 1);
 	int j;
 	for (j = 0; j < 4; j++) {
+		tw_writel(TW5864_FRAME_WIDTH_BUS_A(j), frame_width_bus_value);
+		tw_writel(TW5864_FRAME_WIDTH_BUS_B(j), frame_width_bus_value);
+		tw_writel(TW5864_FRAME_HEIGHT_BUS_A(j), frame_height_bus_value);
+		tw_writel(TW5864_FRAME_HEIGHT_BUS_B(j), (frame_height_bus_value + 1) / 2 - 1);
 		if (j == 0) {
 			tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(input_number, j), 0xffff);
 			tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(input_number, j), 0xffff);
@@ -231,6 +251,10 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 
 	tw_mask_shift_writel(TW5864_H264EN_CH_FMT_REG1, 0x3, 2 * input_number,
 			fmt_reg_value);
+
+	// TEMPORARY! TODO FIXME
+	tw_writel(TW5864_H264EN_CH_FMT_REG1, 0);
+	tw_writel(TW5864_H264EN_CH_FMT_REG2, 0);
 
 
 	/* Try without */
@@ -254,6 +278,9 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 			? TW5864_FRAME_BUS1 : TW5864_FRAME_BUS2,
 			0xff, (input_number % 2) * 8,
 			reg_frame_bus);
+
+	tw_writel(TW5864_FRAME_BUS1, 0x0101 * reg_frame_bus);
+	tw_writel(TW5864_FRAME_BUS2, 0x0101 * reg_frame_bus);
 
 
 
@@ -297,11 +324,14 @@ void tw5864_push_to_make_it_roll(struct tw5864_input *input) {
 	 * Maybe make such pushing write when the device is initialized, so that
 	 * we don't need to do it during streaming?
 	 */
-	u32 enc_buf_id = tw_mask_shift_readl(TW5864_SENIF_ORG_FRM_PTR1, 0x3, 2 * input->input_number);
+	u32 enc_buf_id = tw_mask_shift_readl(TW5864_ENC_BUF_PTR_REC1, 0x3, 2 * input->input_number);
 	int enc_buf_id_new = enc_buf_id;
 	enc_buf_id_new += 1;
 	enc_buf_id_new %= 4;
-	tw_mask_shift_writel(TW5864_ENC_BUF_PTR_REC1, 0x3, 2 * input->input_number, enc_buf_id_new);
+
+	//tw_mask_shift_writel(TW5864_ENC_BUF_PTR_REC1, 0x3, 2 * input->input_number, enc_buf_id_new);
+	tw_writel(TW5864_ENC_BUF_PTR_REC1, enc_buf_id_new * 0x5555);
+	tw_writel(TW5864_ENC_BUF_PTR_REC2, enc_buf_id_new * 0x5555);
 	dev_dbg(&dev->pci->dev, "0x0010 set to %d (was %d) in context of input %d\n",
 			enc_buf_id_new, enc_buf_id, input->input_number);
 }
