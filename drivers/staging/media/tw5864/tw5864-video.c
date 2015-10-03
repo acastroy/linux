@@ -267,6 +267,44 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	return 0;
 }
 
+void tw5864_push_to_make_it_roll(struct tw5864_input *input) {
+	struct tw5864_dev *dev = input->root;
+	/*
+	 * AFAIU we need to update input's part of
+	 * TW5864_ENC_BUF_PTR_REC1 just to anything different, then it
+	 * and TW5864_SENIF_ORG_FRM_PTR1 occasionally start to roll by
+	 * themselves. It is surprising, but it was learnt from practice.
+	 *
+	 * Quote from Intersil (manufacturer): 0x0038 is managed by HW,
+	 * and by default it won't pass the pointer set at 0x0010. So if
+	 * you don't do encoding, 0x0038 should stay at '3' (with 4
+	 * frames in buffer). If you encode one frame and then move
+	 * 0x0010 to '1' for example, HW will take one more frame and
+	 * set it to buffer #0, and then you should see 0x0038 is set to
+	 * '0'.  There is only one HW encoder engine, so 4 channels
+	 * cannot get encoded simultaneously. But each channel does have
+	 * its own buffer (for original frames and reconstructed
+	 * frames). So there is no problem to manage encoding for 4
+	 * channels at same time and no need to force I-frames in
+	 * switching channels.
+	 * End of quote.
+	 */
+	/*
+	 * Well, this situation of pushing and self-rolling may lead to
+	 * race condition between HW internal write to this register and write
+	 * from kernel.
+	 * Maybe make such pushing write when the device is initialized, so that
+	 * we don't need to do it during streaming?
+	 */
+	u32 enc_buf_id = tw_mask_shift_readl(TW5864_SENIF_ORG_FRM_PTR1, 0x3, 2 * input->input_number);
+	int enc_buf_id_new = enc_buf_id;
+	enc_buf_id_new += 1;
+	enc_buf_id_new %= 4;
+	tw_mask_shift_writel(TW5864_ENC_BUF_PTR_REC1, 0x3, 2 * input->input_number, enc_buf_id_new);
+	dev_dbg(&dev->pci->dev, "0x0010 set to %d (was %d) in context of input %d\n",
+			enc_buf_id_new, enc_buf_id, input->input_number);
+}
+
 void tw5864_request_encoded_frame(struct tw5864_input *input)
 {
 	struct tw5864_dev *dev = input->root;
@@ -289,8 +327,8 @@ void tw5864_request_encoded_frame(struct tw5864_input *input)
 	tw5864_prepare_frame_headers(input);
 	tw_writel(TW5864_VLC, TW5864_VLC_PCI_SEL | ((input->tail_nb_bits + 24) << TW5864_VLC_BIT_ALIGN_SHIFT) | QP_VALUE);
 
-	u32 enc_buf_id = tw_mask_shift_readl(TW5864_ENC_BUF_PTR_REC1, 0x3, 2 * input->input_number);
-	int enc_buf_id_new = enc_buf_id;
+	tw5864_push_to_make_it_roll(input);
+	u32 enc_buf_id_new = tw_mask_shift_readl(TW5864_ENC_BUF_PTR_REC1, 0x3, 2 * input->input_number);
 
 	tw_writel(TW5864_DSP_ENC_ORG_PTR_REG, ((enc_buf_id_new + 1) % 4) << TW5864_DSP_ENC_ORG_PTR_SHIFT);
 	tw_writel(TW5864_DSP_ENC_REC,(((enc_buf_id_new  + 1) % 4) << 12) | (enc_buf_id_new & 0x3));

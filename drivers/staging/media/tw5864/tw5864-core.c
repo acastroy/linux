@@ -237,34 +237,9 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 				input->timer_must_readd_encoding_irq = 0;
 				spin_unlock_irqrestore(&dev->slock, flags);
 
-				u32 enc_buf_id = tw_mask_shift_readl(TW5864_ENC_BUF_PTR_REC1, 0x3, 2 * input->input_number);
-				int enc_buf_id_new = enc_buf_id;
-				dev_dbg(&dev->pci->dev, "0x0010 is %d\n", enc_buf_id);
 				if (stuck) {
-					/*
-					 * AFAIU we need to update input's part of
-					 * TW5864_ENC_BUF_PTR_REC1 just to anything different, then it
-					 * and TW5864_SENIF_ORG_FRM_PTR1 occasionally start to roll by
-					 * themselves.
-					 *
-					 * Quote from Intersil (manufacturer): 0x0038 is managed by HW,
-					 * and by default it won't pass the pointer set at 0x0010. So if
-					 * you don't do encoding, 0x0038 should stay at '3' (with 4
-					 * frames in buffer). If you encode one frame and then move
-					 * 0x0010 to '1' for example, HW will take one more frame and
-					 * set it to buffer #0, and then you should see 0x0038 is set to
-					 * '0'.  There is only one HW encoder engine, so 4 channels
-					 * cannot get encoded simultaneously. But each channel does have
-					 * its own buffer (for original frames and reconstructed
-					 * frames). So there is no problem to manage encoding for 4
-					 * channels at same time and no need to force I-frames in
-					 * switching channels.
-					 * End of quote.
-					 */
-					enc_buf_id_new += 1;
-					enc_buf_id_new %= 4;
-					tw_mask_shift_writel(TW5864_ENC_BUF_PTR_REC1, 0x3,2 * input->input_number, enc_buf_id_new);
-					dev_dbg(&dev->pci->dev, "0x0010 set to %d (was %d)\n", enc_buf_id_new, enc_buf_id);
+					dev_dbg(&dev->pci->dev, "input %d stuck! pushing...\n", input->input_number);
+					tw5864_push_to_make_it_roll(input);
 				}
 				tw5864_request_encoded_frame(input);
 
