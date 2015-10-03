@@ -454,6 +454,7 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	tw_indir_writeb(dev, 0xef0, 0x00);
 	tw_indir_writeb(dev, 0xef0, 0xe0);
 	mdelay(10);
+	tw_writel(TW5864_FULL_HALF_MODE_SEL, 0);
 
 	tw_indir_writeb(dev, 0xefa, 0x44);
 	tw_indir_writeb(dev, 0xefb, 0x44);
