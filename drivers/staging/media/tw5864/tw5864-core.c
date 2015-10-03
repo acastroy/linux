@@ -197,7 +197,6 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 			tw5864_prepare_frame_headers(input);
 			// End TODO
 
-			tw_writel(TW5864_SEN_EN_CH, 0x0001);
 		}
 		tw_writel(TW5864_VLC_DSP_INTR,0x00000001);
 		tw_writel(TW5864_PCI_INTR_STATUS, TW5864_VLC_DONE_INTR);
@@ -468,7 +467,7 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 		tw_indir_writeb(dev, 0x00f + i * 0x010, 0xff); // to initiate auto format recognition
 	}
 
-	tw_writel(TW5864_SEN_EN_CH, 0x0001);
+	tw_writel(TW5864_SEN_EN_CH, 0xffff);
 
 	tw_writel(0x09200, 0x00000000);
 	tw_writel(0x09204, 0x00000000);
