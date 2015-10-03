@@ -211,6 +211,8 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 
 		for (i = 0; i < TW5864_INPUTS; i++) {
 			input = &dev->inputs[i];
+			if (!input->enabled)
+				continue;
 
 			spin_lock_irqsave(&dev->slock, flags);
 			timer_must_readd_encoding_irq = input->timer_must_readd_encoding_irq;
@@ -248,9 +250,9 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 
 				}
 			}
-			tw_writel(TW5864_PCI_INTR_STATUS,TW5864_TIMER_INTR);
 
 		}  /* for(...) inputs traversal */
+		tw_writel(TW5864_PCI_INTR_STATUS,TW5864_TIMER_INTR);
 	}
 
 	if (!(status & (TW5864_INTR_TIMER | TW5864_INTR_VLC_DONE))){
