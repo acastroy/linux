@@ -262,6 +262,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	tw5864_irqmask_apply(dev);
 	spin_unlock_irqrestore(&dev->slock, flags);
 
+	tw5864_push_to_make_it_roll(input);
 	tw5864_request_encoded_frame(input);
 
 	return 0;
@@ -327,7 +328,6 @@ void tw5864_request_encoded_frame(struct tw5864_input *input)
 	tw5864_prepare_frame_headers(input);
 	tw_writel(TW5864_VLC, TW5864_VLC_PCI_SEL | ((input->tail_nb_bits + 24) << TW5864_VLC_BIT_ALIGN_SHIFT) | QP_VALUE);
 
-	tw5864_push_to_make_it_roll(input);
 	u32 enc_buf_id_new = tw_mask_shift_readl(TW5864_ENC_BUF_PTR_REC1, 0x3, 2 * input->input_number);
 
 	tw_writel(TW5864_DSP_ENC_ORG_PTR_REG, ((enc_buf_id_new + 1) % 4) << TW5864_DSP_ENC_ORG_PTR_SHIFT);
