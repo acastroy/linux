@@ -252,36 +252,26 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	tw_mask_shift_writel(TW5864_H264EN_CH_FMT_REG1, 0x3, 2 * input_number,
 			fmt_reg_value);
 
-	// TEMPORARY! TODO FIXME
-	tw_writel(TW5864_H264EN_CH_FMT_REG1, 0);
-	tw_writel(TW5864_H264EN_CH_FMT_REG2, 0);
-
-
+#if 0
 	/* Try without */
 	if (std == STD_NTSC) {
 		tw_indir_writeb(dev, 0x260, 0);
 	} else {
 		tw_indir_writeb(dev, 0x260, 1);
 	}
+#endif
 
 	/* Some undocumented kind of framerate control... TODO Figure out, at
 	 * last change only needed bus here, not all */
+	/* TODO Move to global static config */
 	tw_writel(TW5864_H264EN_RATE_MAX_LINE_REG1, std == STD_NTSC ? 0x3bd : 0x318);
 	tw_writel(TW5864_H264EN_RATE_MAX_LINE_REG2, std == STD_NTSC ? 0x3bd : 0x318);
-#if 0
-	tw_writel(TW5864_H264EN_RATE_MAX_LINE_REG1, 0x1f);
-	tw_writel(TW5864_H264EN_RATE_MAX_LINE_REG2, 0);
-#endif
 
 	tw_mask_shift_writel(
 			(input_number < 2)
 			? TW5864_FRAME_BUS1 : TW5864_FRAME_BUS2,
 			0xff, (input_number % 2) * 8,
 			reg_frame_bus);
-
-	tw_writel(TW5864_FRAME_BUS1, 0x0101 * reg_frame_bus);
-	tw_writel(TW5864_FRAME_BUS2, 0x0101 * reg_frame_bus);
-
 
 
 	spin_lock_irqsave(&dev->slock, flags);
@@ -331,9 +321,7 @@ void tw5864_push_to_make_it_roll(struct tw5864_input *input) {
 	enc_buf_id_new += 1;
 	enc_buf_id_new %= 4;
 
-	//tw_mask_shift_writel(TW5864_ENC_BUF_PTR_REC1, 0x3, 2 * input->input_number, enc_buf_id_new);
-	tw_writel(TW5864_ENC_BUF_PTR_REC1, enc_buf_id_new * 0x5555);
-	tw_writel(TW5864_ENC_BUF_PTR_REC2, enc_buf_id_new * 0x5555);
+	tw_mask_shift_writel(TW5864_ENC_BUF_PTR_REC1, 0x3, 2 * input->input_number, enc_buf_id_new);
 	dev_dbg(&dev->pci->dev, "0x0010 set to %d (was %d) in context of input %d\n",
 			enc_buf_id_new, enc_buf_id, input->input_number);
 }
