@@ -112,7 +112,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	input->reg_dsp_i4x4_weight = Intra4X4_Lambda3[QP_VALUE];
 	input->reg_emu_en_various_etc = TW5864_EMU_EN_LPF | TW5864_EMU_EN_BHOST
 		| TW5864_EMU_EN_SEN | TW5864_EMU_EN_ME | TW5864_EMU_EN_DDR;
-	input->reg_dsp = input_number * 4  /* channel id */
+	input->reg_dsp = input_number * 1  /* channel id */
 		| TW5864_DSP_CHROM_SW  /* TODO Does this matter? Goes so in reference driver. */
 		| ((0xa << 8) & TW5864_DSP_MB_DELAY)  /* Value from ref driver */
 		| TW5864_DSP_FLW_CNTL  /* Does this matter? Most probably not. Wasn't used in ref driver. TODO Try to drop. */

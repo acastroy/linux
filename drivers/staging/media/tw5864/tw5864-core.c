@@ -150,7 +150,7 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		vlc_reg = tw_readl(TW5864_VLC);
 		vlc_buf_reg = tw_readl(TW5864_VLC_BUF);
 
-		input = &dev->inputs[channel / 4];
+		input = &dev->inputs[channel / 1];
 
 		dev_dbg(&dev->pci->dev, "tw5864_isr: vlc done. channel 0x%08x, vlc_len %d, vlc_crc 0x%08x, vlc_buf_rdy 0x%02x, vlc_buf_reg 0x%08x\n", channel, vlc_len, vlc_crc, (vlc_reg & TW5864_VLC_BUF_RDY_MASK) >> TW5864_VLC_BUF_RDY_SHIFT, vlc_buf_reg);
 		dma_sync_single_for_cpu(&dev->pci->dev, dev->h264_vlc_buf[0].dma_addr, H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
@@ -227,8 +227,8 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 					fire = 1;
 					stuck = 1;
 				}
-				int senif_org_frm_ptr = tw_mask_shift_readl(TW5864_SENIF_ORG_FRM_PTR1, 0x3, 8 * input->input_number);
-				if (timer_must_readd_encoding_irq && input->buf_id != senif_org_frm_ptr) {
+				int senif_org_frm_ptr = tw_mask_shift_readl(TW5864_SENIF_ORG_FRM_PTR1, 0x3, 2 * input->input_number);
+				if (/* timer_must_readd_encoding_irq && */input->buf_id != senif_org_frm_ptr) {
 					dev_dbg(&dev->pci->dev, "enabling VLC irq again thru TW5864_SENIF_ORG_FRM_PTR1 update from %u to %u\n", input->buf_id, senif_org_frm_ptr);
 					fire = 1;
 					input->buf_id = senif_org_frm_ptr;
@@ -474,7 +474,7 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	tw_writel(TW5864_H264EN_CH_EN, 0xffff);
 
 	tw_writel(0x09200, 0x00000000);
-	tw_writel(0x09204, 0x00004444);
+	tw_writel(0x09204, 0x00001111);
 	tw_writel(0x09208, 0x00004444);
 	tw_writel(0x0920c, 0x00004444);
 
