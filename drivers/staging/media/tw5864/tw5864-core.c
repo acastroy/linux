@@ -150,20 +150,16 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		vlc_reg = tw_readl(TW5864_VLC);
 		vlc_buf_reg = tw_readl(TW5864_VLC_BUF);
 
-		input = &dev->inputs[channel / 1];
+		input = &dev->inputs[channel];
 
-		dev_dbg(&dev->pci->dev, "tw5864_isr: vlc done. channel 0x%08x, vlc_len %d, vlc_crc 0x%08x, vlc_buf_rdy 0x%02x, vlc_buf_reg 0x%08x\n", channel, vlc_len, vlc_crc, (vlc_reg & TW5864_VLC_BUF_RDY_MASK) >> TW5864_VLC_BUF_RDY_SHIFT, vlc_buf_reg);
 		dma_sync_single_for_cpu(&dev->pci->dev, dev->h264_vlc_buf[0].dma_addr, H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
 		//dma_sync_single_for_cpu(&dev->pci->dev, dev->h264_mv_buf[0].dma_addr, H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
 
-
-		for (i = 0; i < sizeof(chunk) / sizeof(chunk[0]); i++) {
-			chunk[i] = ((u32*)dev->h264_vlc_buf[0].addr)[i];
-		}
-		dev_dbg(&dev->pci->dev, "tw5864_isr: vlc buf: hex: %08x %08x %08x %08x\n", chunk[0], chunk[1], chunk[2], chunk[3]);
-
-		dev_dbg(&dev->pci->dev, "CPU-computed CRC: %08x\n", 
-				crc_check_sum((u32*)dev->h264_vlc_buf[0].addr, vlc_len));
+#ifdef DEBUG
+		dev_dbg(&dev->pci->dev, "Frame encoding done. Channel %d, vlc_len %d\n", channel, vlc_len);
+		if (vlc_crc != crc_check_sum((u32*)dev->h264_vlc_buf[0].addr, vlc_len))
+			dev_err(&dev->pci->dev, "CRC of encoded frame doesn't match!\n");
+#endif
 
 		if (!input->discard_frames) {
 			tw5864_handle_frame(input, vlc_len);
@@ -171,21 +167,9 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		} else {
 			input->discard_frames--;
 		}
-		// TODO Do whatever needed, e.g. dump contents elsewhere
 		dma_sync_single_for_device(&dev->pci->dev, dev->h264_vlc_buf[0].dma_addr, H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
 		//dma_sync_single_for_device(&dev->pci->dev, dev->h264_mv_buf[0].dma_addr, H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
 
-		int enabled;
-		spin_lock_irqsave(&dev->slock, flags);
-		enabled = input->enabled;
-		spin_unlock_irqrestore(&dev->slock, flags);
-
-		if (enabled) {
-			// TODO Move this section to be done just before encoding job is fired
-			tw5864_prepare_frame_headers(input);
-			// End TODO
-
-		}
 		tw_writel(TW5864_VLC_DSP_INTR,0x00000001);
 		tw_writel(TW5864_PCI_INTR_STATUS, TW5864_VLC_DONE_INTR);
 		spin_lock_irqsave(&dev->slock, flags);
@@ -198,7 +182,7 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		int stuck = 0;
 		dev->timers_with_vlc_disabled++;
 		if (dev->timers_with_vlc_disabled > 1000) {
-			dev_dbg(&dev->pci->dev, "enabling VLC irq again thru timeout\n");
+			dev_err(&dev->pci->dev, "Encoding timed out! Trying to initiate it again.\n");
 			stuck = 1;
 		}
 		spin_lock_irqsave(&dev->slock, flags);
@@ -217,10 +201,9 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 				int senif_org_frm_ptr = tw_mask_shift_readl(TW5864_SENIF_ORG_FRM_PTR1, 0x3, 2 * input->input_number);
 				if (input->buf_id != senif_org_frm_ptr || stuck) {
 					if (stuck) {
-						dev_dbg(&dev->pci->dev, "input %d stuck! pushing...\n", input->input_number);
 						tw5864_push_to_make_it_roll(input);
 					} else {
-						dev_dbg(&dev->pci->dev, "enabling VLC irq again thru TW5864_SENIF_ORG_FRM_PTR1 update from %u to %u\n", input->buf_id, senif_org_frm_ptr);
+						dev_dbg(&dev->pci->dev, "Channel %d's SENIF_ORG_FRM_PTR changed from %u to %u\n", i, input->buf_id, senif_org_frm_ptr);
 					}
 					input->buf_id = senif_org_frm_ptr;
 
@@ -236,9 +219,11 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 	}
 
 	if (!(status & (TW5864_INTR_TIMER | TW5864_INTR_VLC_DONE))){
-		dev_dbg(&dev->pci->dev, "tw5864_isr: unknown intr, status 0x%08X\n", status);
+		dev_dbg(&dev->pci->dev, "Unknown interrupt, status 0x%08X\n", status);
 	}
 
+
+	/* TODO Get this shit away from ISR */
 	if (tw_readl(0x9218))
 		tw_writel(0x9218, 1);
 
@@ -463,6 +448,7 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	tw_indir_writeb(dev, 0xefc, 0x00);
 	tw_indir_writeb(dev, 0xefd, 0xf0);
 #endif
+
 	tw_writel(TW5864_VLC_STREAM_BASE_ADDR, dev->h264_vlc_buf[0].dma_addr);
 	tw_writel(TW5864_MV_STREAM_BASE_ADDR, dev->h264_mv_buf[0].dma_addr);
 
@@ -481,13 +467,13 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 
 	tw_writel(TW5864_ENC_BUF_PTR_REC1, 0x0000);
 	tw_writel(TW5864_ENC_BUF_PTR_REC2, 0x0000);
-	tw_writel(TW5864_PCI_INTTM_SCALE, 3);
+	tw_writel(TW5864_PCI_INTTM_SCALE, 3);  /* Timer interval is 8 ms. TODO Select lower interval to avoid frame losing on full load. What about on-demand change of interval? */
 
 	tw_writel(TW5864_INTERLACING, TW5864_DI_EN);
 	tw_writel(TW5864_DSP_INTRA_MODE,0x00000070);
 	tw_writel(TW5864_MASTER_ENB_REG,TW5864_PCI_VLC_INTR_ENB);
 	tw_writel(TW5864_PCI_INTR_CTL, TW5864_TIMER_INTR_ENB | TW5864_PCI_MAST_ENB | TW5864_MVD_VLC_MAST_ENB);
-	/* TODO Enable timer irq on demand, or don't use it at all */
+	/* TODO Enable timer irq on demand, don't use it at all when it is not needed. */
 	dev->irqmask |= TW5864_INTR_VLC_DONE | TW5864_INTR_TIMER;
 	tw5864_irqmask_apply(dev);
 

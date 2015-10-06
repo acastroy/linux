@@ -71,10 +71,9 @@ static void tw5864_buf_finish(struct vb2_buffer *vb)
 	struct vb2_queue *vq = vb->vb2_queue;
 	struct tw5864_input *dev = vb2_get_drv_priv(vq);
 	struct tw5864_buf *buf = container_of(vb, struct tw5864_buf, vb);
-	// What TODO?
-	// TODO Copy all data to output buffer
 }
 
+/* TODO Change interface of this function - pass just tw5864_input */
 int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	struct tw5864_input *input = &dev->inputs[input_number];
 	unsigned long flags;
@@ -82,7 +81,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 
 	BUG_ON(input_number < 0 || input_number >= 4);
 
-	dev_dbg(&dev->pci->dev, "enabling channel %d\n", input_number);
+	dev_dbg(&dev->pci->dev, "Enabling channel %d\n", input_number);
 
 	u8 indir_0x0Ne = tw_indir_readb(dev, 0x00e + input_number * 0x010);
 	u8 std = (indir_0x0Ne & 0x70) >> 4;
@@ -93,7 +92,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	}
 
 	if (std == STD_INVALID) {
-		dev_err(&dev->pci->dev, "Video format detection done, no valid video format\n");
+		dev_err(&dev->pci->dev, "No valid video format detected\n");
 		return -1;
 	}
 
@@ -112,10 +111,9 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	input->reg_dsp_i4x4_weight = Intra4X4_Lambda3[QP_VALUE];
 	input->reg_emu_en_various_etc = TW5864_EMU_EN_LPF | TW5864_EMU_EN_BHOST
 		| TW5864_EMU_EN_SEN | TW5864_EMU_EN_ME | TW5864_EMU_EN_DDR;
-	input->reg_dsp = input_number * 1  /* channel id */
+	input->reg_dsp = input_number  /* channel id */
 		| TW5864_DSP_CHROM_SW  /* TODO Does this matter? Goes so in reference driver. */
 		| ((0xa << 8) & TW5864_DSP_MB_DELAY)  /* Value from ref driver */
-//		| TW5864_DSP_FLW_CNTL  /* Does this matter? Most probably not. Wasn't used in ref driver. TODO Try to drop. */
 		;
 
 	input->resolution = D1;
@@ -252,15 +250,6 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	tw_mask_shift_writel(TW5864_H264EN_CH_FMT_REG1, 0x3, 2 * input_number,
 			fmt_reg_value);
 
-#if 0
-	/* Try without */
-	if (std == STD_NTSC) {
-		tw_indir_writeb(dev, 0x260, 0);
-	} else {
-		tw_indir_writeb(dev, 0x260, 1);
-	}
-#endif
-
 	/* Some undocumented kind of framerate control... TODO Figure out, at
 	 * last change only needed bus here, not all */
 	/* TODO Move to global static config */
@@ -276,7 +265,6 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 
 	spin_lock_irqsave(&dev->slock, flags);
 	dev->inputs[input_number].enabled = 1;
-	dev->inputs[input_number].timer_must_readd_encoding_irq = 1;
 	spin_unlock_irqrestore(&dev->slock, flags);
 
 	return 0;
@@ -353,7 +341,6 @@ void tw5864_request_encoded_frame(struct tw5864_input *input)
 
 	tw_writel(TW5864_DSP_ENC_ORG_PTR_REG, ((enc_buf_id_new + 1) % 4) << TW5864_DSP_ENC_ORG_PTR_SHIFT);
 	tw_writel(TW5864_DSP_ENC_REC,(((enc_buf_id_new  + 1) % 4) << 12) | (enc_buf_id_new & 0x3));
-	dev_dbg(&dev->pci->dev, "enc_org %04x, enc_rec %04x\n", tw_readl(TW5864_DSP_ENC_ORG_PTR_REG), tw_readl(TW5864_DSP_ENC_REC));
 
 	tw_writel(TW5864_PCI_INTR_CTL,0x00000073);  /* Unneeded? TODO decode, remove unneeded bits */
 	tw_writel(TW5864_MASTER_ENB_REG,TW5864_PCI_VLC_INTR_ENB);  /* TODO Unneeded? */
@@ -366,12 +353,11 @@ void tw5864_request_encoded_frame(struct tw5864_input *input)
 
 static int tw5864_disable_input(struct tw5864_dev *dev, int input_number) {
 	unsigned long flags;
-	dev_dbg(&dev->pci->dev, "disabling channel %d\n", input_number);
+	dev_dbg(&dev->pci->dev, "Disabling channel %d\n", input_number);
 	mutex_lock(&dev->lock);
 
 	spin_lock_irqsave(&dev->slock, flags);
 	dev->inputs[input_number].enabled = 0;
-	dev->inputs[input_number].timer_must_readd_encoding_irq = 0;
 	spin_unlock_irqrestore(&dev->slock, flags);
 	mutex_unlock(&dev->lock);
 	return 0;
@@ -651,17 +637,6 @@ static const struct v4l2_file_operations video_fops = {
 	.unlocked_ioctl		= video_ioctl2,
 };
 
-static int vb2_ioctl_dqbuf_proxy(struct file *file, void *priv, struct v4l2_buffer *p) {
-	int ret;
-	struct tw5864_input *dev = video_drvdata(file);
-	//dev_dbg(&dev->root->pci->dev, "calling vb2_ioctl_dqbuf\n");
-	ret = vb2_ioctl_dqbuf(file, priv, p);
-	//dev_dbg(&dev->root->pci->dev, "vb2_ioctl_dqbuf ret %d\n", ret);
-	//if (ret)
-	//	mdelay(100);
-	return ret;
-}
-
 static const struct v4l2_ioctl_ops video_ioctl_ops = {
 	.vidioc_querycap		= tw5864_querycap,
 	.vidioc_enum_fmt_vid_cap	= tw5864_enum_fmt_vid_cap,
@@ -669,7 +644,7 @@ static const struct v4l2_ioctl_ops video_ioctl_ops = {
 	.vidioc_create_bufs		= vb2_ioctl_create_bufs,
 	.vidioc_querybuf		= vb2_ioctl_querybuf,
 	.vidioc_qbuf			= vb2_ioctl_qbuf,
-	.vidioc_dqbuf			= vb2_ioctl_dqbuf_proxy,
+	.vidioc_dqbuf			= vb2_ioctl_dqbuf,
 	.vidioc_s_std			= tw5864_s_std,
 	.vidioc_g_std			= tw5864_g_std,
 	.vidioc_enum_input		= tw5864_enum_input,
@@ -715,17 +690,6 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 		if (!dev->h264_vlc_buf[i].addr || !dev->h264_mv_buf[i].addr) {
 			dev_err(&dev->pci->dev, "dma alloc & map fail: %p %p\n", dev->h264_vlc_buf[i].addr, dev->h264_mv_buf[i].addr);
 			goto dma_alloc_fail;
-		}
-	}
-
-	for (i = 0; i < VLC_DUMP_CNT; i++) {
-		char filename[10];
-		snprintf(filename, sizeof(filename), "vlc_%02d", i);
-		dev->vlc[i].data = kmalloc(H264_VLC_BUF_SIZE, GFP_KERNEL);
-		dev->vlc[i].size = 0;
-		if (!debugfs_create_blob(filename, S_IRUGO, dev->debugfs_dir, &dev->vlc[i])) {
-			dev_err(&dev->pci->dev, "vlc debugfs blob creation failed\n");
-			return 1;
 		}
 	}
 
@@ -821,7 +785,6 @@ vb2_dma_contig_init_ctx_fail:
 	vb2_queue_release(&dev->vidq);
 vb2_q_init_fail:
 	mutex_destroy(&dev->lock);
-	/* Nothing to do to deinit spinlock? */
 
 	return ret;
 }
@@ -913,7 +876,7 @@ void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len)
 	dst_size = vb2_plane_size(&vb->vb, 0);
 
 	dst_space = input->buf_cur_space_left;
-	frame_len -= skip_bytes;  // skip first bytes of frame produced by hardware
+	frame_len -= skip_bytes;  /* skip first bytes of frame produced by hardware */
 	if (WARN_ON_ONCE(dst_space < frame_len)) {
 		dev_err_once(&dev->pci->dev, "Left space in vb2 buffer %lu is insufficient for frame length %lu, writing truncated frame\n", dst_space, frame_len);
 		frame_len = dst_space;

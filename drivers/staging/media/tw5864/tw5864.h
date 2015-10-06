@@ -170,7 +170,6 @@ struct tw5864_input {
 	unsigned int h264_idr_pic_id;
 	unsigned int h264_frame_seqno_in_gop;
 	int enabled;
-	int timer_must_readd_encoding_irq;  /* TODO Better naming */
 	int discard_frames;
 	enum tw5864_vid_std     std;
 	v4l2_std_id             v4l2_std;
@@ -216,9 +215,6 @@ struct tw5864_dev {
 	u32                     frame_seqno;
 
 	u32                     stored_len;
-
-#define VLC_DUMP_CNT 64
-	struct debugfs_blob_wrapper vlc[VLC_DUMP_CNT];
 
 	struct dentry           *debugfs_dir;
 };
