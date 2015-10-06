@@ -156,7 +156,6 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		//dma_sync_single_for_cpu(&dev->pci->dev, dev->h264_mv_buf[0].dma_addr, H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
 
 #ifdef DEBUG
-		dev_dbg(&dev->pci->dev, "Frame encoding done. Channel %d, vlc_len %d\n", channel, vlc_len);
 		if (vlc_crc != crc_check_sum((u32*)dev->h264_vlc_buf[0].addr, vlc_len))
 			dev_err(&dev->pci->dev, "CRC of encoded frame doesn't match!\n");
 #endif
@@ -200,11 +199,8 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 
 				int senif_org_frm_ptr = tw_mask_shift_readl(TW5864_SENIF_ORG_FRM_PTR1, 0x3, 2 * input->input_number);
 				if (input->buf_id != senif_org_frm_ptr || stuck) {
-					if (stuck) {
+					if (stuck)
 						tw5864_push_to_make_it_roll(input);
-					} else {
-						dev_dbg(&dev->pci->dev, "Channel %d's SENIF_ORG_FRM_PTR changed from %u to %u\n", i, input->buf_id, senif_org_frm_ptr);
-					}
 					input->buf_id = senif_org_frm_ptr;
 
 					spin_lock_irqsave(&dev->slock, flags);

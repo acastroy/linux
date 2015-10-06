@@ -836,17 +836,18 @@ void tw5864_prepare_frame_headers(struct tw5864_input *input)
 	dst_size = vb2_plane_size(&vb->vb, 0);
 	dst_space = dst_size;
 
-	// Generate H264 headers:
-	// If this is first frame, put SPS and PPS
+	/*
+	 * Generate H264 headers:
+	 * If this is first frame, put SPS and PPS
+	 */
 	if (input->frame_seqno == 0)
 		tw5864_h264_put_stream_header(input->h264, &dst, &dst_space, QP_VALUE, input->width, input->height);
 
-	// Put slice header
+	/* Put slice header */
 	tw5864_h264_put_slice_header(input->h264, &dst, &dst_space, input->h264_idr_pic_id, input->h264_frame_seqno_in_gop, &input->tail_nb_bits, &input->tail);
 	input->vb = vb;
 	input->buf_cur_ptr = dst;
 	input->buf_cur_space_left = dst_space;
-	dev_dbg(&dev->pci->dev, "Prepared slice header for frame #%d in GOP #%d. Tail: %d bits, 0x%02x\n", input->h264_frame_seqno_in_gop, input->h264_idr_pic_id, input->tail_nb_bits, input->tail);
 }
 
 void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len)
@@ -856,13 +857,6 @@ void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len)
 	unsigned long dst_size;
 	unsigned long dst_space;
 	int skip_bytes = 3;
-
-	dev_dbg(&dev->pci->dev, "Total VLC bits: %u, residue: %u, bitalign: %u, our tail_nb_bits: %u\n",
-			tw_readl(TW5864_SLICE_TOTAL_BIT),
-			tw_readl(TW5864_RES_TOTAL_BIT),
-			(tw_readl(TW5864_VLC) & TW5864_VLC_BIT_ALIGN_MASK) >> TW5864_VLC_BIT_ALIGN_SHIFT,
-			input->tail_nb_bits
-	       );
 
 	spin_lock(&input->slock);
 	vb = input->vb;
