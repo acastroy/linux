@@ -189,7 +189,6 @@ struct tw5864_input {
 	u32 reg_dsp_i4x4_weight;
 	u32                     buf_id;
 
-	u32                     timers_with_vlc_disabled;
 
 	struct tw5864_buf *vb;
 };
@@ -203,6 +202,9 @@ struct tw5864_dev {
 #define H264_BUF_CNT 2
 	struct tw5864_recv_buf       h264_vlc_buf[H264_BUF_CNT];
 	struct tw5864_recv_buf       h264_mv_buf[H264_BUF_CNT];
+
+	u32                     timers_with_vlc_disabled;
+	int encoder_busy;
 
 	/* TODO audio stuff */
 

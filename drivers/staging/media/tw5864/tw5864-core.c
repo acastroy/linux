@@ -201,42 +201,38 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		tw_writel(TW5864_VLC_DSP_INTR,0x00000001);
 		tw_writel(TW5864_PCI_INTR_STATUS, TW5864_VLC_DONE_INTR);
 		spin_lock_irqsave(&dev->slock, flags);
-		if (input->enabled)
-			input->timer_must_readd_encoding_irq = 1;
+		dev->encoder_busy = 0;
 		spin_unlock_irqrestore(&dev->slock, flags);
 	}
 
 	if (status & TW5864_INTR_TIMER) {
-		int timer_must_readd_encoding_irq;
+		int encoder_busy;
+		int stuck = 0;
+		dev->timers_with_vlc_disabled++;
+		if (dev->timers_with_vlc_disabled > 1000) {
+			dev_dbg(&dev->pci->dev, "enabling VLC irq again thru timeout\n");
+			stuck = 1;
+		}
+		spin_lock_irqsave(&dev->slock, flags);
+		encoder_busy = dev->encoder_busy;
+		spin_unlock_irqrestore(&dev->slock, flags);
 
-		for (i = 0; i < TW5864_INPUTS; i++) {
-			input = &dev->inputs[i];
-			if (!input->enabled)
-				continue;
+		if (!encoder_busy || stuck) {  /* TODO procedure */
+			dev->timers_with_vlc_disabled = 0;
 
-			spin_lock_irqsave(&dev->slock, flags);
-			timer_must_readd_encoding_irq = input->timer_must_readd_encoding_irq;
-			spin_unlock_irqrestore(&dev->slock, flags);
+			for (i = 0; i < TW5864_INPUTS; i++) {
+				/* FIXME There's risk that only first enabled port will work most of time. Rework dispatching (maybe avoid timer? traverse inputs in queue manner?) */
+				input = &dev->inputs[i];
+				if (!input->enabled)
+					continue;
 
-			{
-				int fire = 0;
-				int stuck = 0;
-				input->timers_with_vlc_disabled++;
-				if (input->timers_with_vlc_disabled > 1000) {
-					dev_dbg(&dev->pci->dev, "enabling VLC irq again thru count reaching\n");
-					fire = 1;
-					stuck = 1;
-				}
 				int senif_org_frm_ptr = tw_mask_shift_readl(TW5864_SENIF_ORG_FRM_PTR1, 0x3, 2 * input->input_number);
-				if (timer_must_readd_encoding_irq && input->buf_id != senif_org_frm_ptr) {
+				if (input->buf_id != senif_org_frm_ptr || stuck) {
 					dev_dbg(&dev->pci->dev, "enabling VLC irq again thru TW5864_SENIF_ORG_FRM_PTR1 update from %u to %u\n", input->buf_id, senif_org_frm_ptr);
-					fire = 1;
 					input->buf_id = senif_org_frm_ptr;
-				}
 
-				if (fire) {
-					dev_dbg(&dev->pci->dev, "enabling VLC irq again\n");
-					input->timers_with_vlc_disabled = 0;
+					/* TODO Debug purposes */
+
 
 					spin_lock_irqsave(&dev->slock, flags);
 					input->timer_must_readd_encoding_irq = 0;
@@ -246,12 +242,14 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 						dev_dbg(&dev->pci->dev, "input %d stuck! pushing...\n", input->input_number);
 						tw5864_push_to_make_it_roll(input);
 					}
+					spin_lock_irqsave(&dev->slock, flags);
+					dev->encoder_busy = 1;
+					spin_unlock_irqrestore(&dev->slock, flags);
 					tw5864_request_encoded_frame(input);
-
+					break;  /* encoder is busy, stop traversing inputs */
 				}
-			}
-
-		}  /* for(...) inputs traversal */
+			}  /* for(...) inputs traversal */
+		}  /* if (!encoder_busy) */
 		tw_writel(TW5864_PCI_INTR_STATUS,TW5864_TIMER_INTR);
 	}
 
@@ -431,6 +429,7 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 
 	mutex_init(&dev->lock);
 	spin_lock_init(&dev->slock);
+	dev->encoder_busy = 0;
 
 	/* Enable interrupts */
 	tw5864_interrupts_enable(dev);
