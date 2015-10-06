@@ -309,30 +309,6 @@ static __used void pci_init_tw2865(struct tw5864_dev *dev, u8 iic)
     pci_i2c_write(dev, iic, 0xe0, 0x10);
 }
 
-static void pci_init_tw2866(struct tw5864_dev *dev, u8 iic)
-{
-    u32 ch;
-
-    for(ch = 0 ; ch < 4 ; ch++)
-    {
-        pci_i2c_multi_write(dev, iic, ch * 0x10, tbl_pal_tw2865_common, 16);
-    }
-#ifdef PLATFORM_FPGA_155
-    pci_i2c_wscatter(dev , iic, tbl_tw2866_other1 , 17);
-#else
-    pci_i2c_wscatter(dev , iic , tbl_tw2866_other1 , sizeof(tbl_tw2866_other1)>>1);
-#endif
-    pci_i2c_multi_write(dev , iic , 0xd0 , audio_tw2865_common , 20);
-    pci_i2c_wscatter(dev , iic , tbl_tw2865_other2 , 6);
-    pci_i2c_multi_write(dev , iic , 0xf0 , audio_tbl_pal_tw2865_8KHz , 6);
-    pci_i2c_wscatter(dev , iic , tbl_tw2865_other3 , 3);
-    pci_i2c_write(dev, iic, 0xe0, 0x10);
-#ifdef TW5864_ASIC_NEW
-    pci_i2c_write(dev, iic, 0x60, 0x15);
-    pci_i2c_write(dev, iic, 0x61, 0x3);
-#endif
-    pci_i2c_write(dev, iic, 0xcf, 0x80);
-}
 #define ISIL_PHY_VD_CHAN_NUMBER   (16)
 
 /*auto detect CLKP_DEL delay*/
