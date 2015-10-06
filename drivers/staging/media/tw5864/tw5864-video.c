@@ -115,7 +115,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	input->reg_dsp = input_number * 1  /* channel id */
 		| TW5864_DSP_CHROM_SW  /* TODO Does this matter? Goes so in reference driver. */
 		| ((0xa << 8) & TW5864_DSP_MB_DELAY)  /* Value from ref driver */
-		| TW5864_DSP_FLW_CNTL  /* Does this matter? Most probably not. Wasn't used in ref driver. TODO Try to drop. */
+//		| TW5864_DSP_FLW_CNTL  /* Does this matter? Most probably not. Wasn't used in ref driver. TODO Try to drop. */
 		;
 
 	input->resolution = D1;
@@ -325,12 +325,6 @@ void tw5864_request_encoded_frame(struct tw5864_input *input)
 {
 	struct tw5864_dev *dev = input->root;
 
-	if (tw_readl(TW5864_VLC_BUF))
-		tw_writel(TW5864_VLC_BUF, tw_readl(TW5864_VLC_BUF) & 0x0f);  /* TODO Unneeded? */
-
-	tw_setl(TW5864_SEN_EN_CH, 1 << input->input_number);  /* TODO Unneeded? */
-	tw_setl(TW5864_H264EN_CH_EN, 1 << input->input_number);  /* TODO Unneeded? */
-	tw_writel(TW5864_VLC, QP_VALUE | TW5864_VLC_PCI_SEL | ((input->tail_nb_bits + 24) << TW5864_VLC_BIT_ALIGN_SHIFT));
 	tw_setl(TW5864_DSP_CODEC, TW5864_CIF_MAP_MD | TW5864_HD1_MAP_MD);
 	tw_writel(TW5864_EMU_EN_VARIOUS_ETC, input->reg_emu_en_various_etc);
 	tw_writel(TW5864_INTERLACING, input->reg_interlacing);
@@ -341,7 +335,7 @@ void tw5864_request_encoded_frame(struct tw5864_input *input)
 	tw_writel(TW5864_DSP_I4x4_WEIGHT, input->reg_dsp_i4x4_weight);
 
 	tw5864_prepare_frame_headers(input);
-	tw_writel(TW5864_VLC, TW5864_VLC_PCI_SEL | ((input->tail_nb_bits + 24) << TW5864_VLC_BIT_ALIGN_SHIFT) | QP_VALUE);
+	tw_writel(TW5864_VLC, TW5864_VLC_PCI_SEL | ((input->tail_nb_bits + 24) << TW5864_VLC_BIT_ALIGN_SHIFT) | input->reg_dsp_qp);
 
 	u32 enc_buf_id_new = tw_mask_shift_readl(TW5864_ENC_BUF_PTR_REC1, 0x3, 2 * input->input_number);
 
@@ -364,8 +358,6 @@ static int tw5864_disable_input(struct tw5864_dev *dev, int input_number) {
 	mutex_lock(&dev->lock);
 
 	spin_lock_irqsave(&dev->slock, flags);
-	tw_clearl(TW5864_H264EN_CH_EN, 1 << input_number);
-	tw_clearl(TW5864_SEN_EN_CH, 1 << input_number);
 	dev->inputs[input_number].enabled = 0;
 	dev->inputs[input_number].timer_must_readd_encoding_irq = 0;
 	spin_unlock_irqrestore(&dev->slock, flags);

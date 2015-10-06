@@ -228,20 +228,14 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 
 				int senif_org_frm_ptr = tw_mask_shift_readl(TW5864_SENIF_ORG_FRM_PTR1, 0x3, 2 * input->input_number);
 				if (input->buf_id != senif_org_frm_ptr || stuck) {
-					dev_dbg(&dev->pci->dev, "enabling VLC irq again thru TW5864_SENIF_ORG_FRM_PTR1 update from %u to %u\n", input->buf_id, senif_org_frm_ptr);
-					input->buf_id = senif_org_frm_ptr;
-
-					/* TODO Debug purposes */
-
-
-					spin_lock_irqsave(&dev->slock, flags);
-					input->timer_must_readd_encoding_irq = 0;
-					spin_unlock_irqrestore(&dev->slock, flags);
-
 					if (stuck) {
 						dev_dbg(&dev->pci->dev, "input %d stuck! pushing...\n", input->input_number);
 						tw5864_push_to_make_it_roll(input);
+					} else {
+						dev_dbg(&dev->pci->dev, "enabling VLC irq again thru TW5864_SENIF_ORG_FRM_PTR1 update from %u to %u\n", input->buf_id, senif_org_frm_ptr);
 					}
+					input->buf_id = senif_org_frm_ptr;
+
 					spin_lock_irqsave(&dev->slock, flags);
 					dev->encoder_busy = 1;
 					spin_unlock_irqrestore(&dev->slock, flags);
