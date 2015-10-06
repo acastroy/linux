@@ -276,13 +276,8 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 
 	spin_lock_irqsave(&dev->slock, flags);
 	dev->inputs[input_number].enabled = 1;
-	tw5864_irqmask_apply(dev);
+	dev->inputs[input_number].timer_must_readd_encoding_irq = 1;
 	spin_unlock_irqrestore(&dev->slock, flags);
-
-	tw_writel(TW5864_MOTION_SEARCH_ETC, TW5864_INTRA_EN); // produce intra frame
-
-	tw5864_push_to_make_it_roll(input);
-	tw5864_request_encoded_frame(input);
 
 	return 0;
 }
