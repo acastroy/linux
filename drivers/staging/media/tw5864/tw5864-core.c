@@ -218,28 +218,6 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		dev_dbg(&dev->pci->dev, "Unknown interrupt, status 0x%08X\n", status);
 	}
 
-
-	/* TODO Get this shit away from ISR */
-	if (tw_readl(0x9218))
-		tw_writel(0x9218, 1);
-
-	if (tw_indir_readb(dev, 0x2F0))
-		tw_indir_writeb(dev, 0x2F0, 0xFF);
-	if (tw_indir_readb(dev, 0x2F1))
-		tw_indir_writeb(dev, 0x2F1, 0xFF);
-	tw_indir_writeb(dev, 0x382, 0);
-
-	u32 indir_int_regs[] = {0x2d0, 0x2d1, 0x2d2, 0x2d3, 0x2d4, 0x2d5, 0x2d6, 0x2d7,  0x2e0, 0x2e1, 0x2e2, 0x2e3, 0};
-	u32 tmp;
-	for (i = 0; indir_int_regs[i] != 0; i++) {
-		tmp = tw_indir_readb(dev, indir_int_regs[i]);
-		if (tmp) {
-			if (i != 0)
-				dev_dbg(&dev->pci->dev, "indir[0x%03X] = 0x%02X\n", indir_int_regs[i], tmp);
-			tw_indir_writeb(dev, indir_int_regs[i], 0xff);
-		}
-	}
-
 	return IRQ_HANDLED;
 }
 
