@@ -66,13 +66,6 @@ static void tw5864_buf_queue(struct vb2_buffer *vb)
 	spin_unlock_irqrestore(&dev->slock, flags);
 }
 
-static void tw5864_buf_finish(struct vb2_buffer *vb)
-{
-	struct vb2_queue *vq = vb->vb2_queue;
-	struct tw5864_input *dev = vb2_get_drv_priv(vq);
-	struct tw5864_buf *buf = container_of(vb, struct tw5864_buf, vb);
-}
-
 /* TODO Change interface of this function - pass just tw5864_input */
 int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	struct tw5864_input *input = &dev->inputs[input_number];
@@ -120,7 +113,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 
 	int d1_width = 720;
 	int d1_height = (std == STD_NTSC) ? 480 : 576;
-	int cif_height = d1_height / 4;
+	/* int cif_height = d1_height / 4; */
 
 	input->width = d1_width;
 	input->height = d1_height;
@@ -215,7 +208,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	tw_indir_writeb(dev, 0x203 + 4 * 4 * input_number, /* cif_height */ input->height / 4);  /* TODO Should use cif_height, not input's? */
 #endif
 
-	for (int i = 0; i < 4 * TW5864_INPUTS; i++) {
+	for (i = 0; i < 4 * TW5864_INPUTS; i++) {
 		tw_indir_writeb(dev, 0x200 + 4 * i, d1_width / 4); // analog input width / 4
 		tw_indir_writeb(dev, 0x201 + 4 * i, d1_height / 4);
 
@@ -225,22 +218,22 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 
 	tw_writel(TW5864_DSP_PIC_MAX_MB, ((input->width / 16) << 8) | (input->height / 16));  /* FIXME 8 pixels lacking from CIF. If we want CIF to work at all. */
 
+	/* TODO FIXME Simplify and immediately check for regressions */
 	tw_writel(TW5864_FRAME_WIDTH_BUS_A(input_number), frame_width_bus_value);
 	tw_writel(TW5864_FRAME_WIDTH_BUS_B(input_number), frame_width_bus_value);
 	tw_writel(TW5864_FRAME_HEIGHT_BUS_A(input_number), frame_height_bus_value);
 	tw_writel(TW5864_FRAME_HEIGHT_BUS_B(input_number), (frame_height_bus_value + 1) / 2 - 1);
-	int j;
-	for (j = 0; j < 4; j++) {
-		tw_writel(TW5864_FRAME_WIDTH_BUS_A(j), frame_width_bus_value);
-		tw_writel(TW5864_FRAME_WIDTH_BUS_B(j), frame_width_bus_value);
-		tw_writel(TW5864_FRAME_HEIGHT_BUS_A(j), frame_height_bus_value);
-		tw_writel(TW5864_FRAME_HEIGHT_BUS_B(j), (frame_height_bus_value + 1) / 2 - 1);
-		if (j == 0) {
-			tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(input_number, j), 0xffff);
-			tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(input_number, j), 0xffff);
+	for (i = 0; i < 4; i++) {
+		tw_writel(TW5864_FRAME_WIDTH_BUS_A(i), frame_width_bus_value);
+		tw_writel(TW5864_FRAME_WIDTH_BUS_B(i), frame_width_bus_value);
+		tw_writel(TW5864_FRAME_HEIGHT_BUS_A(i), frame_height_bus_value);
+		tw_writel(TW5864_FRAME_HEIGHT_BUS_B(i), (frame_height_bus_value + 1) / 2 - 1);
+		if (i == 0) {
+			tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(input_number, i), 0xffff);
+			tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(input_number, i), 0xffff);
 		} else {
-			tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(input_number, j), 0);
-			tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(input_number, j), 0);
+			tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(input_number, i), 0);
+			tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(input_number, i), 0);
 		}
 	}
 
@@ -366,7 +359,6 @@ static int tw5864_disable_input(struct tw5864_dev *dev, int input_number) {
 static int tw5864_start_streaming(struct vb2_queue *q, unsigned int count)
 {
 	struct tw5864_input *input = vb2_get_drv_priv(q);
-	struct tw5864_dev *dev = input->root;
 
 	tw5864_enable_input(input->root, input->input_number);
 	return 0;
@@ -399,7 +391,6 @@ static void tw5864_stop_streaming(struct vb2_queue *q)
 static struct vb2_ops tw5864_video_qops = {
 	.queue_setup	= tw5864_queue_setup,
 	.buf_queue	= tw5864_buf_queue,
-	.buf_finish	= tw5864_buf_finish,
 	.start_streaming = tw5864_start_streaming,
 	.stop_streaming = tw5864_stop_streaming,
 	.wait_prepare	= vb2_ops_wait_prepare,
@@ -409,11 +400,11 @@ static struct vb2_ops tw5864_video_qops = {
 /* ------------------------------------------------------------------ */
 static int tw5864_s_ctrl(struct v4l2_ctrl *ctrl)
 {
+	// TODO
+#if 0
 	struct tw5864_input *dev =
 		container_of(ctrl->handler, struct tw5864_input, hdl);
 
-	// TODO
-#if 0
 	switch (ctrl->id) {
 		case V4L2_CID_BRIGHTNESS:
 			tw_writeb(TW5864_BRIGHT, ctrl->val);
@@ -601,14 +592,7 @@ static int tw5864_try_fmt_vid_cap(struct file *file, void *priv,
 static int tw5864_s_fmt_vid_cap(struct file *file, void *priv,
 		struct v4l2_format *f)
 {
-	struct tw5864_input *dev = video_drvdata(file);
-	int err;
-
-	err = tw5864_try_fmt_vid_cap(file, priv, f);
-	if (0 != err)
-		return err;
-
-	return 0;
+	return tw5864_try_fmt_vid_cap(file, priv, f);
 }
 
 static int tw5864_enum_fmt_vid_cap(struct file *file, void  *priv,
@@ -673,7 +657,6 @@ static void tw5864_video_input_fini(struct tw5864_input *dev);
 int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 {
 	int i;
-	int j;
 	int ret;
 
 	for (i = 0; i < TW5864_INPUTS; i++) {
@@ -709,7 +692,6 @@ input_init_fail:
 
 static int tw5864_video_input_init(struct tw5864_input *dev, int video_nr)
 {
-	int i;
 	int ret;
 	struct v4l2_ctrl_handler *hdl = &dev->hdl;
 
@@ -813,12 +795,10 @@ void tw5864_video_fini(struct tw5864_dev *dev)
 
 void tw5864_prepare_frame_headers(struct tw5864_input *input)
 {
-	struct tw5864_dev *dev = input->root;
 	struct tw5864_buf *vb = input->vb;
 	u8 *dst;
 	unsigned long dst_size;
 	unsigned long dst_space;
-	int skip_bytes = 3;
 
 	if (!vb) {
 		spin_lock(&input->slock);

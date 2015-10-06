@@ -126,7 +126,6 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 	u32 vlc_len;
 	u32 vlc_crc;
 	u32 vlc_reg;  // TW5864_VLC
-	u32 mv_reg;
 	u32 vlc_buf_reg;  // TW5864_VLC_BUF
 	int channel;
 	int i;
@@ -142,8 +141,6 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 	tw_writel(TW5864_INTR_CLR_H, 0xffff);
 
 	if (status & TW5864_INTR_VLC_DONE) {
-		u32 chunk[4];
-
 		vlc_len = tw_readl(TW5864_VLC_LENGTH) << 2;
 		vlc_crc = tw_readl(TW5864_VLC_CRC_REG);
 		channel = tw_readl(TW5864_DSP) & TW5864_DSP_ENC_CHN;
@@ -320,9 +317,7 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 		const struct pci_device_id *pci_id)
 {
 	struct tw5864_dev *dev;
-	char irq_owner_display_name[64];
 	int err;
-	u16 cmd;
 
 	dev = devm_kzalloc(&pci_dev->dev, sizeof(*dev), GFP_KERNEL);
 	if (!dev)
