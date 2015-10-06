@@ -74,6 +74,41 @@ static const struct pci_device_id tw5864_pci_tbl[] = {
 
 /* ------------------------------------------------------------------ */
 
+void tw_indir_writeb(struct tw5864_dev *dev, u16 addr, u8 data) {
+	int timeout = 30000;
+	addr <<= 2;
+
+	while ((tw_readl(TW5864_IND_CTL) >> 31) && (timeout--))
+		;
+	if (!timeout)
+		dev_err(&dev->pci->dev, "tw_indir_writel() timeout before writing\n");
+
+	tw_writel(TW5864_IND_DATA, data);
+	tw_writel(TW5864_IND_CTL, addr | TW5864_RW | TW5864_ENABLE);
+}
+
+u8 tw_indir_readb(struct tw5864_dev *dev, u16 addr) {
+	int timeout = 30000;
+	u32 data = 0;
+	addr <<= 2;
+
+	while ((tw_readl(TW5864_IND_CTL) >> 31) && (timeout--))
+		;
+	if (!timeout)
+		dev_err(&dev->pci->dev, "tw_indir_writel() timeout before reading\n");
+
+	tw_writel(TW5864_IND_CTL, addr | TW5864_ENABLE);
+
+	timeout = 30000;
+	while ((tw_readl(TW5864_IND_CTL) >> 31) && (timeout--))
+		;
+	if (!timeout)
+		dev_err(&dev->pci->dev, "tw_indir_writel() timeout at reading\n");
+
+	data = tw_readl(TW5864_IND_DATA);
+	return data & 0xff;
+}
+
 static void tw5864_interrupts_enable(struct tw5864_dev *dev)
 {
 	mutex_lock(&dev->lock);
