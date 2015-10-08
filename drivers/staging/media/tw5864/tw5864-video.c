@@ -89,6 +89,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 		return -1;
 	}
 
+	do_gettimeofday(&input->start_time);
 	input->std = std;
 	input->v4l2_std = tw5864_get_v4l2_std(std);
 
@@ -871,6 +872,10 @@ void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len)
 	memcpy(dst, dev->h264_vlc_buf[0].addr + skip_bytes, frame_len);
 	dst_space -= frame_len;
 	vb2_set_plane_payload(&vb->vb, 0, dst_size - dst_space);
+
+	struct timeval now;
+	do_gettimeofday(&now);
+	timersub(&now, &input->start_time, &vb->vb.v4l2_buf.timestamp);
 
 	vb2_buffer_done(&vb->vb, VB2_BUF_STATE_DONE);
 }

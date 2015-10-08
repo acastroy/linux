@@ -188,6 +188,7 @@ struct tw5864_input {
 	u32 reg_dsp_i4x4_weight;
 	u32                     buf_id;
 
+	struct timeval start_time;
 
 	struct tw5864_buf *vb;
 };
@@ -256,6 +257,7 @@ void tw5864_h264_put_stream_header(h264_stream_t* h, u8 **buf, size_t *space_lef
 void tw5864_h264_put_slice_header(h264_stream_t* h, u8 **buf, size_t *space_left, unsigned int idr_pic_id, unsigned int frame_seqno_in_gop, int *tail_nb_bits, u8 *tail);
 void tw5864_request_encoded_frame(struct tw5864_input *input);
 void tw5864_push_to_make_it_roll(struct tw5864_input *input);
+void timersub(const struct timeval* tvp, const struct timeval* uvp, struct timeval* vvp);
 
 static const unsigned int   Lambda_lookup_table[52] =
 {

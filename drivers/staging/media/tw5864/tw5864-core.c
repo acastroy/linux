@@ -109,6 +109,17 @@ u8 tw_indir_readb(struct tw5864_dev *dev, u16 addr) {
 	return data & 0xff;
 }
 
+void timersub(const struct timeval* tvp, const struct timeval* uvp, struct timeval* vvp)
+{
+	vvp->tv_sec = tvp->tv_sec - uvp->tv_sec;
+	vvp->tv_usec = tvp->tv_usec - uvp->tv_usec;
+	if (vvp->tv_usec < 0)
+	{
+		--vvp->tv_sec;
+		vvp->tv_usec += 1000000;
+	}
+}
+
 static void tw5864_interrupts_enable(struct tw5864_dev *dev)
 {
 	mutex_lock(&dev->lock);
