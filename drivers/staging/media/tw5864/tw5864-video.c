@@ -323,9 +323,9 @@ void tw5864_request_encoded_frame(struct tw5864_input *input)
 		input->h264_frame_seqno_in_gop = 0;
 		input->h264_idr_pic_id++;
 		input->h264_idr_pic_id &= TW5864_DSP_REF_FRM;
-#if GOP_SIZE == 1
+//#if GOP_SIZE == 1
 		tw_writel(TW5864_DSP_REF, (tw_readl(TW5864_DSP_REF) & ~TW5864_DSP_REF_FRM) | input->h264_idr_pic_id);
-#endif
+//#endif
 	} else {
 		tw_writel(TW5864_MOTION_SEARCH_ETC,0x0000008C);
 		input->h264_frame_seqno_in_gop++;
