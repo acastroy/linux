@@ -93,10 +93,9 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	input->std = std;
 	input->v4l2_std = tw5864_get_v4l2_std(std);
 
-	input->discard_frames = GOP_SIZE;
+	input->discard_frames = 0;//GOP_SIZE;
 	input->frame_seqno = 0;
-	input->h264_idr_pic_id = 1;
-	tw_writel(TW5864_DSP_REF, (tw_readl(TW5864_DSP_REF) & ~TW5864_DSP_REF_FRM) | input->h264_idr_pic_id);
+	input->h264_idr_pic_id = 0;
 	input->h264_frame_seqno_in_gop = 0;
 	input->h264 = tw5864_h264_init();
 
@@ -230,8 +229,24 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 		tw_writel(TW5864_FRAME_HEIGHT_BUS_A(i), frame_height_bus_value);
 		tw_writel(TW5864_FRAME_HEIGHT_BUS_B(i), (frame_height_bus_value + 1) / 2 - 1);
 		if (i == 0) {
-			tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(input_number, i), 0xffff);
-			tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(input_number, i), 0xffff);
+			/*
+			 * This register value seems to follow such approach:
+			 * In each second interval, when processing Nth frame,
+			 * it checks Nth bit of register value and, if the bit
+			 * is 1, it processes the frame, otherwise the frame is
+			 * discarded.
+			 * So unary representation would work, but more or less
+			 * equal gaps between the frames should be preserved.
+			 * So for 30 (24) FPS it can be set to 0xffff.
+			 * For 1 FPS - 0x0001.
+			 * For 2 FPS - 0x0101.
+			 * For 4 FPS - 0x1111.
+			 * For 8 FPS - 0x9999 (binary 0101 0101 0101 0101).
+			 * Et cetera.
+			 */
+			u32 unary_framerate = 0xffff;
+			tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(input_number, i), unary_framerate);
+			tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(input_number, i), unary_framerate);
 		} else {
 			tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(input_number, i), 0);
 			tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(input_number, i), 0);
@@ -307,6 +322,7 @@ void tw5864_request_encoded_frame(struct tw5864_input *input)
 {
 	struct tw5864_dev *dev = input->root;
 
+	dev_dbg(&dev->pci->dev, "%s: %d %s \n", __FILE__, __LINE__, __PRETTY_FUNCTION__);
 	tw_setl(TW5864_DSP_CODEC, TW5864_CIF_MAP_MD | TW5864_HD1_MAP_MD);
 	tw_writel(TW5864_EMU_EN_VARIOUS_ETC, input->reg_emu_en_various_etc);
 	tw_writel(TW5864_INTERLACING, input->reg_interlacing);
@@ -315,19 +331,23 @@ void tw5864_request_encoded_frame(struct tw5864_input *input)
 	tw_writel(TW5864_DSP_QP, input->reg_dsp_qp);
 	tw_writel(TW5864_DSP_REF_MVP_LAMBDA, input->reg_dsp_ref_mvp_lambda);
 	tw_writel(TW5864_DSP_I4x4_WEIGHT, input->reg_dsp_i4x4_weight);
+	tw_writel(TW5864_DSP_INTRA_MODE,0x00000070);
 
-	tw5864_prepare_frame_headers(input);
-	tw_writel(TW5864_VLC, TW5864_VLC_PCI_SEL | ((input->tail_nb_bits + 24) << TW5864_VLC_BIT_ALIGN_SHIFT) | input->reg_dsp_qp);
-	if (1 /* FIXME HARDCODE all are I-frames */ || input->frame_seqno % GOP_SIZE == 0) {
-		tw_writel(TW5864_MOTION_SEARCH_ETC,0x00000008); // produce intra frame for #4, #8, #12...
+	if (input->frame_seqno % GOP_SIZE == 0) {
+		tw_writel(TW5864_MOTION_SEARCH_ETC,0x00000008); // produce intra frame
 		input->h264_frame_seqno_in_gop = 0;
 		input->h264_idr_pic_id++;
 		input->h264_idr_pic_id &= TW5864_DSP_REF_FRM;
+		dev_dbg(&dev->pci->dev, "%s: %d %s input->h264_idr_pic_id = %d, input->h264_frame_seqno_in_gop = %d\n", __FILE__, __LINE__, __PRETTY_FUNCTION__, input->h264_idr_pic_id, input->h264_frame_seqno_in_gop);
 	} else {
-		tw_writel(TW5864_MOTION_SEARCH_ETC,0x0000008C);
+		tw_writel(TW5864_MOTION_SEARCH_ETC,0x000000BF);
 		input->h264_frame_seqno_in_gop++;
+		dev_dbg(&dev->pci->dev, "%s: %d %s input->h264_idr_pic_id = %d, input->h264_frame_seqno_in_gop = %d\n", __FILE__, __LINE__, __PRETTY_FUNCTION__, input->h264_idr_pic_id, input->h264_frame_seqno_in_gop);
 	}
-	tw_writel(TW5864_DSP_REF, (tw_readl(TW5864_DSP_REF) & ~TW5864_DSP_REF_FRM) | input->h264_idr_pic_id);
+	tw5864_prepare_frame_headers(input);
+	tw_writel(TW5864_VLC, TW5864_VLC_PCI_SEL | ((input->tail_nb_bits + 24) << TW5864_VLC_BIT_ALIGN_SHIFT) | input->reg_dsp_qp);
+	dev_dbg(&dev->pci->dev, "%s: %d %s input->tail_nb_bits = %d\n", __FILE__, __LINE__, __PRETTY_FUNCTION__, input->tail_nb_bits);
+	//tw_writel(TW5864_DSP_REF, (tw_readl(TW5864_DSP_REF) & ~TW5864_DSP_REF_FRM) | input->h264_idr_pic_id); // or just nothing?
 
 	u32 enc_buf_id_new = tw_mask_shift_readl(TW5864_ENC_BUF_PTR_REC1, 0x3, 2 * input->input_number);
 
@@ -400,11 +420,12 @@ static struct vb2_ops tw5864_video_qops = {
 static int tw5864_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	// TODO
-#if 0
-	struct tw5864_input *dev =
+	struct tw5864_input *input =
 		container_of(ctrl->handler, struct tw5864_input, hdl);
+	struct tw5864_dev *dev = input->root;
 
 	switch (ctrl->id) {
+#if 0
 		case V4L2_CID_BRIGHTNESS:
 			tw_writeb(TW5864_BRIGHT, ctrl->val);
 			break;
@@ -430,8 +451,17 @@ static int tw5864_s_ctrl(struct v4l2_ctrl *ctrl)
 			else
 				tw_andorb(TW5864_LOOP, 0x30, 0x00);
 			break;
-	}
 #endif
+		case V4L2_CID_DETECT_MD_GLOBAL_THRESHOLD:
+			memset(input->md_threshold_grid_values, ctrl->val, sizeof(input->md_threshold_grid_values));
+			return 0;
+		case V4L2_CID_DETECT_MD_MODE:
+			return 0;
+		case V4L2_CID_DETECT_MD_THRESHOLD_GRID:
+			/* input->md_threshold_grid_ctrl->p_new.p_u16 contains data */
+			memcpy(input->md_threshold_grid_values, input->md_threshold_grid_ctrl->p_new.p_u16, sizeof(input->md_threshold_grid_values));
+			return 0;
+	}
 	return 0;
 }
 /* ------------------------------------------------------------------ */
@@ -606,6 +636,21 @@ static int tw5864_enum_fmt_vid_cap(struct file *file, void  *priv,
 	return 0;
 }
 
+static int tw5864_subscribe_event(struct v4l2_fh *fh,
+		const struct v4l2_event_subscription *sub)
+{
+
+	switch (sub->type) {
+	case V4L2_EVENT_CTRL:
+		return v4l2_ctrl_subscribe_event(fh, sub);
+	case V4L2_EVENT_MOTION_DET:
+		/* Allow for up to 30 events (1 second for NTSC) to be
+		 * stored. */
+		return v4l2_event_subscribe(fh, sub, 30, NULL);
+	}
+	return -EINVAL;
+}
+
 static const struct v4l2_ctrl_ops tw5864_ctrl_ops = {
 	.s_ctrl = tw5864_s_ctrl,
 };
@@ -639,7 +684,7 @@ static const struct v4l2_ioctl_ops video_ioctl_ops = {
 	.vidioc_s_fmt_vid_cap		= tw5864_s_fmt_vid_cap,
 	.vidioc_g_fmt_vid_cap		= tw5864_g_fmt_vid_cap,
 	.vidioc_log_status		= v4l2_ctrl_log_status,
-	.vidioc_subscribe_event		= v4l2_ctrl_subscribe_event,
+	.vidioc_subscribe_event		= tw5864_subscribe_event,
 	.vidioc_unsubscribe_event	= v4l2_event_unsubscribe,
 };
 static struct video_device tw5864_video_template = {
@@ -648,6 +693,23 @@ static struct video_device tw5864_video_template = {
 	.ioctl_ops		= &video_ioctl_ops,
 	.release		= video_device_release_empty,
 	.tvnorms		= TW5864_NORMS,
+};
+
+/* The TW5864 uses 192 (16x12) detection cells in full screen for motion
+ * detection. Each detection cell is composed of 44 pixels and 20 lines for
+ * NTSC and 24 lines for PAL.
+ */
+#define MD_CELLS_HOR 16
+#define MD_CELLS_VERT 12
+
+/* Motion Detection Threshold matrix */
+static const struct v4l2_ctrl_config tw5864_md_thresholds = {
+	.ops = &tw5864_ctrl_ops,
+	.id = V4L2_CID_DETECT_MD_THRESHOLD_GRID,
+	.dims = { MD_CELLS_HOR, MD_CELLS_VERT },
+	.def = 666,  /* FIXME FANCY CONSTANT, PICK REASONABLE PRACTICAL VALUE */
+	.max = 65535,
+	.step = 1,
 };
 
 static int tw5864_video_input_init(struct tw5864_input *dev, int video_nr);
@@ -691,6 +753,7 @@ input_init_fail:
 
 static int tw5864_video_input_init(struct tw5864_input *dev, int video_nr)
 {
+	struct tw5864_input *input = dev;  /* TODO rename dev to input */
 	int ret;
 	struct v4l2_ctrl_handler *hdl = &dev->hdl;
 
@@ -742,6 +805,16 @@ static int tw5864_video_input_init(struct tw5864_input *dev, int video_nr)
 			V4L2_CID_COLOR_KILLER, 0, 1, 1, 0);
 	v4l2_ctrl_new_std(hdl, &tw5864_ctrl_ops,
 			V4L2_CID_CHROMA_AGC, 0, 1, 1, 1);
+	v4l2_ctrl_new_std_menu(hdl, &tw5864_ctrl_ops,
+			V4L2_CID_DETECT_MD_MODE,
+			V4L2_DETECT_MD_MODE_THRESHOLD_GRID, 0,
+			V4L2_DETECT_MD_MODE_DISABLED);
+	v4l2_ctrl_new_std(hdl, &tw5864_ctrl_ops,
+			V4L2_CID_DETECT_MD_GLOBAL_THRESHOLD,
+			tw5864_md_thresholds.min, tw5864_md_thresholds.max,
+			tw5864_md_thresholds.step, tw5864_md_thresholds.def);
+	input->md_threshold_grid_ctrl =
+		v4l2_ctrl_new_custom(hdl, &tw5864_md_thresholds, NULL);
 	if (hdl->error) {
 		ret = hdl->error;
 		goto v4l2_ctrl_fail;
@@ -829,6 +902,127 @@ void tw5864_prepare_frame_headers(struct tw5864_input *input)
 	input->buf_cur_space_left = dst_space;
 }
 
+/*
+ * Returns heuristic motion detection metric value from known components of
+ * hardware-provided Motion Vector Data.
+ */
+static unsigned int tw5864_md_metric_from_mvd(u32 mvd)
+{
+	unsigned int reserved = mvd >> 31;
+	unsigned int mb_type = (mvd >> 28) & 0x7;
+	/* non_zero_members: number of non-zero residuals in each macro block
+	 * after quantization */
+	unsigned int non_zero_members = (mvd >> 20) & 0xff;
+	unsigned int mv_y = (mvd >> 10) & 0x3ff;
+	unsigned int mv_x = mvd & 0x3ff;
+
+	/* heuristic: */
+	mv_x &= 0x0f;
+	mv_y &= 0x0f;
+
+	return mv_y + mv_x;
+}
+
+static int tw5864_is_motion_triggered(struct tw5864_input *input)
+{
+	struct tw5864_dev *dev = input->root;
+	u32 *mv = (u32 *)dev->h264_mv_buf[0].addr;
+	int i;
+	int detected = 0;
+	unsigned int md_cells = MD_CELLS_HOR * MD_CELLS_VERT;
+
+	/* Stats */
+#ifdef DEBUG
+	unsigned int max = 0;
+	unsigned int min = UINT_MAX;
+	unsigned int sum = 0;
+	unsigned int cnt_above_thresh = 0;
+#endif
+
+	for (i = 0; i < md_cells; i++) {
+		const u16 thresh = input->md_threshold_grid_values[i];
+		const unsigned int metric = tw5864_md_metric_from_mvd(mv[i]);
+		if (metric > thresh)
+			detected = 1;
+
+#ifdef DEBUG
+		if (metric > thresh)
+			cnt_above_thresh++;
+		if (metric > max)
+			max = metric;
+		if (metric < min)
+			min = metric;
+		sum += metric;
+#else
+		if (detected)
+			break;
+#endif
+	}
+#ifdef DEBUG
+	dev_dbg(&dev->pci->dev, "input %d, frame md stats: min %u, max %u, avg %u, cells above threshold: %u\n", input->input_number, min, max, sum / md_cells, cnt_above_thresh);
+#endif
+	return detected;
+}
+
+#ifdef MD_DUMP
+static void tw5864_md_dump(struct tw5864_input *input)
+{
+	struct tw5864_dev *dev = input->root;
+	u32 *mv = (u32 *)dev->h264_mv_buf[0].addr;
+	int offset = 0;
+	int i;
+
+	if (input->h264_frame_seqno_in_gop) {
+		offset = 0;
+		for (i = 0; i < MD_CELLS_VERT; i++) {
+			dev_dbg(&dev->pci->dev, "MVD [%02d]: %08x %08x %08x %08x   %08x %08x %08x %08x   %08x %08x %08x %08x   %08x %08x %08x %08x\n",
+					i,
+					mv[offset +  0],
+					mv[offset +  1],
+					mv[offset +  2],
+					mv[offset +  3],
+					mv[offset +  4],
+					mv[offset +  5],
+					mv[offset +  6],
+					mv[offset +  7],
+					mv[offset +  8],
+					mv[offset +  9],
+					mv[offset + 10],
+					mv[offset + 11],
+					mv[offset + 12],
+					mv[offset + 13],
+					mv[offset + 14],
+					mv[offset + 15]
+			       );
+			offset += MD_CELLS_HOR;
+		}
+		offset = 0;
+		for (i = 0; i < MD_CELLS_VERT; i++) {
+			dev_dbg(&dev->pci->dev, "MD heur [%02d]: % 2x % 2x % 2x % 2x   % 2x % 2x % 2x % 2x   % 2x % 2x % 2x % 2x   % 2x % 2x % 2x % 2x\n",
+					i,
+					tw5864_md_metric_from_mvd(mv[offset +  0]),
+					tw5864_md_metric_from_mvd(mv[offset +  1]),
+					tw5864_md_metric_from_mvd(mv[offset +  2]),
+					tw5864_md_metric_from_mvd(mv[offset +  3]),
+					tw5864_md_metric_from_mvd(mv[offset +  4]),
+					tw5864_md_metric_from_mvd(mv[offset +  5]),
+					tw5864_md_metric_from_mvd(mv[offset +  6]),
+					tw5864_md_metric_from_mvd(mv[offset +  7]),
+					tw5864_md_metric_from_mvd(mv[offset +  8]),
+					tw5864_md_metric_from_mvd(mv[offset +  9]),
+					tw5864_md_metric_from_mvd(mv[offset + 10]),
+					tw5864_md_metric_from_mvd(mv[offset + 11]),
+					tw5864_md_metric_from_mvd(mv[offset + 12]),
+					tw5864_md_metric_from_mvd(mv[offset + 13]),
+					tw5864_md_metric_from_mvd(mv[offset + 14]),
+					tw5864_md_metric_from_mvd(mv[offset + 15])
+			       );
+			offset += MD_CELLS_HOR;
+		}
+	}
+}
+#endif
+
 void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len)
 {
 	struct tw5864_dev *dev = input->root;
@@ -837,13 +1031,38 @@ void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len)
 	unsigned long dst_space;
 	int skip_bytes = 3;
 
+	dev_dbg(&dev->pci->dev, "%s: %d %s frame_len = %d\n", __FILE__, __LINE__, __PRETTY_FUNCTION__, frame_len);
+#if 0
+	dev_dbg(&dev->pci->dev, "vlc: %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx   %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx \n",
+			((u8 *)dev->h264_vlc_buf[0].addr)[0x0],
+			((u8 *)dev->h264_vlc_buf[0].addr)[0x1],
+			((u8 *)dev->h264_vlc_buf[0].addr)[0x2],
+			((u8 *)dev->h264_vlc_buf[0].addr)[0x3],
+
+			((u8 *)dev->h264_vlc_buf[0].addr)[0x4],
+			((u8 *)dev->h264_vlc_buf[0].addr)[0x5],
+			((u8 *)dev->h264_vlc_buf[0].addr)[0x6],
+			((u8 *)dev->h264_vlc_buf[0].addr)[0x7],
+
+			((u8 *)dev->h264_vlc_buf[0].addr)[0x8],
+			((u8 *)dev->h264_vlc_buf[0].addr)[0x9],
+			((u8 *)dev->h264_vlc_buf[0].addr)[0xa],
+			((u8 *)dev->h264_vlc_buf[0].addr)[0xb],
+
+			((u8 *)dev->h264_vlc_buf[0].addr)[0xc],
+			((u8 *)dev->h264_vlc_buf[0].addr)[0xd],
+			((u8 *)dev->h264_vlc_buf[0].addr)[0xe],
+			((u8 *)dev->h264_vlc_buf[0].addr)[0xf]);
+#endif
 	spin_lock(&input->slock);
 	vb = input->vb;
 	input->vb = NULL;
 	spin_unlock(&input->slock);
 
-	if (!vb)  /* Gone because of disabling */
+	if (!vb) {  /* Gone because of disabling */
+		dev_dbg(&dev->pci->dev, "vb is empty, dropping frame\n");
 		return;
+	}
 
 	u8 *dst = input->buf_cur_ptr;
 	dst_size = vb2_plane_size(&vb->vb, 0);
@@ -875,7 +1094,26 @@ void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len)
 	do_gettimeofday(&now);
 	timersub(&now, &input->start_time, &vb->vb.v4l2_buf.timestamp);
 
+	/* Check for motion flags */
+	if (
+            input->h264_frame_seqno_in_gop /* P-frame */ &&
+            tw5864_is_motion_triggered(input)) {
+		struct v4l2_event ev = {
+			.type = V4L2_EVENT_MOTION_DET,
+			.u.motion_det = {
+				.flags = V4L2_EVENT_MD_FL_HAVE_FRAME_SEQ,
+				.frame_sequence = &vb->vb.v4l2_buf.sequence,
+			},
+		};
+
+		v4l2_event_queue(&input->vdev, &ev);
+	}
+
 	vb2_buffer_done(&vb->vb, VB2_BUF_STATE_DONE);
+
+#ifdef MD_DUMP
+	tw5864_md_dump(input);
+#endif
 }
 
 v4l2_std_id tw5864_get_v4l2_std(enum tw5864_vid_std std)

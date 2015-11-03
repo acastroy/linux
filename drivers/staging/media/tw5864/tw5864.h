@@ -102,7 +102,7 @@ struct tw5864_format {
 #define QP_VALUE 28
 #define BITALIGN_VALUE_IN_TIMER 0
 #define BITALIGN_VALUE_IN_INIT 0
-#define GOP_SIZE 8
+#define GOP_SIZE 2
 
 enum resolution {
 	D1 = 1,
@@ -191,6 +191,9 @@ struct tw5864_input {
 	struct timeval start_time;
 
 	struct tw5864_buf *vb;
+
+    struct v4l2_ctrl *md_threshold_grid_ctrl;
+    u16 md_threshold_grid_values[12*16];
 };
 
 /* global device status */
