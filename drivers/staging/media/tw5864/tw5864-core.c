@@ -196,7 +196,7 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		input = &dev->inputs[channel];
 
 		dma_sync_single_for_cpu(&dev->pci->dev, dev->h264_vlc_buf[0].dma_addr, H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
-		//dma_sync_single_for_cpu(&dev->pci->dev, dev->h264_mv_buf[0].dma_addr, H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
+		dma_sync_single_for_cpu(&dev->pci->dev, dev->h264_mv_buf[0].dma_addr, H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
 
 #ifdef DEBUG
 		if (vlc_crc != crc_check_sum((u32*)dev->h264_vlc_buf[0].addr, vlc_len))
@@ -210,7 +210,7 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 			input->discard_frames--;
 		}
 		dma_sync_single_for_device(&dev->pci->dev, dev->h264_vlc_buf[0].dma_addr, H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
-		//dma_sync_single_for_device(&dev->pci->dev, dev->h264_mv_buf[0].dma_addr, H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
+		dma_sync_single_for_device(&dev->pci->dev, dev->h264_mv_buf[0].dma_addr, H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
 
 		tw_writel(TW5864_VLC_DSP_INTR,0x00000001);
 		tw_writel(TW5864_PCI_INTR_STATUS, TW5864_VLC_DONE_INTR);
@@ -485,7 +485,6 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	tw_writel(TW5864_PCI_INTTM_SCALE, 3);  /* Timer interval is 8 ms. TODO Select lower interval to avoid frame losing on full load. What about on-demand change of interval? */
 
 	tw_writel(TW5864_INTERLACING, TW5864_DI_EN);
-	tw_writel(TW5864_DSP_INTRA_MODE,0x00000070);
 	tw_writel(TW5864_MASTER_ENB_REG,TW5864_PCI_VLC_INTR_ENB);
 	tw_writel(TW5864_PCI_INTR_CTL, TW5864_TIMER_INTR_ENB | TW5864_PCI_MAST_ENB | TW5864_MVD_VLC_MAST_ENB);
 	/* TODO Enable timer irq on demand, don't use it at all when it is not needed. */
