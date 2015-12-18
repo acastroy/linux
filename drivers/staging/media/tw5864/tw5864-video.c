@@ -1051,7 +1051,7 @@ void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len)
 	int skip_bytes = 3;
 
 	dev_dbg(&dev->pci->dev, "%s: %d %s frame_len = %d\n", __FILE__, __LINE__, __PRETTY_FUNCTION__, frame_len);
-#if 0
+#if 1
 	dev_dbg(&dev->pci->dev, "vlc: %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx   %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx \n",
 			((u8 *)dev->h264_vlc_buf[0].addr)[0x0],
 			((u8 *)dev->h264_vlc_buf[0].addr)[0x1],
@@ -1108,6 +1108,30 @@ void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len)
 	memcpy(dst, dev->h264_vlc_buf[0].addr + skip_bytes, frame_len);
 	dst_space -= frame_len;
 	vb2_set_plane_payload(&vb->vb, 0, dst_size - dst_space);
+#if 1
+	u8 *buf_very_beginning = vb2_plane_vaddr(&vb->vb, 0);
+	dev_dbg(&dev->pci->dev, "merged frame header: %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx   %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx \n",
+			buf_very_beginning[0x0],
+			buf_very_beginning[0x1],
+			buf_very_beginning[0x2],
+			buf_very_beginning[0x3],
+
+			buf_very_beginning[0x4],
+			buf_very_beginning[0x5],
+			buf_very_beginning[0x6],
+			buf_very_beginning[0x7],
+
+			buf_very_beginning[0x8],
+			buf_very_beginning[0x9],
+			buf_very_beginning[0xa],
+			buf_very_beginning[0xb],
+
+			buf_very_beginning[0xc],
+			buf_very_beginning[0xd],
+			buf_very_beginning[0xe],
+			buf_very_beginning[0xf]);
+#endif
+
 
 	struct timeval now;
 	do_gettimeofday(&now);
