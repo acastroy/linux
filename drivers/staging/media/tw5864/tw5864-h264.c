@@ -46,8 +46,9 @@ void tw5864_h264_put_stream_header(h264_stream_t* h, u8 **buf, size_t *space_lef
 	*space_left -= nal_len - 1;
 #endif
 
-	*buf++ = 0x67;  /* SPS NAL header */
-	*space_left--;
+	**buf = 0x67;  /* SPS NAL header */
+	*buf += 1;
+	*space_left -= 1;
 
 	/* FIXME HARDCODE Unhardcode dimensions, QP */
 	nal_len = h264_gen_sps_rbsp(*buf);
@@ -88,8 +89,9 @@ void tw5864_h264_put_stream_header(h264_stream_t* h, u8 **buf, size_t *space_lef
 	*space_left -= nal_len - 1;
 #endif
 
-	*buf++ = 0x68;  /* PPS NAL header */
-	*space_left--;
+	**buf = 0x68;  /* PPS NAL header */
+	*buf += 1;
+	*space_left -= 1;
 
 	nal_len = h264_gen_pps_rbsp(*buf);
 	*buf += nal_len;
