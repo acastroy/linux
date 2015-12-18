@@ -28,8 +28,8 @@ int h264_gen_sps_rbsp(void *p_data)
     bs_write(s, 8, 0 /* constraints */);
     bs_write(s, 8, 0x1E /* level */);
     bs_write_ue(s, 0 /* SPS id */);
-    /* log2(GOP_SIZE), taken 5 */
-#define i_log2_max_frame_num 5
+    /* log2(GOP_SIZE), taken 7 */
+#define i_log2_max_frame_num 7
     bs_write_ue(s, i_log2_max_frame_num - 4);
 #define i_poc_type 0
     bs_write_ue(s, i_poc_type);
