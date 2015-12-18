@@ -136,7 +136,7 @@ void tw5864_h264_put_slice_header(h264_stream_t* h, u8 **buf, size_t *space_left
 	*buf += 1;
 	*space_left -= 1;
 
-	nal_len = h264_gen_slice_head(buf, idr_pic_id, frame_seqno_in_gop, tail_nb_bits, tail);
+	nal_len = h264_gen_slice_head(*buf, idr_pic_id, frame_seqno_in_gop, tail_nb_bits, tail);
 	*buf += nal_len;
 	*space_left -= nal_len;
 }
