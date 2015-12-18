@@ -42,8 +42,7 @@ int h264_gen_sps_rbsp(void *p_data)
     bs_write_ue(s, i_mb_width - 1);
 #define i_mb_height (480 >> 4)  /* TODO PAL */
     bs_write_ue(s, i_mb_height - 1);
-    bs_write(s, 1, 0 /* b_frame_mbs_only */);
-    bs_write(s, 1, 0 /* b_mb_adaptive_frame_field */);
+    bs_write(s, 1, 1 /* b_frame_mbs_only */);
     bs_write(s, 1, 0 /* b_direct8x8_inference */);
     bs_write(s, 1, 0);
     bs_write(s, 1, 0);
