@@ -1,4 +1,5 @@
 #include "tw5864.h"
+#include "tw5864-h264-v2.h"
 
 #include "h264bitstream/h264_stream.h"
 
@@ -25,12 +26,13 @@ void tw5864_h264_put_stream_header(h264_stream_t* h, u8 **buf, size_t *space_lef
 	*buf += 4;
 	*space_left -= 4;
 
+#if 0
 	h->nal->nal_ref_idc = 0x03;
 	h->nal->nal_unit_type = NAL_UNIT_TYPE_SPS;
 
 	h->sps->profile_idc = 0x42;  /* == 66, baseline */
 	h->sps->level_idc = 0x1E;  // 30;
-	h->sps->log2_max_frame_num_minus4 = 3;//0x0b; //3;  // TODO Comment what this is
+	h->sps->log2_max_frame_num_minus4 = 0;
 	h->sps->log2_max_pic_order_cnt_lsb_minus4 = 3;//0x0b; //3; // TODO Comment what this is
 	h->sps->num_ref_frames = 0x01;
 	h->sps->pic_width_in_mbs_minus1 = (width / 16) - 1;
@@ -42,6 +44,15 @@ void tw5864_h264_put_stream_header(h264_stream_t* h, u8 **buf, size_t *space_lef
 	memcpy(*buf, nal_buf + 1, nal_len - 1);
 	*buf += nal_len - 1;
 	*space_left -= nal_len - 1;
+#endif
+
+	*buf++ = 0x67;  /* SPS NAL header */
+	*space_left--;
+
+	/* FIXME HARDCODE Unhardcode dimensions, QP */
+	nal_len = h264_gen_sps_rbsp(*buf);
+	*buf += nal_len;
+	*space_left -= nal_len;
 
 
 	/* PPS */
@@ -50,6 +61,7 @@ void tw5864_h264_put_stream_header(h264_stream_t* h, u8 **buf, size_t *space_lef
 	*buf += 4;
 	*space_left -= 4;
 
+#if 0
 	h->nal->nal_ref_idc = 0x03;
 	h->nal->nal_unit_type = NAL_UNIT_TYPE_PPS;
 
@@ -74,6 +86,14 @@ void tw5864_h264_put_stream_header(h264_stream_t* h, u8 **buf, size_t *space_lef
 	memcpy(*buf, nal_buf + 1, nal_len - 1);
 	*buf += nal_len - 1;
 	*space_left -= nal_len - 1;
+#endif
+
+	*buf++ = 0x68;  /* PPS NAL header */
+	*space_left--;
+
+	nal_len = h264_gen_pps_rbsp(*buf);
+	*buf += nal_len;
+	*space_left -= nal_len;
 }
 
 void tw5864_h264_put_slice_header(h264_stream_t* h, u8 **buf, size_t *space_left, unsigned int idr_pic_id, unsigned int frame_seqno_in_gop, int *tail_nb_bits, u8 *tail)
@@ -86,6 +106,7 @@ void tw5864_h264_put_slice_header(h264_stream_t* h, u8 **buf, size_t *space_left
 	*buf += 4;
 	*space_left -= 4;
 
+#if 0
 	h->nal->nal_ref_idc = 1;
 	if (frame_seqno_in_gop == 0) {
 		h->nal->nal_unit_type = NAL_UNIT_TYPE_CODED_SLICE_IDR;
@@ -108,4 +129,8 @@ void tw5864_h264_put_slice_header(h264_stream_t* h, u8 **buf, size_t *space_left
 	memcpy(*buf, nal_buf + 1, nal_len - 1);
 	*buf += nal_len - 1;
 	*space_left -= nal_len - 1;
+#endif
+	nal_len = h264_gen_slice_head(buf, idr_pic_id, frame_seqno_in_gop, tail_nb_bits, tail);
+	*buf += nal_len;
+	*space_left -= nal_len;
 }
