@@ -867,6 +867,7 @@ void tw5864_video_fini(struct tw5864_dev *dev)
 
 void tw5864_prepare_frame_headers(struct tw5864_input *input)
 {
+	struct tw5864_dev *dev = input->root;
 	struct tw5864_buf *vb = input->vb;
 	u8 *dst;
 	unsigned long dst_size;
