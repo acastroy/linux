@@ -207,7 +207,7 @@ int h264_gen_slice_head(void *p_data, unsigned int idr_pic_id, unsigned int fram
     } else
         bs_write1(s, 0);  /* adaptive_ref_pic_marking_mode_flag */
 
-    bs_write_se(s, QP_VALUE);
+    bs_write_se(s, 0 /* qp delta? */);
 
     if (s->i_left != 8){
         *tail = ((s->p[0])<<s->i_left);
