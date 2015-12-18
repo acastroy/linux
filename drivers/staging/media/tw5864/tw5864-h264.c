@@ -17,7 +17,7 @@ void tw5864_h264_destroy(h264_stream_t *h)
 
 void tw5864_h264_put_stream_header(h264_stream_t* h, u8 **buf, size_t *space_left, int qp, int width, int height)
 {
-	u8 nal_buf[64] = {0, };  /* Because of h264bitstream freaking behaviour, it adds zero byte in front of generated NAL header FIXME */
+	//u8 nal_buf[64] = {0, };  /* Because of h264bitstream freaking behaviour, it adds zero byte in front of generated NAL header FIXME */
 	int nal_len;
 
 	/* SPS */
@@ -100,7 +100,7 @@ void tw5864_h264_put_stream_header(h264_stream_t* h, u8 **buf, size_t *space_lef
 
 void tw5864_h264_put_slice_header(h264_stream_t* h, u8 **buf, size_t *space_left, unsigned int idr_pic_id, unsigned int frame_seqno_in_gop, int *tail_nb_bits, u8 *tail)
 {
-	u8 nal_buf[64] = {0, };  /* Because of h264bitstream freaking behaviour, it adds zero byte in front of generated NAL header FIXME */
+	//u8 nal_buf[64] = {0, };  /* Because of h264bitstream freaking behaviour, it adds zero byte in front of generated NAL header FIXME */
 	int nal_len;
 
 	WARN_ON_ONCE(*space_left < 4);
@@ -132,6 +132,10 @@ void tw5864_h264_put_slice_header(h264_stream_t* h, u8 **buf, size_t *space_left
 	*buf += nal_len - 1;
 	*space_left -= nal_len - 1;
 #endif
+	**buf = (frame_seqno_in_gop == 0) ? 0x25 : 0x21;  /*  NAL header */
+	*buf += 1;
+	*space_left -= 1;
+
 	nal_len = h264_gen_slice_head(buf, idr_pic_id, frame_seqno_in_gop, tail_nb_bits, tail);
 	*buf += nal_len;
 	*space_left -= nal_len;
