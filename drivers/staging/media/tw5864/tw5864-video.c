@@ -1150,6 +1150,26 @@ void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len)
 			buf_very_beginning[0x1d],
 			buf_very_beginning[0x1e],
 			buf_very_beginning[0x1f]);
+	dev_dbg(&dev->pci->dev, "merged frame header [2]: %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx   %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx \n",
+			buf_very_beginning[0x20],
+			buf_very_beginning[0x21],
+			buf_very_beginning[0x22],
+			buf_very_beginning[0x23],
+
+			buf_very_beginning[0x24],
+			buf_very_beginning[0x25],
+			buf_very_beginning[0x26],
+			buf_very_beginning[0x27],
+
+			buf_very_beginning[0x28],
+			buf_very_beginning[0x29],
+			buf_very_beginning[0x2a],
+			buf_very_beginning[0x2b],
+
+			buf_very_beginning[0x2c],
+			buf_very_beginning[0x2d],
+			buf_very_beginning[0x2e],
+			buf_very_beginning[0x2f]);
 #endif
 
 
