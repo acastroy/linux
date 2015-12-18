@@ -1,22 +1,110 @@
 #include "tw5864.h"
+#include "bs.h"
 
-#include "h264bitstream/h264_stream.h"
+static uint8_t marker[] = {0x00, 0x00, 0x00, 0x01};
 
-uint8_t marker[] = {0x00, 0x00, 0x00, 0x01};
-
-h264_stream_t *tw5864_h264_init(void)
+static int tw5864_h264_gen_sps_rbsp(u8 *buf, size_t size, int width, int height)
 {
-	return h264_new();
+    bs_t bs, *s;
+
+    s = &bs;
+    bs_init(s, buf, size);
+    bs_write(s, 8, 0x42  /* profile == 66, baseline */);
+    bs_write(s, 8, 0 /* constraints */);
+    bs_write(s, 8, 0x1E /* level */);
+    bs_write_ue(s, 0 /* SPS id */);
+    /* log2(GOP_SIZE), taken 7 */
+#define i_log2_max_frame_num 7
+    bs_write_ue(s, i_log2_max_frame_num - 4);
+    bs_write_ue(s, 0 /* i_poc_type */);
+#define i_log2_max_poc_lsb i_log2_max_frame_num
+    bs_write_ue(s, i_log2_max_poc_lsb - 4);
+
+    bs_write_ue(s, 1 /* i_num_ref_frames */);
+    bs_write(s, 1, 0 /* b_gaps_in_frame_num_value_allowed */);
+    const int i_mb_width = width / 16;
+    bs_write_ue(s, i_mb_width - 1);
+    const int i_mb_height = height / 16;
+    bs_write_ue(s, i_mb_height - 1);
+    bs_write(s, 1, 1 /* b_frame_mbs_only */);
+    bs_write(s, 1, 0 /* b_direct8x8_inference */);
+    bs_write(s, 1, 0);
+    bs_write(s, 1, 0);
+    bs_rbsp_trailing(s);
+    return bs_len(s);
 }
 
-void tw5864_h264_destroy(h264_stream_t *h)
+static int tw5864_h264_gen_pps_rbsp(u8 *buf, size_t size, int qp)
 {
-	h264_free(h);
+    bs_t bs, *s;
+
+    s = &bs;
+    bs_init(s, buf, size);
+    bs_write_ue(s, 0 /* PPS id */);
+    bs_write_ue(s, 0 /* SPS id */);
+    bs_write(s, 1, 0 /* b_cabac */);
+    bs_write(s, 1, 0 /* b_pic_order */);
+    bs_write_ue(s, (1 /* i_num_slice_groups */) - 1);
+    bs_write_ue(s, (1 /* i_num_ref_idx_l0_active */) - 1);
+    bs_write_ue(s, (1 /* i_num_ref_idx_l1_active */) - 1);
+    bs_write(s, 1, 0 /* b_weighted_pred */);
+    bs_write(s, 2, 0 /* b_weighted_bipred */);
+    bs_write_se(s, qp - 26);
+    bs_write_se(s, qp - 26);
+    bs_write_se(s, 0 /* i_chroma_qp_index_offset */);
+    bs_write(s, 1, 0 /* b_deblocking_filter_control */);
+    bs_write(s, 1, 0 /* b_constrained_intra_pred */);
+    bs_write(s, 1, 0 /* b_redundant_pic_cnt */);
+    bs_rbsp_trailing(s);
+    return bs_len(s);
 }
 
-void tw5864_h264_put_stream_header(h264_stream_t* h, u8 **buf, size_t *space_left, int qp, int width, int height)
+static int tw5864_h264_gen_slice_head(u8 *buf, size_t size, unsigned int idr_pic_id, unsigned int frame_seqno_in_gop, int *tail_nb_bits, u8 *tail)
 {
-	u8 nal_buf[64] = {0, };  /* Because of h264bitstream freaking behaviour, it adds zero byte in front of generated NAL header FIXME */
+    bs_t bs, *s;
+    int is_i_frame = frame_seqno_in_gop == 0;
+
+    s = &bs;
+    bs_init(s, buf, size);
+    bs_write_ue(s, 0 /* i_first_mb */);
+    bs_write_ue(s, is_i_frame ? 2 : 5 /* slice type - I or P */);
+    bs_write_ue(s, 0 /* PPS id */);
+    bs_write(s, i_log2_max_frame_num, frame_seqno_in_gop);
+    if(is_i_frame)
+        bs_write_ue(s, idr_pic_id);
+
+    int i_poc_lsb = (frame_seqno_in_gop << 1);  /* why multiplied by two? TODO try without multiplication */
+    bs_write(s, i_log2_max_poc_lsb, i_poc_lsb);
+
+    if(!is_i_frame)
+        bs_write1(s, 0 /*b_num_ref_idx_override */);
+
+    /* ref pic list reordering */
+    if (!is_i_frame)
+        bs_write1(s, 0 /* b_ref_pic_list_reordering_l0 */);
+
+    if (is_i_frame) {
+        bs_write1(s, 0);  /* no output of prior pics flag */
+        bs_write1(s, 0);  /* long term reference flag */
+    } else
+        bs_write1(s, 0);  /* adaptive_ref_pic_marking_mode_flag */
+
+    bs_write_se(s, 0 /* i_qp_delta */);
+
+    if (s->i_left != 8){
+        *tail = ((s->p[0])<<s->i_left);
+        *tail_nb_bits = 8-s->i_left;
+    } else {
+        *tail = 0;
+        *tail_nb_bits = 0;
+    }
+
+    return bs_len(s);
+}
+
+
+void tw5864_h264_put_stream_header(u8 **buf, size_t *space_left, int qp, int width, int height)
+{
 	int nal_len;
 
 	/* SPS */
@@ -25,24 +113,13 @@ void tw5864_h264_put_stream_header(h264_stream_t* h, u8 **buf, size_t *space_lef
 	*buf += 4;
 	*space_left -= 4;
 
-	h->nal->nal_ref_idc = 0x03;
-	h->nal->nal_unit_type = NAL_UNIT_TYPE_SPS;
+	**buf = 0x67;  /* SPS NAL header */
+	*buf += 1;
+	*space_left -= 1;
 
-	h->sps->profile_idc = 0x42;  /* == 66, baseline */
-	h->sps->level_idc = 0x1E;  // 30;
-	h->sps->log2_max_frame_num_minus4 = 3;//0x0b; //3;  // TODO Comment what this is
-	h->sps->log2_max_pic_order_cnt_lsb_minus4 = 3;//0x0b; //3; // TODO Comment what this is
-	h->sps->num_ref_frames = 0x01;
-	h->sps->pic_width_in_mbs_minus1 = (width / 16) - 1;
-	h->sps->pic_height_in_map_units_minus1 = (height / 16) - 1;
-	h->sps->frame_mbs_only_flag = 0x01;
-
-	nal_len = write_nal_unit(h, nal_buf, sizeof(nal_buf));
-	WARN_ON_ONCE(nal_len >= sizeof(nal_buf));
-	memcpy(*buf, nal_buf + 1, nal_len - 1);
-	*buf += nal_len - 1;
-	*space_left -= nal_len - 1;
-
+	nal_len = tw5864_h264_gen_sps_rbsp(*buf, *space_left, width, height);
+	*buf += nal_len;
+	*space_left -= nal_len;
 
 	/* PPS */
 	WARN_ON_ONCE(*space_left < 4);
@@ -50,35 +127,17 @@ void tw5864_h264_put_stream_header(h264_stream_t* h, u8 **buf, size_t *space_lef
 	*buf += 4;
 	*space_left -= 4;
 
-	h->nal->nal_ref_idc = 0x03;
-	h->nal->nal_unit_type = NAL_UNIT_TYPE_PPS;
+	**buf = 0x68;  /* PPS NAL header */
+	*buf += 1;
+	*space_left -= 1;
 
-	h->pps->pic_parameter_set_id = 0;
-	h->pps->seq_parameter_set_id = 0;
-	h->pps->entropy_coding_mode_flag = 0;
-	h->pps->pic_order_present_flag = 0;
-	h->pps->num_slice_groups_minus1 = 0;
-	h->pps->num_ref_idx_l0_active_minus1 = 0;
-	h->pps->num_ref_idx_l1_active_minus1 = 0;
-	h->pps->weighted_pred_flag = 0;
-	h->pps->weighted_bipred_idc = 0;
-	h->pps->pic_init_qp_minus26 = qp - 26;
-	h->pps->pic_init_qs_minus26 = qp - 26;
-	h->pps->chroma_qp_index_offset = 0;
-	h->pps->deblocking_filter_control_present_flag = 0;
-	h->pps->constrained_intra_pred_flag = 0;
-	h->pps->redundant_pic_cnt_present_flag = 0;
-
-	nal_len = write_nal_unit(h, nal_buf, sizeof(nal_buf));
-	WARN_ON_ONCE(nal_len >= sizeof(nal_buf));
-	memcpy(*buf, nal_buf + 1, nal_len - 1);
-	*buf += nal_len - 1;
-	*space_left -= nal_len - 1;
+	nal_len = tw5864_h264_gen_pps_rbsp(*buf, *space_left, qp);
+	*buf += nal_len;
+	*space_left -= nal_len;
 }
 
-void tw5864_h264_put_slice_header(h264_stream_t* h, u8 **buf, size_t *space_left, unsigned int idr_pic_id, unsigned int frame_seqno_in_gop, int *tail_nb_bits, u8 *tail)
+void tw5864_h264_put_slice_header(u8 **buf, size_t *space_left, unsigned int idr_pic_id, unsigned int frame_seqno_in_gop, int *tail_nb_bits, u8 *tail)
 {
-	u8 nal_buf[64] = {0, };  /* Because of h264bitstream freaking behaviour, it adds zero byte in front of generated NAL header FIXME */
 	int nal_len;
 
 	WARN_ON_ONCE(*space_left < 4);
@@ -86,26 +145,11 @@ void tw5864_h264_put_slice_header(h264_stream_t* h, u8 **buf, size_t *space_left
 	*buf += 4;
 	*space_left -= 4;
 
-	h->nal->nal_ref_idc = 1;
-	if (frame_seqno_in_gop == 0) {
-		h->nal->nal_unit_type = NAL_UNIT_TYPE_CODED_SLICE_IDR;
-		h->sh->slice_type = SH_SLICE_TYPE_I;
-	} else {
-		h->nal->nal_unit_type = NAL_UNIT_TYPE_CODED_SLICE_NON_IDR;
-		h->sh->slice_type = SH_SLICE_TYPE_P;
-	}
-	h->sh->first_mb_in_slice = 0;
-	h->sh->pic_parameter_set_id = 0;
-	h->sh->frame_num = frame_seqno_in_gop;
-	h->sh->idr_pic_id = idr_pic_id;
-	h->sh->pic_order_cnt_lsb = frame_seqno_in_gop;
-	h->sh->drpm.no_output_of_prior_pics_flag = 0;
-	h->sh->drpm.long_term_reference_flag = 0;
-	h->sh->slice_qp_delta = 0;
+	**buf = (frame_seqno_in_gop == 0) ? 0x25 : 0x21;  /* Frame NAL header */
+	*buf += 1;
+	*space_left -= 1;
 
-	nal_len = write_nal_unit_and_return_tail(h, nal_buf, sizeof(nal_buf), tail_nb_bits, tail);
-	WARN_ON_ONCE(nal_len >= sizeof(nal_buf));
-	memcpy(*buf, nal_buf + 1, nal_len - 1);
-	*buf += nal_len - 1;
-	*space_left -= nal_len - 1;
+	nal_len = tw5864_h264_gen_slice_head(*buf, *space_left, idr_pic_id, frame_seqno_in_gop, tail_nb_bits, tail);
+	*buf += nal_len;
+	*space_left -= nal_len;
 }
