@@ -98,7 +98,7 @@ void tw5864_h264_put_slice_header(h264_stream_t* h, u8 **buf, size_t *space_left
 	h->sh->pic_parameter_set_id = 0;
 	h->sh->frame_num = frame_seqno_in_gop;
 	h->sh->idr_pic_id = idr_pic_id;
-	h->sh->pic_order_cnt_lsb = frame_seqno_in_gop;
+	//h->sh->pic_order_cnt_lsb = frame_seqno_in_gop;
 	h->sh->drpm.no_output_of_prior_pics_flag = 0;
 	h->sh->drpm.long_term_reference_flag = 0;
 	h->sh->slice_qp_delta = 0;

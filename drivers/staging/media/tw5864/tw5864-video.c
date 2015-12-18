@@ -872,6 +872,9 @@ void tw5864_prepare_frame_headers(struct tw5864_input *input)
 	unsigned long dst_size;
 	unsigned long dst_space;
 
+	u8 *sl_hdr;
+	unsigned long space_before_sl_hdr;
+
 	if (!vb) {
 		spin_lock(&input->slock);
 		if (list_empty(&input->active)) {
@@ -896,7 +899,22 @@ void tw5864_prepare_frame_headers(struct tw5864_input *input)
 		tw5864_h264_put_stream_header(input->h264, &dst, &dst_space, QP_VALUE, input->width, input->height);
 
 	/* Put slice header */
+	sl_hdr = dst;
+	space_before_sl_hdr = dst_space;
 	tw5864_h264_put_slice_header(input->h264, &dst, &dst_space, input->h264_idr_pic_id, input->h264_frame_seqno_in_gop, &input->tail_nb_bits, &input->tail);
+	dev_dbg(&dev->pci->dev, "slice_header for gop seqno %d: length: %d, tail: %d bits\n",
+			input->h264_frame_seqno_in_gop, space_before_sl_hdr - dst_space,
+			input->tail_nb_bits);
+	dev_dbg(&dev->pci->dev, "slice header: %02x %02x %02x %02x  %02x %02x %02x %02x ||| tail: %02x\n",
+			sl_hdr[0],
+			sl_hdr[1],
+			sl_hdr[2],
+			sl_hdr[3],
+			sl_hdr[4],
+			sl_hdr[5],
+			sl_hdr[6],
+			sl_hdr[7],
+			input->tail);
 	input->vb = vb;
 	input->buf_cur_ptr = dst;
 	input->buf_cur_space_left = dst_space;
