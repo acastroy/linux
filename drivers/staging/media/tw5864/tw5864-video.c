@@ -97,7 +97,6 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	input->frame_seqno = 0;
 	input->h264_idr_pic_id = 0;
 	input->h264_frame_seqno_in_gop = 0;
-	input->h264 = tw5864_h264_init();
 
 	input->reg_dsp_qp = QP_VALUE;
 	input->reg_dsp_ref_mvp_lambda = Lambda_lookup_table[QP_VALUE];
@@ -322,7 +321,6 @@ void tw5864_request_encoded_frame(struct tw5864_input *input)
 {
 	struct tw5864_dev *dev = input->root;
 
-	dev_dbg(&dev->pci->dev, "%s: %d %s \n", __FILE__, __LINE__, __PRETTY_FUNCTION__);
 	tw_setl(TW5864_DSP_CODEC, TW5864_CIF_MAP_MD | TW5864_HD1_MAP_MD);
 	tw_writel(TW5864_EMU_EN_VARIOUS_ETC, input->reg_emu_en_various_etc);
 	tw_writel(TW5864_INTERLACING, input->reg_interlacing);
@@ -338,15 +336,12 @@ void tw5864_request_encoded_frame(struct tw5864_input *input)
 		input->h264_frame_seqno_in_gop = 0;
 		input->h264_idr_pic_id++;
 		input->h264_idr_pic_id &= TW5864_DSP_REF_FRM;
-		dev_dbg(&dev->pci->dev, "%s: %d %s input->h264_idr_pic_id = %d, input->h264_frame_seqno_in_gop = %d\n", __FILE__, __LINE__, __PRETTY_FUNCTION__, input->h264_idr_pic_id, input->h264_frame_seqno_in_gop);
 	} else {
 		tw_writel(TW5864_MOTION_SEARCH_ETC,0x000000BF);
 		input->h264_frame_seqno_in_gop++;
-		dev_dbg(&dev->pci->dev, "%s: %d %s input->h264_idr_pic_id = %d, input->h264_frame_seqno_in_gop = %d\n", __FILE__, __LINE__, __PRETTY_FUNCTION__, input->h264_idr_pic_id, input->h264_frame_seqno_in_gop);
 	}
 	tw5864_prepare_frame_headers(input);
 	tw_writel(TW5864_VLC, TW5864_VLC_PCI_SEL | ((input->tail_nb_bits + 24) << TW5864_VLC_BIT_ALIGN_SHIFT) | input->reg_dsp_qp);
-	dev_dbg(&dev->pci->dev, "%s: %d %s input->tail_nb_bits = %d\n", __FILE__, __LINE__, __PRETTY_FUNCTION__, input->tail_nb_bits);
 	//tw_writel(TW5864_DSP_REF, (tw_readl(TW5864_DSP_REF) & ~TW5864_DSP_REF_FRM) | input->h264_idr_pic_id); // or just nothing?
 
 	u32 enc_buf_id_new = tw_mask_shift_readl(TW5864_ENC_BUF_PTR_REC1, 0x3, 2 * input->input_number);
@@ -403,8 +398,6 @@ static void tw5864_stop_streaming(struct vb2_queue *q)
 		vb2_buffer_done(&buf->vb, VB2_BUF_STATE_ERROR);
 	}
 	spin_unlock_irqrestore(&input->slock, flags);
-	tw5864_h264_destroy(input->h264);
-	input->h264 = NULL;
 }
 
 static struct vb2_ops tw5864_video_qops = {
@@ -867,10 +860,14 @@ void tw5864_video_fini(struct tw5864_dev *dev)
 
 void tw5864_prepare_frame_headers(struct tw5864_input *input)
 {
+	struct tw5864_dev *dev = input->root;
 	struct tw5864_buf *vb = input->vb;
 	u8 *dst;
 	unsigned long dst_size;
 	unsigned long dst_space;
+
+	u8 *sl_hdr;
+	unsigned long space_before_sl_hdr;
 
 	if (!vb) {
 		spin_lock(&input->slock);
@@ -893,10 +890,27 @@ void tw5864_prepare_frame_headers(struct tw5864_input *input)
 	 * If this is first frame, put SPS and PPS
 	 */
 	if (input->frame_seqno == 0)
-		tw5864_h264_put_stream_header(input->h264, &dst, &dst_space, QP_VALUE, input->width, input->height);
+		tw5864_h264_put_stream_header(&dst, &dst_space, QP_VALUE, input->width, input->height);
 
 	/* Put slice header */
-	tw5864_h264_put_slice_header(input->h264, &dst, &dst_space, input->h264_idr_pic_id, input->h264_frame_seqno_in_gop, &input->tail_nb_bits, &input->tail);
+	sl_hdr = dst;
+	space_before_sl_hdr = dst_space;
+	tw5864_h264_put_slice_header(&dst, &dst_space, input->h264_idr_pic_id, input->h264_frame_seqno_in_gop, &input->tail_nb_bits, &input->tail);
+#if 0
+	dev_dbg(&dev->pci->dev, "slice_header for gop seqno %d: length: %d, tail: %d bits\n",
+			input->h264_frame_seqno_in_gop, space_before_sl_hdr - dst_space,
+			input->tail_nb_bits);
+	dev_dbg(&dev->pci->dev, "slice header: %02x %02x %02x %02x  %02x %02x %02x %02x ||| tail: %02x\n",
+			sl_hdr[0],
+			sl_hdr[1],
+			sl_hdr[2],
+			sl_hdr[3],
+			sl_hdr[4],
+			sl_hdr[5],
+			sl_hdr[6],
+			sl_hdr[7],
+			input->tail);
+#endif
 	input->vb = vb;
 	input->buf_cur_ptr = dst;
 	input->buf_cur_space_left = dst_space;
@@ -1031,8 +1045,8 @@ void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len)
 	unsigned long dst_space;
 	int skip_bytes = 3;
 
-	dev_dbg(&dev->pci->dev, "%s: %d %s frame_len = %d\n", __FILE__, __LINE__, __PRETTY_FUNCTION__, frame_len);
 #if 0
+	dev_dbg(&dev->pci->dev, "%s: %d %s frame_len = %d\n", __FILE__, __LINE__, __PRETTY_FUNCTION__, frame_len);
 	dev_dbg(&dev->pci->dev, "vlc: %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx   %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx \n",
 			((u8 *)dev->h264_vlc_buf[0].addr)[0x0],
 			((u8 *)dev->h264_vlc_buf[0].addr)[0x1],
@@ -1079,7 +1093,6 @@ void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len)
 		vlc_mask |= 1 << i;
 	tail_mask = (~vlc_mask) & 0xff;
 
-	tail_mask = vlc_mask = 0xff;
 	u8 vlc_first_byte = ((u8 *)(dev->h264_vlc_buf[0].addr + skip_bytes))[0];
 	dst[0] = (input->tail & tail_mask) | (vlc_first_byte  & vlc_mask );
 	skip_bytes++;
@@ -1089,6 +1102,70 @@ void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len)
 	memcpy(dst, dev->h264_vlc_buf[0].addr + skip_bytes, frame_len);
 	dst_space -= frame_len;
 	vb2_set_plane_payload(&vb->vb, 0, dst_size - dst_space);
+#if 0
+	u8 *buf_very_beginning = vb2_plane_vaddr(&vb->vb, 0);
+	dev_dbg(&dev->pci->dev, "merged frame header [0]: %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx   %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx \n",
+			buf_very_beginning[0x0],
+			buf_very_beginning[0x1],
+			buf_very_beginning[0x2],
+			buf_very_beginning[0x3],
+
+			buf_very_beginning[0x4],
+			buf_very_beginning[0x5],
+			buf_very_beginning[0x6],
+			buf_very_beginning[0x7],
+
+			buf_very_beginning[0x8],
+			buf_very_beginning[0x9],
+			buf_very_beginning[0xa],
+			buf_very_beginning[0xb],
+
+			buf_very_beginning[0xc],
+			buf_very_beginning[0xd],
+			buf_very_beginning[0xe],
+			buf_very_beginning[0xf]);
+	dev_dbg(&dev->pci->dev, "merged frame header [1]: %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx   %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx \n",
+			buf_very_beginning[0x10],
+			buf_very_beginning[0x11],
+			buf_very_beginning[0x12],
+			buf_very_beginning[0x13],
+
+			buf_very_beginning[0x14],
+			buf_very_beginning[0x15],
+			buf_very_beginning[0x16],
+			buf_very_beginning[0x17],
+
+			buf_very_beginning[0x18],
+			buf_very_beginning[0x19],
+			buf_very_beginning[0x1a],
+			buf_very_beginning[0x1b],
+
+			buf_very_beginning[0x1c],
+			buf_very_beginning[0x1d],
+			buf_very_beginning[0x1e],
+			buf_very_beginning[0x1f]);
+	dev_dbg(&dev->pci->dev, "merged frame header [2]: %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx   %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx \n",
+			buf_very_beginning[0x20],
+			buf_very_beginning[0x21],
+			buf_very_beginning[0x22],
+			buf_very_beginning[0x23],
+
+			buf_very_beginning[0x24],
+			buf_very_beginning[0x25],
+			buf_very_beginning[0x26],
+			buf_very_beginning[0x27],
+
+			buf_very_beginning[0x28],
+			buf_very_beginning[0x29],
+			buf_very_beginning[0x2a],
+			buf_very_beginning[0x2b],
+
+			buf_very_beginning[0x2c],
+			buf_very_beginning[0x2d],
+			buf_very_beginning[0x2e],
+			buf_very_beginning[0x2f]);
+#endif
+
 
 	struct timeval now;
 	do_gettimeofday(&now);

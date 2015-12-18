@@ -53,8 +53,6 @@
 	V4L2_STD_NTSC    | V4L2_STD_PAL       | V4L2_STD_SECAM    | \
 	V4L2_STD_PAL_M   | V4L2_STD_PAL_Nc    | V4L2_STD_PAL_60)
 
-typedef struct h264_stream_t h264_stream_t;
-
 /* ----------------------------------------------------------- */
 /* static data                                                 */
 
@@ -102,7 +100,7 @@ struct tw5864_format {
 #define QP_VALUE 28
 #define BITALIGN_VALUE_IN_TIMER 0
 #define BITALIGN_VALUE_IN_INIT 0
-#define GOP_SIZE 2
+#define GOP_SIZE 32
 
 enum resolution {
 	D1 = 1,
@@ -166,7 +164,6 @@ struct tw5864_input {
 	unsigned		width, height;
 	unsigned		frame_seqno;
 	unsigned		field;
-	h264_stream_t *h264;
 	unsigned int h264_idr_pic_id;
 	unsigned int h264_frame_seqno_in_gop;
 	int enabled;
@@ -254,10 +251,8 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr);
 void tw5864_video_fini(struct tw5864_dev *dev);
 void tw5864_prepare_frame_headers(struct tw5864_input *input);
 void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len);
-h264_stream_t *tw5864_h264_init(void);
-void tw5864_h264_destroy(h264_stream_t *h);
-void tw5864_h264_put_stream_header(h264_stream_t* h, u8 **buf, size_t *space_left, int qp, int width, int height);
-void tw5864_h264_put_slice_header(h264_stream_t* h, u8 **buf, size_t *space_left, unsigned int idr_pic_id, unsigned int frame_seqno_in_gop, int *tail_nb_bits, u8 *tail);
+void tw5864_h264_put_stream_header(u8 **buf, size_t *space_left, int qp, int width, int height);
+void tw5864_h264_put_slice_header(u8 **buf, size_t *space_left, unsigned int idr_pic_id, unsigned int frame_seqno_in_gop, int *tail_nb_bits, u8 *tail);
 void tw5864_request_encoded_frame(struct tw5864_input *input);
 void tw5864_push_to_make_it_roll(struct tw5864_input *input);
 void timersub(const struct timeval* tvp, const struct timeval* uvp, struct timeval* vvp);
