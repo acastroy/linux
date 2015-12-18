@@ -1110,7 +1110,7 @@ void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len)
 	vb2_set_plane_payload(&vb->vb, 0, dst_size - dst_space);
 #if 1
 	u8 *buf_very_beginning = vb2_plane_vaddr(&vb->vb, 0);
-	dev_dbg(&dev->pci->dev, "merged frame header: %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx   %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx \n",
+	dev_dbg(&dev->pci->dev, "merged frame header [0]: %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx   %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx \n",
 			buf_very_beginning[0x0],
 			buf_very_beginning[0x1],
 			buf_very_beginning[0x2],
@@ -1130,6 +1130,26 @@ void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len)
 			buf_very_beginning[0xd],
 			buf_very_beginning[0xe],
 			buf_very_beginning[0xf]);
+	dev_dbg(&dev->pci->dev, "merged frame header [1]: %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx   %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx \n",
+			buf_very_beginning[0x10],
+			buf_very_beginning[0x11],
+			buf_very_beginning[0x12],
+			buf_very_beginning[0x13],
+
+			buf_very_beginning[0x14],
+			buf_very_beginning[0x15],
+			buf_very_beginning[0x16],
+			buf_very_beginning[0x17],
+
+			buf_very_beginning[0x18],
+			buf_very_beginning[0x19],
+			buf_very_beginning[0x1a],
+			buf_very_beginning[0x1b],
+
+			buf_very_beginning[0x1c],
+			buf_very_beginning[0x1d],
+			buf_very_beginning[0x1e],
+			buf_very_beginning[0x1f]);
 #endif
 
 
