@@ -97,7 +97,6 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	input->frame_seqno = 0;
 	input->h264_idr_pic_id = 0;
 	input->h264_frame_seqno_in_gop = 0;
-	input->h264 = tw5864_h264_init();
 
 	input->reg_dsp_qp = QP_VALUE;
 	input->reg_dsp_ref_mvp_lambda = Lambda_lookup_table[QP_VALUE];
@@ -403,8 +402,6 @@ static void tw5864_stop_streaming(struct vb2_queue *q)
 		vb2_buffer_done(&buf->vb, VB2_BUF_STATE_ERROR);
 	}
 	spin_unlock_irqrestore(&input->slock, flags);
-	tw5864_h264_destroy(input->h264);
-	input->h264 = NULL;
 }
 
 static struct vb2_ops tw5864_video_qops = {
