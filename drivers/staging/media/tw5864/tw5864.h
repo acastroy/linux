@@ -32,6 +32,7 @@
 #include <linux/mutex.h>
 #include <linux/io.h>
 #include <linux/debugfs.h>
+#include <linux/interrupt.h>
 
 #include <media/v4l2-common.h>
 #include <media/v4l2-ioctl.h>
@@ -57,37 +58,37 @@
 /* static data                                                 */
 
 struct tw5864_tvnorm {
-	char		*name;
-	v4l2_std_id	id;
+	char *name;
+	v4l2_std_id id;
 
 	/* video decoder */
-	u32	sync_control;
-	u32	luma_control;
-	u32	chroma_ctrl1;
-	u32	chroma_gain;
-	u32	chroma_ctrl2;
-	u32	vgate_misc;
+	u32 sync_control;
+	u32 luma_control;
+	u32 chroma_ctrl1;
+	u32 chroma_gain;
+	u32 chroma_ctrl2;
+	u32 vgate_misc;
 
 	/* video scaler */
-	u32	h_delay;
-	u32	h_start;
-	u32	h_stop;
-	u32	v_delay;
-	u32	video_v_start;
-	u32	video_v_stop;
-	u32	vbi_v_start_0;
-	u32	vbi_v_stop_0;
-	u32	vbi_v_start_1;
+	u32 h_delay;
+	u32 h_start;
+	u32 h_stop;
+	u32 v_delay;
+	u32 video_v_start;
+	u32 video_v_stop;
+	u32 vbi_v_start_0;
+	u32 vbi_v_stop_0;
+	u32 vbi_v_start_1;
 
 	/* Techwell specific */
-	u32	format;
+	u32 format;
 };
 
 struct tw5864_format {
-	char	*name;
-	u32	fourcc;
-	u32	depth;
-	u32	twformat;
+	char *name;
+	u32 fourcc;
+	u32 depth;
+	u32 twformat;
 };
 
 /* ----------------------------------------------------------- */
@@ -104,7 +105,7 @@ struct tw5864_format {
 
 enum resolution {
 	D1 = 1,
-	HD1 = 2, /* half d1 - 360x(240|288) */
+	HD1 = 2,		/* half d1 - 360x(240|288) */
 	CIF = 3,
 	QCIF = 4,
 };
@@ -112,22 +113,22 @@ enum resolution {
 /* ----------------------------------------------------------- */
 /* device / file handle status                                 */
 
-struct tw5864_dev;	/* forward delclaration */
+struct tw5864_dev;		/* forward delclaration */
 
 /* buffer for one video/vbi/ts frame */
 struct tw5864_buf {
 	struct vb2_buffer vb;
 	struct list_head list;
 
-	unsigned int   size;
+	unsigned int size;
 };
 
 struct tw5864_fmt {
-	char			*name;
-	u32			fourcc;	/* v4l2 format id */
-	int			depth;
-	int			flags;
-	u32			twformat;
+	char *name;
+	u32 fourcc;		/* v4l2 format id */
+	int depth;
+	int flags;
+	u32 twformat;
 };
 
 /* bad name, TODO improve */
@@ -149,27 +150,26 @@ v4l2_std_id tw5864_get_v4l2_std(enum tw5864_vid_std std);
 enum tw5864_vid_std tw5864_from_v4l2_std(v4l2_std_id v4l2_std);
 
 struct tw5864_input {
-	int                     input_number;
-	struct tw5864_dev       *root;
-	struct mutex		lock;
-	spinlock_t		slock;
-	struct video_device	vdev;
+	int input_number;
+	struct tw5864_dev *root;
+	struct mutex lock;
+	spinlock_t slock;
+	struct video_device vdev;
 	struct v4l2_ctrl_handler hdl;
 	const struct tw5864_tvnorm *tvnorm;
-	void			*alloc_ctx;
-	struct vb2_queue	vidq;
-	struct list_head	active;
+	void *alloc_ctx;
+	struct vb2_queue vidq;
+	struct list_head active;
 	const struct tw5864_format *fmt;
-	enum resolution         resolution;
-	unsigned		width, height;
-	unsigned		frame_seqno;
-	unsigned		field;
+	enum resolution resolution;
+	unsigned width, height;
+	unsigned frame_seqno;
+	unsigned field;
 	unsigned int h264_idr_pic_id;
 	unsigned int h264_frame_seqno_in_gop;
 	int enabled;
-	int discard_frames;
-	enum tw5864_vid_std     std;
-	v4l2_std_id             v4l2_std;
+	enum tw5864_vid_std std;
+	v4l2_std_id v4l2_std;
 	int tail_nb_bits;
 	u8 tail;
 	u8 *buf_cur_ptr;
@@ -183,41 +183,60 @@ struct tw5864_input {
 	u32 reg_dsp_qp;
 	u32 reg_dsp_ref_mvp_lambda;
 	u32 reg_dsp_i4x4_weight;
-	u32                     buf_id;
+	u32 buf_id;
 
-	struct timeval start_time;
+	ktime_t start_ktime;
 
 	struct tw5864_buf *vb;
 
-    struct v4l2_ctrl *md_threshold_grid_ctrl;
-    u16 md_threshold_grid_values[12*16];
+	struct v4l2_ctrl *md_threshold_grid_ctrl;
+	u16 md_threshold_grid_values[12 * 16];
+};
+
+struct tw5864_h264_frame {
+	struct tw5864_recv_buf vlc;
+	struct tw5864_recv_buf mv;
+
+	int vlc_len;
+	struct tw5864_input *input;
+
+	u8 h264_header[64];
+	size_t h264_header_len;
+	u8 h264_header_tail;
+	u8 h264_header_tail_bitmask;
+
+	struct timeval timestamp;
+	/* TODO use scatter-gather API somehow? */
 };
 
 /* global device status */
 struct tw5864_dev {
-	struct mutex		lock;
-	spinlock_t		slock;
-	struct v4l2_device	v4l2_dev;
-	struct tw5864_input     inputs[TW5864_INPUTS];
-#define H264_BUF_CNT 2
-	struct tw5864_recv_buf       h264_vlc_buf[H264_BUF_CNT];
-	struct tw5864_recv_buf       h264_mv_buf[H264_BUF_CNT];
+	struct mutex lock;
+	spinlock_t slock;
+	struct v4l2_device v4l2_dev;
+	struct tw5864_input inputs[TW5864_INPUTS];
+#define H264_BUF_CNT 16
+	struct tw5864_h264_frame h264_buf[H264_BUF_CNT];
+	int h264_buf_r_index;
+	int h264_buf_w_index;
 
-	u32                     timers_with_vlc_disabled;
+	struct tasklet_struct tasklet;
+
+	u32 timers_with_vlc_disabled;
 	int encoder_busy;
 
 	/* TODO audio stuff */
 
 	/* pci i/o */
-	char			name[64];
-	struct pci_dev		*pci;
-	void                    __iomem *mmio;
-	u32			irqmask;
-	u32                     frame_seqno;
+	char name[64];
+	struct pci_dev *pci;
+	void __iomem *mmio;
+	u32 irqmask;
+	u32 frame_seqno;
 
-	u32                     stored_len;
+	u32 stored_len;
 
-	struct dentry           *debugfs_dir;
+	struct dentry *debugfs_dir;
 };
 
 /* ----------------------------------------------------------- */
@@ -250,37 +269,37 @@ void pci_init_ad(struct tw5864_dev *dev);
 int tw5864_video_init(struct tw5864_dev *dev, int *video_nr);
 void tw5864_video_fini(struct tw5864_dev *dev);
 void tw5864_prepare_frame_headers(struct tw5864_input *input);
-void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len);
-void tw5864_h264_put_stream_header(u8 **buf, size_t *space_left, int qp, int width, int height);
-void tw5864_h264_put_slice_header(u8 **buf, size_t *space_left, unsigned int idr_pic_id, unsigned int frame_seqno_in_gop, int *tail_nb_bits, u8 *tail);
+void tw5864_h264_put_stream_header(u8 **buf, size_t *space_left, int qp,
+				   int width, int height);
+void tw5864_h264_put_slice_header(u8 **buf, size_t *space_left,
+				  unsigned int idr_pic_id,
+				  unsigned int frame_seqno_in_gop,
+				  int *tail_nb_bits, u8 *tail);
 void tw5864_request_encoded_frame(struct tw5864_input *input);
 void tw5864_push_to_make_it_roll(struct tw5864_input *input);
-void timersub(const struct timeval* tvp, const struct timeval* uvp, struct timeval* vvp);
 
-static const unsigned int   Lambda_lookup_table[52] =
-{
-    0x0020,0x0020,0x0020,0x0020,
-    0x0020,0x0020,0x0020,0x0020,
-    0x0020,0x0020,0x0020,0x0020,
-    0x0020,0x0020,0x0020,0x0020,
-    0x0040,0x0040,0x0040,0x0040,
-    0x0060,0x0060,0x0060,0x0080,
-    0x0080,0x0080,0x00a0,0x00c0,
-    0x00c0,0x00e0,0x0100,0x0120,
-    0x0140,0x0160,0x01a0,0x01c0,
-    0x0200,0x0240,0x0280,0x02e0,
-    0x0320,0x03a0,0x0400,0x0480,
-    0x0500,0x05a0,0x0660,0x0720,
-    0x0800,0x0900,0x0a20,0x0b60
+static const unsigned int Lambda_lookup_table[52] = {
+	0x0020, 0x0020, 0x0020, 0x0020,
+	0x0020, 0x0020, 0x0020, 0x0020,
+	0x0020, 0x0020, 0x0020, 0x0020,
+	0x0020, 0x0020, 0x0020, 0x0020,
+	0x0040, 0x0040, 0x0040, 0x0040,
+	0x0060, 0x0060, 0x0060, 0x0080,
+	0x0080, 0x0080, 0x00a0, 0x00c0,
+	0x00c0, 0x00e0, 0x0100, 0x0120,
+	0x0140, 0x0160, 0x01a0, 0x01c0,
+	0x0200, 0x0240, 0x0280, 0x02e0,
+	0x0320, 0x03a0, 0x0400, 0x0480,
+	0x0500, 0x05a0, 0x0660, 0x0720,
+	0x0800, 0x0900, 0x0a20, 0x0b60
 };
 
 static const unsigned int Intra4X4_Lambda3[52] = {
-    1, 1, 1, 1, 1, 1, 1, 1,
-    1, 1, 1, 1, 1, 1, 1, 1,
-    2, 2, 2, 2, 3, 3, 3, 4,
-    4, 4, 5, 6, 6, 7, 8, 9,
-    10, 11, 13, 14, 16, 18, 20, 23,
-    25, 29, 32, 36, 40, 45, 51, 57,
-    64, 72, 81, 91
+	1, 1, 1, 1, 1, 1, 1, 1,
+	1, 1, 1, 1, 1, 1, 1, 1,
+	2, 2, 2, 2, 3, 3, 3, 4,
+	4, 4, 5, 6, 6, 7, 8, 9,
+	10, 11, 13, 14, 16, 18, 20, 23,
+	25, 29, 32, 36, 40, 45, 51, 57,
+	64, 72, 81, 91
 };
-

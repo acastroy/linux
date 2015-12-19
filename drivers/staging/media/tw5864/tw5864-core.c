@@ -56,9 +56,9 @@ MODULE_LICENSE("GPL");
 
 /* take first free /dev/videoX indexes by default */
 static unsigned int video_nr[] = {[0 ... (TW5864_INPUTS - 1)] = -1 };
+
 module_param_array(video_nr, int, NULL, 0444);
 MODULE_PARM_DESC(video_nr, "video devices numbers array");
-
 
 /* ------------------------------------------------------------------ */
 
@@ -74,28 +74,34 @@ static const struct pci_device_id tw5864_pci_tbl[] = {
 
 /* ------------------------------------------------------------------ */
 
-void tw_indir_writeb(struct tw5864_dev *dev, u16 addr, u8 data) {
+void tw_indir_writeb(struct tw5864_dev *dev, u16 addr, u8 data)
+{
 	int timeout = 30000;
+
 	addr <<= 2;
 
 	while ((tw_readl(TW5864_IND_CTL) >> 31) && (timeout--))
 		;
 	if (!timeout)
-		dev_err(&dev->pci->dev, "tw_indir_writel() timeout before writing\n");
+		dev_err(&dev->pci->dev,
+			"tw_indir_writel() timeout before writing\n");
 
 	tw_writel(TW5864_IND_DATA, data);
 	tw_writel(TW5864_IND_CTL, addr | TW5864_RW | TW5864_ENABLE);
 }
 
-u8 tw_indir_readb(struct tw5864_dev *dev, u16 addr) {
+u8 tw_indir_readb(struct tw5864_dev *dev, u16 addr)
+{
 	int timeout = 30000;
 	u32 data = 0;
+
 	addr <<= 2;
 
 	while ((tw_readl(TW5864_IND_CTL) >> 31) && (timeout--))
 		;
 	if (!timeout)
-		dev_err(&dev->pci->dev, "tw_indir_writel() timeout before reading\n");
+		dev_err(&dev->pci->dev,
+			"tw_indir_writel() timeout before reading\n");
 
 	tw_writel(TW5864_IND_CTL, addr | TW5864_ENABLE);
 
@@ -103,21 +109,11 @@ u8 tw_indir_readb(struct tw5864_dev *dev, u16 addr) {
 	while ((tw_readl(TW5864_IND_CTL) >> 31) && (timeout--))
 		;
 	if (!timeout)
-		dev_err(&dev->pci->dev, "tw_indir_writel() timeout at reading\n");
+		dev_err(&dev->pci->dev,
+			"tw_indir_writel() timeout at reading\n");
 
 	data = tw_readl(TW5864_IND_DATA);
 	return data & 0xff;
-}
-
-void timersub(const struct timeval* tvp, const struct timeval* uvp, struct timeval* vvp)
-{
-	vvp->tv_sec = tvp->tv_sec - uvp->tv_sec;
-	vvp->tv_usec = tvp->tv_usec - uvp->tv_usec;
-	if (vvp->tv_usec < 0)
-	{
-		--vvp->tv_sec;
-		vvp->tv_usec += 1000000;
-	}
 }
 
 static void tw5864_interrupts_enable(struct tw5864_dev *dev)
@@ -146,14 +142,15 @@ static void tw5864_interrupts_disable(struct tw5864_dev *dev)
 		(((u32)(x) & (u32)0x000000ffUL) << 24) | \
 		(((u32)(x) & (u32)0x0000ff00UL) <<  8) | \
 		(((u32)(x) & (u32)0x00ff0000UL) >>  8) | \
-		(((u32)(x) & (u32)0xff000000UL) >> 24) ))
+		(((u32)(x) & (u32)0xff000000UL) >> 24)))
 
 #define PLATFORM_ENDIAN_SAME 1
-static u32 crc_check_sum(u32 *data, int len){
-	u32 val, count_len=len;
+static u32 crc_check_sum(u32 *data, int len)
+{
+	u32 val, count_len = len;
 
 	val = *data++;
-	while(((count_len>>2) - 1) > 0) {
+	while (((count_len >> 2) - 1) > 0) {
 		val ^= *data++;
 		count_len -= 4;
 	}
@@ -171,15 +168,15 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 	u32 status;
 	u32 vlc_len;
 	u32 vlc_crc;
-	u32 vlc_reg;  // TW5864_VLC
-	u32 vlc_buf_reg;  // TW5864_VLC_BUF
+	u32 vlc_reg;
+	u32 vlc_buf_reg;
 	int channel;
 	int i;
 	unsigned long flags;
 	struct tw5864_input *input = NULL;
 
 	status = tw_readl(TW5864_INTR_STATUS_L)
-		| (tw_readl(TW5864_INTR_STATUS_H) << 16);
+	    | (tw_readl(TW5864_INTR_STATUS_H) << 16);
 	if (!status)
 		return IRQ_NONE;
 
@@ -187,6 +184,14 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 	tw_writel(TW5864_INTR_CLR_H, 0xffff);
 
 	if (status & TW5864_INTR_VLC_DONE) {
+		int cur_frame_index = dev->h264_buf_w_index;
+		int next_frame_index =
+		    (dev->h264_buf_w_index + 1) % H264_BUF_CNT;
+		struct tw5864_h264_frame *cur_frame =
+		    &dev->h264_buf[cur_frame_index];
+		struct tw5864_h264_frame *next_frame =
+		    &dev->h264_buf[next_frame_index];
+
 		vlc_len = tw_readl(TW5864_VLC_LENGTH) << 2;
 		vlc_crc = tw_readl(TW5864_VLC_CRC_REG);
 		channel = tw_readl(TW5864_DSP) & TW5864_DSP_ENC_CHN;
@@ -195,24 +200,55 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 
 		input = &dev->inputs[channel];
 
-		dma_sync_single_for_cpu(&dev->pci->dev, dev->h264_vlc_buf[0].dma_addr, H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
-		dma_sync_single_for_cpu(&dev->pci->dev, dev->h264_mv_buf[0].dma_addr, H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
+		dma_sync_single_for_cpu(&dev->pci->dev, cur_frame->vlc.dma_addr,
+					H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
+		dma_sync_single_for_cpu(&dev->pci->dev, cur_frame->mv.dma_addr,
+					H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
 
 #ifdef DEBUG
-		if (vlc_crc != crc_check_sum((u32*)dev->h264_vlc_buf[0].addr, vlc_len))
-			dev_err(&dev->pci->dev, "CRC of encoded frame doesn't match!\n");
+		if (vlc_crc !=
+		    crc_check_sum((u32 *)cur_frame->vlc.addr, vlc_len))
+			dev_err(&dev->pci->dev,
+				"CRC of encoded frame doesn't match!\n");
 #endif
 
-		if (!input->discard_frames) {
-			tw5864_handle_frame(input, vlc_len);
-			input->frame_seqno++;
-		} else {
-			input->discard_frames--;
-		}
-		dma_sync_single_for_device(&dev->pci->dev, dev->h264_vlc_buf[0].dma_addr, H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
-		dma_sync_single_for_device(&dev->pci->dev, dev->h264_mv_buf[0].dma_addr, H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
+		if (next_frame_index != ACCESS_ONCE(dev->h264_buf_r_index)) {
+			cur_frame->vlc_len = vlc_len;
+			cur_frame->input = input;
+			cur_frame->timestamp =
+			    ktime_to_timeval(ktime_sub
+					     (ktime_get(), input->start_ktime));
 
-		tw_writel(TW5864_VLC_DSP_INTR,0x00000001);
+			/* dev->h264_buf_w_index = cur_frame_index; */
+			smp_store_release(&dev->h264_buf_w_index,
+					  next_frame_index);
+#if 0
+			dev_dbg(&dev->pci->dev,
+				"submitted h264_buf[%d], %p, input %p\n",
+				cur_frame_index, cur_frame, cur_frame->input);
+#endif
+			tasklet_schedule(&dev->tasklet);
+
+			cur_frame = next_frame;
+		} else {
+			dev_err(&dev->pci->dev,
+				"Skipped frame on input %d because all buffers busy\n",
+				channel);
+		}
+
+		input->frame_seqno++;
+
+		dma_sync_single_for_device(&dev->pci->dev,
+					   cur_frame->vlc.dma_addr,
+					   H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
+		dma_sync_single_for_device(&dev->pci->dev,
+					   cur_frame->mv.dma_addr,
+					   H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
+
+		tw_writel(TW5864_VLC_STREAM_BASE_ADDR, cur_frame->vlc.dma_addr);
+		tw_writel(TW5864_MV_STREAM_BASE_ADDR, cur_frame->mv.dma_addr);
+
+		tw_writel(TW5864_VLC_DSP_INTR, 0x00000001);
 		tw_writel(TW5864_PCI_INTR_STATUS, TW5864_VLC_DONE_INTR);
 		spin_lock_irqsave(&dev->slock, flags);
 		dev->encoder_busy = 0;
@@ -222,43 +258,67 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 	if (status & TW5864_INTR_TIMER) {
 		int encoder_busy;
 		int stuck = 0;
+
 		dev->timers_with_vlc_disabled++;
 		if (dev->timers_with_vlc_disabled > 1000) {
-			dev_err(&dev->pci->dev, "Encoding timed out! Trying to initiate it again.\n");
+			dev_err(&dev->pci->dev,
+				"Encoding timed out! Trying to initiate it again.\n");
 			stuck = 1;
 		}
 		spin_lock_irqsave(&dev->slock, flags);
 		encoder_busy = dev->encoder_busy;
 		spin_unlock_irqrestore(&dev->slock, flags);
 
-		if (!encoder_busy || stuck) {  /* TODO procedure */
+		if (!encoder_busy || stuck) {	/* TODO procedure */
 			dev->timers_with_vlc_disabled = 0;
 
 			for (i = 0; i < TW5864_INPUTS; i++) {
-				/* FIXME There's risk that only first enabled port will work most of time. Rework dispatching (maybe avoid timer? traverse inputs in queue manner?) */
+				/*
+				 * FIXME There's risk that only first enabled
+				 * port will work most of time. Rework
+				 * dispatching (maybe avoid timer? traverse
+				 * inputs in queue manner?)
+				 */
 				input = &dev->inputs[i];
-				if (!input->enabled)
-					continue;
 
-				int senif_org_frm_ptr = tw_mask_shift_readl(TW5864_SENIF_ORG_FRM_PTR1, 0x3, 2 * input->input_number);
-				if (input->buf_id != senif_org_frm_ptr || stuck) {
+				spin_lock_irqsave(&input->slock, flags);
+				if (!input->enabled) {
+					spin_unlock_irqrestore(&input->slock, flags);
+					continue;
+				}
+
+				int senif_org_frm_ptr =
+				    tw_mask_shift_readl
+				    (TW5864_SENIF_ORG_FRM_PTR1, 0x3,
+				     2 * input->input_number);
+				if (input->buf_id != senif_org_frm_ptr
+				    || stuck) {
 					if (stuck)
-						tw5864_push_to_make_it_roll(input);
+						tw5864_push_to_make_it_roll
+						    (input);
 					input->buf_id = senif_org_frm_ptr;
 
 					spin_lock_irqsave(&dev->slock, flags);
 					dev->encoder_busy = 1;
-					spin_unlock_irqrestore(&dev->slock, flags);
+					spin_unlock_irqrestore(&dev->slock,
+							       flags);
 					tw5864_request_encoded_frame(input);
-					break;  /* encoder is busy, stop traversing inputs */
+					/*
+					 * encoder is busy,
+					 * stop traversing inputs
+					 */
+					spin_unlock_irqrestore(&input->slock, flags);
+					break;
 				}
-			}  /* for(...) inputs traversal */
-		}  /* if (!encoder_busy) */
-		tw_writel(TW5864_PCI_INTR_STATUS,TW5864_TIMER_INTR);
+				spin_unlock_irqrestore(&input->slock, flags);
+			}	/* for(...) inputs traversal */
+		}		/* if (!encoder_busy) */
+		tw_writel(TW5864_PCI_INTR_STATUS, TW5864_TIMER_INTR);
 	}
 
-	if (!(status & (TW5864_INTR_TIMER | TW5864_INTR_VLC_DONE))){
-		dev_dbg(&dev->pci->dev, "Unknown interrupt, status 0x%08X\n", status);
+	if (!(status & (TW5864_INTR_TIMER | TW5864_INTR_VLC_DONE))) {
+		dev_dbg(&dev->pci->dev, "Unknown interrupt, status 0x%08X\n",
+			status);
 	}
 
 	return IRQ_HANDLED;
@@ -271,47 +331,52 @@ static size_t regs_dump(struct tw5864_dev *dev, char *buf, size_t size)
 	u32 reg_addr;
 	u32 value;
 
-	for (reg_addr = 0x0000; (count < size) && (reg_addr <= 0x2FFC); reg_addr += 4) {
+	for (reg_addr = 0x0000; (count < size) && (reg_addr <= 0x2FFC);
+	     reg_addr += 4) {
 		value = tw_readl(reg_addr);
 		count += scnprintf(buf + count, size - count,
-				"[0x%05x] = 0x%08x\n", reg_addr, value);
+				   "[0x%05x] = 0x%08x\n", reg_addr, value);
 	}
 
-	for (reg_addr = 0x4000; (count < size) && (reg_addr <= 0x4FFC); reg_addr += 4) {
+	for (reg_addr = 0x4000; (count < size) && (reg_addr <= 0x4FFC);
+	     reg_addr += 4) {
 		value = tw_readl(reg_addr);
 		count += scnprintf(buf + count, size - count,
-				"[0x%05x] = 0x%08x\n", reg_addr, value);
+				   "[0x%05x] = 0x%08x\n", reg_addr, value);
 	}
 
-	for (reg_addr = 0x8000; (count < size) && (reg_addr <= 0x180DC); reg_addr += 4) {
+	for (reg_addr = 0x8000; (count < size) && (reg_addr <= 0x180DC);
+	     reg_addr += 4) {
 		value = tw_readl(reg_addr);
 		count += scnprintf(buf + count, size - count,
-				"[0x%05x] = 0x%08x\n", reg_addr, value);
+				   "[0x%05x] = 0x%08x\n", reg_addr, value);
 	}
 
-	for (reg_addr = 0x18100; (count < size) && (reg_addr <= 0x1817C); reg_addr += 4) {
+	for (reg_addr = 0x18100; (count < size) && (reg_addr <= 0x1817C);
+	     reg_addr += 4) {
 		value = tw_readl(reg_addr);
 		count += scnprintf(buf + count, size - count,
-				"[0x%05x] = 0x%08x\n", reg_addr, value);
+				   "[0x%05x] = 0x%08x\n", reg_addr, value);
 	}
 
-	for (reg_addr = 0x80000; (count < size) && (reg_addr <= 0x87FFF); reg_addr += 4) {
+	for (reg_addr = 0x80000; (count < size) && (reg_addr <= 0x87FFF);
+	     reg_addr += 4) {
 		value = tw_readl(reg_addr);
 		count += scnprintf(buf + count, size - count,
-				"[0x%05x] = 0x%08x\n", reg_addr, value);
+				   "[0x%05x] = 0x%08x\n", reg_addr, value);
 	}
 
-	for (reg_addr = 0x0; (count < size) && (reg_addr <= 0xEFE); reg_addr += 1) {
+	for (reg_addr = 0x0; (count < size) && (reg_addr <= 0xEFE);
+	     reg_addr += 1) {
 		value = tw_indir_readb(dev, reg_addr);
 		count += scnprintf(buf + count, size - count,
-				"indir[0x%03x] = 0x%02x\n", reg_addr, value);
+				   "indir[0x%03x] = 0x%02x\n", reg_addr, value);
 	}
 
 	return count;
 }
 
-
-#define DEBUGFS_BUF_SIZE	1024 * 1024
+#define DEBUGFS_BUF_SIZE	(1024 * 1024)
 
 struct debugfs_buffer {
 	size_t count;
@@ -334,12 +399,12 @@ static int debugfs_regs_dump_open(struct inode *inode, struct file *file)
 }
 
 static ssize_t debugfs_regs_dump_read(struct file *file, char __user *user_buf,
-		size_t nbytes, loff_t *ppos)
+				      size_t nbytes, loff_t *ppos)
 {
 	struct debugfs_buffer *buf = file->private_data;
 
 	return simple_read_from_buffer(user_buf, nbytes, ppos, buf->data,
-			buf->count);
+				       buf->count);
 }
 
 static int debugfs_regs_dump_release(struct inode *inode, struct file *file)
@@ -358,9 +423,8 @@ static const struct file_operations debugfs_regs_dump_fops = {
 	.release = debugfs_regs_dump_release,
 };
 
-
 static int tw5864_initdev(struct pci_dev *pci_dev,
-		const struct pci_device_id *pci_id)
+			  const struct pci_device_id *pci_id)
 {
 	struct tw5864_dev *dev;
 	int err;
@@ -370,7 +434,6 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 		return -ENOMEM;
 
 	snprintf(dev->name, sizeof(dev->name), "tw5864:%s", pci_name(pci_dev));
-	//dev_set_name(&pci_dev->dev, "tw5864:%s", pci_name(pci_dev));
 
 	err = v4l2_device_register(&pci_dev->dev, &dev->v4l2_dev);
 	if (err)
@@ -385,7 +448,10 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 
 	pci_set_master(pci_dev);
 
-	/* FIXME: What exactly for is this needed? Which mask(s) this driver needs? */
+	/*
+	 * FIXME: What exactly for is this needed? Which mask(s) this driver
+	 * needs?
+	 */
 	if (!pci_dma_supported(pci_dev, DMA_BIT_MASK(32))) {
 		pr_info("%s: Oops: no 32bit PCI DMA ???\n", dev->name);
 		err = -EIO;
@@ -394,16 +460,15 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 
 	/* get mmio */
 	if (!request_mem_region(pci_resource_start(pci_dev, 0),
-				pci_resource_len(pci_dev, 0),
-				dev->name)) {
+				pci_resource_len(pci_dev, 0), dev->name)) {
 		err = -EBUSY;
 		pr_err("%s: can't get MMIO memory @ 0x%llx\n", dev->name,
-				(unsigned long long)pci_resource_start(pci_dev, 0));
+		       (unsigned long long)pci_resource_start(pci_dev, 0));
 		goto req_mem_fail;
 	}
 	dev->mmio = ioremap_nocache(pci_resource_start(pci_dev, 0),
-			pci_resource_len(pci_dev, 0));
-	if (NULL == dev->mmio) {
+				    pci_resource_len(pci_dev, 0));
+	if (!dev->mmio) {
 		err = -EIO;
 		pr_err("%s: can't ioremap() MMIO memory\n", dev->name);
 		goto ioremap_fail;
@@ -423,13 +488,14 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 
 	/* get irq */
 	err = devm_request_irq(&pci_dev->dev, pci_dev->irq, tw5864_isr,
-			IRQF_SHARED, "tw5864", dev);
+			       IRQF_SHARED, "tw5864", dev);
 	if (err < 0) {
 		pr_err("%s: can't get IRQ %d\n", dev->name, pci_dev->irq);
 		goto irq_req_fail;
 	}
 
-	debugfs_create_file("regs_dump", S_IRUGO, dev->debugfs_dir, dev, &debugfs_regs_dump_fops);
+	debugfs_create_file("regs_dump", S_IRUGO, dev->debugfs_dir, dev,
+			    &debugfs_regs_dump_fops);
 
 	dev_info(&dev->pci->dev, "hi everybody, it's info\n");
 	dev_dbg(&dev->pci->dev, "hi everybody, it's debug\n");
@@ -441,7 +507,8 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 
 #if 1
 	/* Picture is distorted without this block */
-	tw_indir_writeb(dev, 0x041, 0x03);  /*use falling edge to sample ,54M to 108M*/
+	/*use falling edge to sample ,54M to 108M */
+	tw_indir_writeb(dev, 0x041, 0x03);
 	tw_indir_writeb(dev, 0xefe, 0x00);
 
 	tw_indir_writeb(dev, 0xee6, 0x02);
@@ -464,12 +531,17 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	tw_indir_writeb(dev, 0xefd, 0xf0);
 #endif
 
-	tw_writel(TW5864_VLC_STREAM_BASE_ADDR, dev->h264_vlc_buf[0].dma_addr);
-	tw_writel(TW5864_MV_STREAM_BASE_ADDR, dev->h264_mv_buf[0].dma_addr);
+	dev->h264_buf_r_index = 0;
+	dev->h264_buf_w_index = 0;
+	tw_writel(TW5864_VLC_STREAM_BASE_ADDR,
+		  dev->h264_buf[dev->h264_buf_w_index].vlc.dma_addr);
+	tw_writel(TW5864_MV_STREAM_BASE_ADDR,
+		  dev->h264_buf[dev->h264_buf_w_index].mv.dma_addr);
 
 	for (int i = 0; i < TW5864_INPUTS; i++) {
 		tw_indir_writeb(dev, 0x00e + i * 0x010, 0x07);
-		tw_indir_writeb(dev, 0x00f + i * 0x010, 0xff); // to initiate auto format recognition
+		/* to initiate auto format recognition */
+		tw_indir_writeb(dev, 0x00f + i * 0x010, 0xff);
 	}
 
 	tw_writel(TW5864_SEN_EN_CH, 0x000f);
@@ -480,14 +552,23 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	tw_writel(0x09208, 0x00002222);
 	tw_writel(0x0920c, 0x00003333);
 
-	tw_writel(TW5864_ENC_BUF_PTR_REC1, 0x0000);
+	tw_writel(TW5864_ENC_BUF_PTR_REC1, 0x00ff);
 	tw_writel(TW5864_ENC_BUF_PTR_REC2, 0x0000);
-	tw_writel(TW5864_PCI_INTTM_SCALE, 3);  /* Timer interval is 8 ms. TODO Select lower interval to avoid frame losing on full load. What about on-demand change of interval? */
+	/*
+	 * Timer interval is 8 ms. TODO Select lower interval to avoid frame
+	 * losing on full load. What about on-demand change of interval?
+	 */
+	tw_writel(TW5864_PCI_INTTM_SCALE, 3);
 
 	tw_writel(TW5864_INTERLACING, TW5864_DI_EN);
-	tw_writel(TW5864_MASTER_ENB_REG,TW5864_PCI_VLC_INTR_ENB);
-	tw_writel(TW5864_PCI_INTR_CTL, TW5864_TIMER_INTR_ENB | TW5864_PCI_MAST_ENB | TW5864_MVD_VLC_MAST_ENB);
-	/* TODO Enable timer irq on demand, don't use it at all when it is not needed. */
+	tw_writel(TW5864_MASTER_ENB_REG, TW5864_PCI_VLC_INTR_ENB);
+	tw_writel(TW5864_PCI_INTR_CTL,
+		  TW5864_TIMER_INTR_ENB | TW5864_PCI_MAST_ENB |
+		  TW5864_MVD_VLC_MAST_ENB);
+	/*
+	 * TODO Enable timer irq on demand, don't use it at all when it is not
+	 * needed.
+	 */
 	dev->irqmask |= TW5864_INTR_VLC_DONE | TW5864_INTR_TIMER;
 	tw5864_irqmask_apply(dev);
 
@@ -499,7 +580,7 @@ video_init_fail:
 	iounmap(dev->mmio);
 ioremap_fail:
 	release_mem_region(pci_resource_start(pci_dev, 0),
-			pci_resource_len(pci_dev, 0));
+			   pci_resource_len(pci_dev, 0));
 req_mem_fail:
 	pci_disable_device(pci_dev);
 pci_enable_fail:
@@ -513,7 +594,7 @@ static void tw5864_finidev(struct pci_dev *pci_dev)
 {
 	struct v4l2_device *v4l2_dev = pci_get_drvdata(pci_dev);
 	struct tw5864_dev *dev =
-		container_of(v4l2_dev, struct tw5864_dev, v4l2_dev);
+	    container_of(v4l2_dev, struct tw5864_dev, v4l2_dev);
 
 	/* shutdown subsystems */
 	tw5864_interrupts_disable(dev);
@@ -526,7 +607,7 @@ static void tw5864_finidev(struct pci_dev *pci_dev)
 	/* release resources */
 	iounmap(dev->mmio);
 	release_mem_region(pci_resource_start(pci_dev, 0),
-			pci_resource_len(pci_dev, 0));
+			   pci_resource_len(pci_dev, 0));
 
 	v4l2_device_unregister(&dev->v4l2_dev);
 	devm_kfree(&pci_dev->dev, dev);
@@ -538,7 +619,7 @@ static int tw5864_suspend(struct pci_dev *pci_dev, pm_message_t state)
 {
 	struct v4l2_device *v4l2_dev = pci_get_drvdata(pci_dev);
 	struct tw5864_dev *dev = container_of(v4l2_dev,
-			struct tw5864_dev, v4l2_dev);
+					      struct tw5864_dev, v4l2_dev);
 
 	tw5864_interrupts_disable(dev);
 
@@ -546,7 +627,8 @@ static int tw5864_suspend(struct pci_dev *pci_dev, pm_message_t state)
 
 	pci_save_state(pci_dev);
 	pci_set_power_state(pci_dev, pci_choose_state(pci_dev, state));
-	// vb2_discard_done(&dev->vidq);  // TODO replace with a new tw5864_video_suspend(dev);
+	/* vb2_discard_done(&dev->vidq); */
+	/* TODO replace with a new tw5864_video_suspend(dev); */
 
 	return 0;
 }
@@ -555,16 +637,16 @@ static int tw5864_resume(struct pci_dev *pci_dev)
 {
 	struct v4l2_device *v4l2_dev = pci_get_drvdata(pci_dev);
 	struct tw5864_dev *dev = container_of(v4l2_dev,
-			struct tw5864_dev, v4l2_dev);
+					      struct tw5864_dev, v4l2_dev);
 
 	pci_set_power_state(pci_dev, PCI_D0);
 	pci_restore_state(pci_dev);
 
-	/* Do things that are done in tw5864_initdev ,
-	   except of initializing memory structures.*/
+	/* Do things that are done in tw5864_initdev,
+	 * except of initializing memory structures.
+	 */
 
 	msleep(100);
-
 
 	tw5864_interrupts_enable(dev);
 
@@ -575,13 +657,13 @@ static int tw5864_resume(struct pci_dev *pci_dev)
 /* ----------------------------------------------------------- */
 
 static struct pci_driver tw5864_pci_driver = {
-	.name	  = "tw5864",
+	.name = "tw5864",
 	.id_table = tw5864_pci_tbl,
-	.probe	  = tw5864_initdev,
-	.remove	  = tw5864_finidev,
+	.probe = tw5864_initdev,
+	.remove = tw5864_finidev,
 #ifdef CONFIG_PM
-	.suspend  = tw5864_suspend,
-	.resume   = tw5864_resume
+	.suspend = tw5864_suspend,
+	.resume = tw5864_resume
 #endif
 };
 
