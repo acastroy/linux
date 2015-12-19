@@ -65,7 +65,7 @@ static int tw5864_h264_gen_slice_head(u8 *buf, size_t size, unsigned int idr_pic
     int is_i_frame = frame_seqno_in_gop == 0;
 
     s = &bs;
-    bs_init(s, p_data, 64);
+    bs_init(s, buf, size);
     bs_write_ue(s, 0 /* i_first_mb */);
     bs_write_ue(s, is_i_frame ? 2 : 5 /* slice type - I or P */);
     bs_write_ue(s, 0 /* PPS id */);
