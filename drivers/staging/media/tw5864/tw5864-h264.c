@@ -1,5 +1,37 @@
 #include "tw5864.h"
-#include "bs.h"
+
+/* Some defines to make x264's bitstream.h happy */
+#define WORD_SIZE sizeof(void*)
+#if defined(__GNUC__) && (__GNUC__ > 3 || __GNUC__ == 3 && __GNUC_MINOR__ > 0)
+#define ALWAYS_INLINE __attribute__((always_inline)) inline
+#define MAY_ALIAS __attribute__((may_alias))
+#else
+#define ALWAYS_INLINE inline
+#define MAY_ALIAS
+#endif
+typedef union { uint32_t i; uint16_t b[2]; uint8_t  c[4]; } MAY_ALIAS x264_union32_t;
+#define M32(src) (((x264_union32_t*)(src))->i)
+typedef int intptr_t;
+#ifdef __BIG_ENDIAN
+#define WORDS_BIGENDIAN 1
+#define endian_fix(x) (x)
+#define endian_fix32(x) (x)
+#else
+#define WORDS_BIGENDIAN 0
+static ALWAYS_INLINE uint32_t endian_fix32( uint32_t x )
+{
+	return (x<<24) + ((x<<8)&0xff0000) + ((x>>8)&0xff00) + (x>>24);
+}
+static ALWAYS_INLINE uint64_t endian_fix64( uint64_t x )
+{
+	return endian_fix32(x>>32) + ((uint64_t)endian_fix32(x)<<32);
+}
+static ALWAYS_INLINE intptr_t endian_fix( intptr_t x )
+{
+	return WORD_SIZE == 8 ? endian_fix64(x) : endian_fix32(x);
+}
+#endif
+#include "bitstream.h"
 
 static uint8_t marker[] = {0x00, 0x00, 0x00, 0x01};
 
@@ -31,7 +63,7 @@ static int tw5864_h264_gen_sps_rbsp(u8 *buf, size_t size, int width, int height)
     bs_write(s, 1, 0);
     bs_write(s, 1, 0);
     bs_rbsp_trailing(s);
-    return bs_len(s);
+    return bs_pos(s) / 8;
 }
 
 static int tw5864_h264_gen_pps_rbsp(u8 *buf, size_t size, int qp)
@@ -56,7 +88,7 @@ static int tw5864_h264_gen_pps_rbsp(u8 *buf, size_t size, int qp)
     bs_write(s, 1, 0 /* b_constrained_intra_pred */);
     bs_write(s, 1, 0 /* b_redundant_pic_cnt */);
     bs_rbsp_trailing(s);
-    return bs_len(s);
+    return bs_pos(s) / 8;
 }
 
 static int tw5864_h264_gen_slice_head(u8 *buf, size_t size, unsigned int idr_pic_id, unsigned int frame_seqno_in_gop, int *tail_nb_bits, u8 *tail)
@@ -99,7 +131,7 @@ static int tw5864_h264_gen_slice_head(u8 *buf, size_t size, unsigned int idr_pic
         *tail_nb_bits = 0;
     }
 
-    return bs_len(s);
+    return bs_pos(s) / 8;
 }
 
 
