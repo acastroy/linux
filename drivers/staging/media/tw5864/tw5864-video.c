@@ -321,7 +321,6 @@ void tw5864_request_encoded_frame(struct tw5864_input *input)
 {
 	struct tw5864_dev *dev = input->root;
 
-	dev_dbg(&dev->pci->dev, "%s: %d %s \n", __FILE__, __LINE__, __PRETTY_FUNCTION__);
 	tw_setl(TW5864_DSP_CODEC, TW5864_CIF_MAP_MD | TW5864_HD1_MAP_MD);
 	tw_writel(TW5864_EMU_EN_VARIOUS_ETC, input->reg_emu_en_various_etc);
 	tw_writel(TW5864_INTERLACING, input->reg_interlacing);
@@ -337,15 +336,12 @@ void tw5864_request_encoded_frame(struct tw5864_input *input)
 		input->h264_frame_seqno_in_gop = 0;
 		input->h264_idr_pic_id++;
 		input->h264_idr_pic_id &= TW5864_DSP_REF_FRM;
-		dev_dbg(&dev->pci->dev, "%s: %d %s input->h264_idr_pic_id = %d, input->h264_frame_seqno_in_gop = %d\n", __FILE__, __LINE__, __PRETTY_FUNCTION__, input->h264_idr_pic_id, input->h264_frame_seqno_in_gop);
 	} else {
 		tw_writel(TW5864_MOTION_SEARCH_ETC,0x000000BF);
 		input->h264_frame_seqno_in_gop++;
-		dev_dbg(&dev->pci->dev, "%s: %d %s input->h264_idr_pic_id = %d, input->h264_frame_seqno_in_gop = %d\n", __FILE__, __LINE__, __PRETTY_FUNCTION__, input->h264_idr_pic_id, input->h264_frame_seqno_in_gop);
 	}
 	tw5864_prepare_frame_headers(input);
 	tw_writel(TW5864_VLC, TW5864_VLC_PCI_SEL | ((input->tail_nb_bits + 24) << TW5864_VLC_BIT_ALIGN_SHIFT) | input->reg_dsp_qp);
-	dev_dbg(&dev->pci->dev, "%s: %d %s input->tail_nb_bits = %d\n", __FILE__, __LINE__, __PRETTY_FUNCTION__, input->tail_nb_bits);
 	//tw_writel(TW5864_DSP_REF, (tw_readl(TW5864_DSP_REF) & ~TW5864_DSP_REF_FRM) | input->h264_idr_pic_id); // or just nothing?
 
 	u32 enc_buf_id_new = tw_mask_shift_readl(TW5864_ENC_BUF_PTR_REC1, 0x3, 2 * input->input_number);
@@ -900,6 +896,7 @@ void tw5864_prepare_frame_headers(struct tw5864_input *input)
 	sl_hdr = dst;
 	space_before_sl_hdr = dst_space;
 	tw5864_h264_put_slice_header(&dst, &dst_space, input->h264_idr_pic_id, input->h264_frame_seqno_in_gop, &input->tail_nb_bits, &input->tail);
+#if 0
 	dev_dbg(&dev->pci->dev, "slice_header for gop seqno %d: length: %d, tail: %d bits\n",
 			input->h264_frame_seqno_in_gop, space_before_sl_hdr - dst_space,
 			input->tail_nb_bits);
@@ -913,6 +910,7 @@ void tw5864_prepare_frame_headers(struct tw5864_input *input)
 			sl_hdr[6],
 			sl_hdr[7],
 			input->tail);
+#endif
 	input->vb = vb;
 	input->buf_cur_ptr = dst;
 	input->buf_cur_space_left = dst_space;
@@ -1047,8 +1045,8 @@ void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len)
 	unsigned long dst_space;
 	int skip_bytes = 3;
 
-	dev_dbg(&dev->pci->dev, "%s: %d %s frame_len = %d\n", __FILE__, __LINE__, __PRETTY_FUNCTION__, frame_len);
 #if 0
+	dev_dbg(&dev->pci->dev, "%s: %d %s frame_len = %d\n", __FILE__, __LINE__, __PRETTY_FUNCTION__, frame_len);
 	dev_dbg(&dev->pci->dev, "vlc: %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx   %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx \n",
 			((u8 *)dev->h264_vlc_buf[0].addr)[0x0],
 			((u8 *)dev->h264_vlc_buf[0].addr)[0x1],
