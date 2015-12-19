@@ -35,12 +35,17 @@
 #include "tw5864.h"
 #include "tw5864-reg.h"
 
+static void tw5864_handle_frame_task(unsigned long data);
+static void tw5864_handle_frame(struct tw5864_h264_frame *frame);
+
 /* ------------------------------------------------------------- */
 /* vb2 queue operations                                          */
 
-static int tw5864_queue_setup(struct vb2_queue *q, const struct v4l2_format *fmt,
-		unsigned int *num_buffers, unsigned int *num_planes,
-		unsigned int sizes[], void *alloc_ctxs[])
+static int tw5864_queue_setup(struct vb2_queue *q,
+			      const struct v4l2_format *fmt,
+			      unsigned int *num_buffers,
+			      unsigned int *num_planes, unsigned int sizes[],
+			      void *alloc_ctxs[])
 {
 	struct tw5864_input *dev = vb2_get_drv_priv(q);
 
@@ -61,18 +66,17 @@ static void tw5864_buf_queue(struct vb2_buffer *vb)
 	struct tw5864_buf *buf = container_of(vb, struct tw5864_buf, vb);
 	unsigned long flags;
 
-	spin_lock_irqsave(&dev->slock, flags);  // TODO FIXME which locking is minimal and sufficient?
+	spin_lock_irqsave(&dev->slock, flags);
 	list_add_tail(&buf->list, &dev->active);
 	spin_unlock_irqrestore(&dev->slock, flags);
 }
 
-/* TODO Change interface of this function - pass just tw5864_input */
-int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
-	struct tw5864_input *input = &dev->inputs[input_number];
+static int tw5864_enable_input(struct tw5864_input *input)
+{
+	struct tw5864_dev *dev = input->root;
+	int input_number = input->input_number;
 	unsigned long flags;
 	int i;
-
-	BUG_ON(input_number < 0 || input_number >= 4);
 
 	dev_dbg(&dev->pci->dev, "Enabling channel %d\n", input_number);
 
@@ -80,7 +84,8 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	u8 std = (indir_0x0Ne & 0x70) >> 4;
 
 	if (indir_0x0Ne & 0x80) {
-		dev_err(&dev->pci->dev, "Video format detection is in progress, please wait\n");
+		dev_err(&dev->pci->dev,
+			"Video format detection is in progress, please wait\n");
 		return -EAGAIN;
 	}
 
@@ -89,11 +94,10 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 		return -1;
 	}
 
-	do_gettimeofday(&input->start_time);
+	input->start_ktime = ktime_get();
 	input->std = std;
 	input->v4l2_std = tw5864_get_v4l2_std(std);
 
-	input->discard_frames = 0;//GOP_SIZE;
 	input->frame_seqno = 0;
 	input->h264_idr_pic_id = 0;
 	input->h264_frame_seqno_in_gop = 0;
@@ -102,11 +106,13 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	input->reg_dsp_ref_mvp_lambda = Lambda_lookup_table[QP_VALUE];
 	input->reg_dsp_i4x4_weight = Intra4X4_Lambda3[QP_VALUE];
 	input->reg_emu_en_various_etc = TW5864_EMU_EN_LPF | TW5864_EMU_EN_BHOST
-		| TW5864_EMU_EN_SEN | TW5864_EMU_EN_ME | TW5864_EMU_EN_DDR;
-	input->reg_dsp = input_number  /* channel id */
-		| TW5864_DSP_CHROM_SW  /* TODO Does this matter? Goes so in reference driver. */
-		| ((0xa << 8) & TW5864_DSP_MB_DELAY)  /* Value from ref driver */
-		;
+	    | TW5864_EMU_EN_SEN | TW5864_EMU_EN_ME | TW5864_EMU_EN_DDR;
+	input->reg_dsp = input_number	/* channel id */
+	    /* TODO Does this matter? Goes so in reference driver. */
+	    | TW5864_DSP_CHROM_SW
+	    /* Value from ref driver */
+	    | ((0xa << 8) & TW5864_DSP_MB_DELAY)
+	    ;
 
 	input->resolution = D1;
 
@@ -125,62 +131,62 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 
 	input->reg_interlacing = 0x4;
 
-
 	/* TODO FIXME Take some mutex guarding channels enabling stuff since we
-	 * edit values, release when we're done with it. */
+	 * edit values, release when we're done with it.
+	 */
 
 	switch (input->resolution) {
-		case D1:
-			 frame_width_bus_value = 0x2cf;
-			 frame_height_bus_value = input->height - 1;
-			 reg_frame_bus = 0x1c;
-			 fmt_reg_value = 0;
-			 downscale_enabled = 0;
-			 input->reg_dsp_codec |= TW5864_CIF_MAP_MD
-				 | TW5864_HD1_MAP_MD;
-			 input->reg_emu_en_various_etc |= TW5864_DSP_FRAME_TYPE_D1;
-			 input->reg_interlacing = 0x6;  /* TODO WTF 0x2? Try with default 0x4 */
+	case D1:
+		frame_width_bus_value = 0x2cf;
+		frame_height_bus_value = input->height - 1;
+		reg_frame_bus = 0x1c;
+		fmt_reg_value = 0;
+		downscale_enabled = 0;
+		input->reg_dsp_codec |= TW5864_CIF_MAP_MD | TW5864_HD1_MAP_MD;
+		input->reg_emu_en_various_etc |= TW5864_DSP_FRAME_TYPE_D1;
+		/* TODO WTF 0x2? Try with default 0x4 */
+		input->reg_interlacing = 0x6;
 
-			 tw_setl(TW5864_FULL_HALF_FLAG, 1 << input_number);
-			 break;
-		case HD1:
-			 input->height /= 2;
-			 input->width /= 2;
-			 frame_width_bus_value = 0x2cf;
-			 frame_height_bus_value = input->height * 2 - 1;
-			 reg_frame_bus = 0x1c;
-			 fmt_reg_value = 0;
-			 downscale_enabled = 0;
-			 input->reg_dsp_codec |= TW5864_HD1_MAP_MD;
-			 input->reg_emu_en_various_etc |= TW5864_DSP_FRAME_TYPE_D1;
+		tw_setl(TW5864_FULL_HALF_FLAG, 1 << input_number);
+		break;
+	case HD1:
+		input->height /= 2;
+		input->width /= 2;
+		frame_width_bus_value = 0x2cf;
+		frame_height_bus_value = input->height * 2 - 1;
+		reg_frame_bus = 0x1c;
+		fmt_reg_value = 0;
+		downscale_enabled = 0;
+		input->reg_dsp_codec |= TW5864_HD1_MAP_MD;
+		input->reg_emu_en_various_etc |= TW5864_DSP_FRAME_TYPE_D1;
 
-			 tw_clearl(TW5864_FULL_HALF_FLAG, 1 << input_number);
+		tw_clearl(TW5864_FULL_HALF_FLAG, 1 << input_number);
 
-			 break;
-		case CIF:
-			 input->height /= 4;
-			 input->width /= 2;
-			 frame_width_bus_value = 0x15f;
-			 frame_height_bus_value = input->height * 2 - 1;
-			 reg_frame_bus = 0x07;
-			 fmt_reg_value = 1;
-			 downscale_enabled = 1;
-			 input->reg_dsp_codec |= TW5864_CIF_MAP_MD;
+		break;
+	case CIF:
+		input->height /= 4;
+		input->width /= 2;
+		frame_width_bus_value = 0x15f;
+		frame_height_bus_value = input->height * 2 - 1;
+		reg_frame_bus = 0x07;
+		fmt_reg_value = 1;
+		downscale_enabled = 1;
+		input->reg_dsp_codec |= TW5864_CIF_MAP_MD;
 
-			 tw_clearl(TW5864_FULL_HALF_FLAG, 1 << input_number);
-			 break;
-		case QCIF:
-			 input->height /= 4;
-			 input->width /= 4;
-			 frame_width_bus_value = 0x15f;
-			 frame_height_bus_value = input->height * 2 - 1;
-			 reg_frame_bus = 0x07;
-			 fmt_reg_value = 1;
-			 downscale_enabled = 1;
-			 input->reg_dsp_codec |= TW5864_CIF_MAP_MD;
+		tw_clearl(TW5864_FULL_HALF_FLAG, 1 << input_number);
+		break;
+	case QCIF:
+		input->height /= 4;
+		input->width /= 4;
+		frame_width_bus_value = 0x15f;
+		frame_height_bus_value = input->height * 2 - 1;
+		reg_frame_bus = 0x07;
+		fmt_reg_value = 1;
+		downscale_enabled = 1;
+		input->reg_dsp_codec |= TW5864_CIF_MAP_MD;
 
-			 tw_clearl(TW5864_FULL_HALF_FLAG, 1 << input_number);
-			 break;
+		tw_clearl(TW5864_FULL_HALF_FLAG, 1 << input_number);
+		break;
 	}
 
 #if 0
@@ -193,40 +199,43 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	tw_clearl(TW5864_FULL_HALF_MODE_SEL, 1 << input_number);
 #endif
 
-	tw_indir_writeb(dev, 0x200 + 4 * input_number, d1_width / 4); // analog input width / 4
+	/* analog input width / 4 */
+	tw_indir_writeb(dev, 0x200 + 4 * input_number, d1_width / 4);
 	tw_indir_writeb(dev, 0x201 + 4 * input_number, d1_height / 4);
 
-	tw_indir_writeb(dev, 0x202 + 4 * input_number, input->width / 4); // output width / 4
-	tw_indir_writeb(dev, 0x203 + 4 * input_number, /* cif_height */ input->height / 4);  /* TODO Should use cif_height, not input's? */
+	/* output width / 4 */
+	tw_indir_writeb(dev, 0x202 + 4 * input_number, input->width / 4);
+	/* TODO Should use cif_height, not input's? */
+	tw_indir_writeb(dev, 0x203 + 4 * input_number, input->height / 4);
 
-#if 0
-	tw_indir_writeb(dev, 0x200 + 4 * 4 * input_number, d1_width / 4); // analog input width / 4
-	tw_indir_writeb(dev, 0x201 + 4 * 4 * input_number, d1_height / 4);
-
-	tw_indir_writeb(dev, 0x202 + 4 * 4 * input_number, input->width / 4); // output width / 4
-	tw_indir_writeb(dev, 0x203 + 4 * 4 * input_number, /* cif_height */ input->height / 4);  /* TODO Should use cif_height, not input's? */
-#endif
-
+	/* TODO Drop */
 	for (i = 0; i < 4 * TW5864_INPUTS; i++) {
-		tw_indir_writeb(dev, 0x200 + 4 * i, d1_width / 4); // analog input width / 4
+		tw_indir_writeb(dev, 0x200 + 4 * i, d1_width / 4);
 		tw_indir_writeb(dev, 0x201 + 4 * i, d1_height / 4);
 
-		tw_indir_writeb(dev, 0x202 + 4 * i, input->width / 4); // output width / 4
-		tw_indir_writeb(dev, 0x203 + 4 * i, /* cif_height */ input->height / 4);  /* TODO Should use cif_height, not input's? */
+		tw_indir_writeb(dev, 0x202 + 4 * i, input->width / 4);
+		tw_indir_writeb(dev, 0x203 + 4 * i, input->height / 4);
 	}
+	/* TODO Drop END */
 
-	tw_writel(TW5864_DSP_PIC_MAX_MB, ((input->width / 16) << 8) | (input->height / 16));  /* FIXME 8 pixels lacking from CIF. If we want CIF to work at all. */
+	tw_writel(TW5864_DSP_PIC_MAX_MB,
+			((input->width / 16) << 8) | (input->height / 16));
 
 	/* TODO FIXME Simplify and immediately check for regressions */
-	tw_writel(TW5864_FRAME_WIDTH_BUS_A(input_number), frame_width_bus_value);
-	tw_writel(TW5864_FRAME_WIDTH_BUS_B(input_number), frame_width_bus_value);
-	tw_writel(TW5864_FRAME_HEIGHT_BUS_A(input_number), frame_height_bus_value);
-	tw_writel(TW5864_FRAME_HEIGHT_BUS_B(input_number), (frame_height_bus_value + 1) / 2 - 1);
+	tw_writel(TW5864_FRAME_WIDTH_BUS_A(input_number),
+		  frame_width_bus_value);
+	tw_writel(TW5864_FRAME_WIDTH_BUS_B(input_number),
+		  frame_width_bus_value);
+	tw_writel(TW5864_FRAME_HEIGHT_BUS_A(input_number),
+		  frame_height_bus_value);
+	tw_writel(TW5864_FRAME_HEIGHT_BUS_B(input_number),
+		  (frame_height_bus_value + 1) / 2 - 1);
 	for (i = 0; i < 4; i++) {
 		tw_writel(TW5864_FRAME_WIDTH_BUS_A(i), frame_width_bus_value);
 		tw_writel(TW5864_FRAME_WIDTH_BUS_B(i), frame_width_bus_value);
 		tw_writel(TW5864_FRAME_HEIGHT_BUS_A(i), frame_height_bus_value);
-		tw_writel(TW5864_FRAME_HEIGHT_BUS_B(i), (frame_height_bus_value + 1) / 2 - 1);
+		tw_writel(TW5864_FRAME_HEIGHT_BUS_B(i),
+			  (frame_height_bus_value + 1) / 2 - 1);
 		if (i == 0) {
 			/*
 			 * This register value seems to follow such approach:
@@ -244,11 +253,16 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 			 * Et cetera.
 			 */
 			u32 unary_framerate = 0xffff;
-			tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(input_number, i), unary_framerate);
-			tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(input_number, i), unary_framerate);
+
+			tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD
+				  (input_number, i), unary_framerate);
+			tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD
+				  (input_number, i), unary_framerate);
 		} else {
-			tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(input_number, i), 0);
-			tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(input_number, i), 0);
+			tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD
+				  (input_number, i), 0);
+			tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD
+				  (input_number, i), 0);
 		}
 	}
 
@@ -256,29 +270,27 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 		tw_setl(TW5864_H264EN_CH_DNS, 1 << input_number);
 
 	tw_mask_shift_writel(TW5864_H264EN_CH_FMT_REG1, 0x3, 2 * input_number,
-			fmt_reg_value);
-
-	/* Some undocumented kind of framerate control... TODO Figure out, at
-	 * last change only needed bus here, not all */
-	/* TODO Move to global static config */
-	tw_writel(TW5864_H264EN_RATE_MAX_LINE_REG1, std == STD_NTSC ? 0x3bd : 0x318);
-	tw_writel(TW5864_H264EN_RATE_MAX_LINE_REG2, std == STD_NTSC ? 0x3bd : 0x318);
+			     fmt_reg_value);
 
 	tw_mask_shift_writel(
-			(input_number < 2)
-			? TW5864_FRAME_BUS1 : TW5864_FRAME_BUS2,
-			0xff, (input_number % 2) * 8,
-			reg_frame_bus);
+			     (input_number < 2
+			      ? TW5864_H264EN_RATE_MAX_LINE_REG1
+			      : TW5864_H264EN_RATE_MAX_LINE_REG2),
+			     0x1f, 5 * input_number,std == STD_NTSC ? 29 : 24);
 
+	tw_mask_shift_writel((input_number < 2)
+			     ? TW5864_FRAME_BUS1 : TW5864_FRAME_BUS2,
+			     0xff, (input_number % 2) * 8, reg_frame_bus);
 
 	spin_lock_irqsave(&dev->slock, flags);
-	dev->inputs[input_number].enabled = 1;
+	input->enabled = 1;
 	spin_unlock_irqrestore(&dev->slock, flags);
 
 	return 0;
 }
 
-void tw5864_push_to_make_it_roll(struct tw5864_input *input) {
+void tw5864_push_to_make_it_roll(struct tw5864_input *input)
+{
 	struct tw5864_dev *dev = input->root;
 	/*
 	 * AFAIU we need to update input's part of
@@ -307,14 +319,18 @@ void tw5864_push_to_make_it_roll(struct tw5864_input *input) {
 	 * Maybe make such pushing write when the device is initialized, so that
 	 * we don't need to do it during streaming?
 	 */
-	u32 enc_buf_id = tw_mask_shift_readl(TW5864_SENIF_ORG_FRM_PTR1, 0x3, 2 * input->input_number);
+	u32 enc_buf_id = tw_mask_shift_readl(TW5864_SENIF_ORG_FRM_PTR1, 0x3,
+					     2 * input->input_number);
 	int enc_buf_id_new = enc_buf_id;
+
 	enc_buf_id_new += 1;
 	enc_buf_id_new %= 4;
 
-	tw_mask_shift_writel(TW5864_ENC_BUF_PTR_REC1, 0x3, 2 * input->input_number, enc_buf_id_new);
-	dev_dbg(&dev->pci->dev, "0x0010 set to %d (was %d) in context of input %d\n",
-			enc_buf_id_new, enc_buf_id, input->input_number);
+	tw_mask_shift_writel(TW5864_ENC_BUF_PTR_REC1, 0x3,
+			     2 * input->input_number, enc_buf_id_new);
+	dev_dbg(&dev->pci->dev,
+		"0x0010 set to %d (was %d) in context of input %d\n",
+		enc_buf_id_new, enc_buf_id, input->input_number);
 }
 
 void tw5864_request_encoded_frame(struct tw5864_input *input)
@@ -329,37 +345,46 @@ void tw5864_request_encoded_frame(struct tw5864_input *input)
 	tw_writel(TW5864_DSP_QP, input->reg_dsp_qp);
 	tw_writel(TW5864_DSP_REF_MVP_LAMBDA, input->reg_dsp_ref_mvp_lambda);
 	tw_writel(TW5864_DSP_I4x4_WEIGHT, input->reg_dsp_i4x4_weight);
-	tw_writel(TW5864_DSP_INTRA_MODE,0x00000070);
+	tw_writel(TW5864_DSP_INTRA_MODE, 0x00000070);
 
 	if (input->frame_seqno % GOP_SIZE == 0) {
-		tw_writel(TW5864_MOTION_SEARCH_ETC,0x00000008); // produce intra frame
+		/* Produce I-frame */
+		tw_writel(TW5864_MOTION_SEARCH_ETC, 0x00000008);
 		input->h264_frame_seqno_in_gop = 0;
 		input->h264_idr_pic_id++;
 		input->h264_idr_pic_id &= TW5864_DSP_REF_FRM;
 	} else {
-		tw_writel(TW5864_MOTION_SEARCH_ETC,0x000000BF);
+		/* Produce P-frame */
+		tw_writel(TW5864_MOTION_SEARCH_ETC, 0x000000BF);
 		input->h264_frame_seqno_in_gop++;
 	}
 	tw5864_prepare_frame_headers(input);
-	tw_writel(TW5864_VLC, TW5864_VLC_PCI_SEL | ((input->tail_nb_bits + 24) << TW5864_VLC_BIT_ALIGN_SHIFT) | input->reg_dsp_qp);
-	//tw_writel(TW5864_DSP_REF, (tw_readl(TW5864_DSP_REF) & ~TW5864_DSP_REF_FRM) | input->h264_idr_pic_id); // or just nothing?
+	tw_writel(TW5864_VLC,
+		  TW5864_VLC_PCI_SEL | ((input->tail_nb_bits + 24) <<
+					TW5864_VLC_BIT_ALIGN_SHIFT) |
+		  input->reg_dsp_qp);
 
-	u32 enc_buf_id_new = tw_mask_shift_readl(TW5864_ENC_BUF_PTR_REC1, 0x3, 2 * input->input_number);
+	u32 enc_buf_id_new = tw_mask_shift_readl(TW5864_ENC_BUF_PTR_REC1, 0x3,
+						 2 * input->input_number);
 
-	tw_writel(TW5864_DSP_ENC_ORG_PTR_REG, ((enc_buf_id_new + 1) % 4) << TW5864_DSP_ENC_ORG_PTR_SHIFT);
-	tw_writel(TW5864_DSP_ENC_REC,(((enc_buf_id_new  + 1) % 4) << 12) | (enc_buf_id_new & 0x3));
+	tw_writel(TW5864_DSP_ENC_ORG_PTR_REG,
+		  ((enc_buf_id_new + 1) % 4) << TW5864_DSP_ENC_ORG_PTR_SHIFT);
+	tw_writel(TW5864_DSP_ENC_REC,
+		  (((enc_buf_id_new + 1) % 4) << 12) | (enc_buf_id_new & 0x3));
 
-	tw_writel(TW5864_PCI_INTR_CTL,0x00000073);  /* Unneeded? TODO decode, remove unneeded bits */
-	tw_writel(TW5864_MASTER_ENB_REG,TW5864_PCI_VLC_INTR_ENB);  /* TODO Unneeded? */
+	/* Unneeded? TODO decode, remove unneeded bits */
+	tw_writel(TW5864_PCI_INTR_CTL, 0x00000073);
+	/* TODO Unneeded? */
+	tw_writel(TW5864_MASTER_ENB_REG, TW5864_PCI_VLC_INTR_ENB);
 
-	/* TODO FIXME Set bitstream output address, have more than single buffer
-	 * for all channels, to enable bottom half processing approach */
-	tw_writel(TW5864_SLICE,0x00008000);
-	tw_writel(TW5864_SLICE,0x00000000);
+	tw_writel(TW5864_SLICE, 0x00008000);
+	tw_writel(TW5864_SLICE, 0x00000000);
 }
 
-static int tw5864_disable_input(struct tw5864_dev *dev, int input_number) {
+static int tw5864_disable_input(struct tw5864_dev *dev, int input_number)
+{
 	unsigned long flags;
+
 	dev_dbg(&dev->pci->dev, "Disabling channel %d\n", input_number);
 	mutex_lock(&dev->lock);
 
@@ -374,7 +399,7 @@ static int tw5864_start_streaming(struct vb2_queue *q, unsigned int count)
 {
 	struct tw5864_input *input = vb2_get_drv_priv(q);
 
-	tw5864_enable_input(input->root, input->input_number);
+	tw5864_enable_input(input);
 	return 0;
 }
 
@@ -392,7 +417,7 @@ static void tw5864_stop_streaming(struct vb2_queue *q)
 	}
 	while (!list_empty(&input->active)) {
 		struct tw5864_buf *buf =
-			container_of(input->active.next, struct tw5864_buf, list);
+		    container_of(input->active.next, struct tw5864_buf, list);
 
 		list_del(&buf->list);
 		vb2_buffer_done(&buf->vb, VB2_BUF_STATE_ERROR);
@@ -401,110 +426,121 @@ static void tw5864_stop_streaming(struct vb2_queue *q)
 }
 
 static struct vb2_ops tw5864_video_qops = {
-	.queue_setup	= tw5864_queue_setup,
-	.buf_queue	= tw5864_buf_queue,
+	.queue_setup = tw5864_queue_setup,
+	.buf_queue = tw5864_buf_queue,
 	.start_streaming = tw5864_start_streaming,
 	.stop_streaming = tw5864_stop_streaming,
-	.wait_prepare	= vb2_ops_wait_prepare,
-	.wait_finish	= vb2_ops_wait_finish,
+	.wait_prepare = vb2_ops_wait_prepare,
+	.wait_finish = vb2_ops_wait_finish,
 };
 
 /* ------------------------------------------------------------------ */
 static int tw5864_s_ctrl(struct v4l2_ctrl *ctrl)
 {
-	// TODO
 	struct tw5864_input *input =
-		container_of(ctrl->handler, struct tw5864_input, hdl);
+	    container_of(ctrl->handler, struct tw5864_input, hdl);
+#if 0
 	struct tw5864_dev *dev = input->root;
+#endif
 
 	switch (ctrl->id) {
 #if 0
-		case V4L2_CID_BRIGHTNESS:
-			tw_writeb(TW5864_BRIGHT, ctrl->val);
-			break;
-		case V4L2_CID_HUE:
-			tw_writeb(TW5864_HUE, ctrl->val);
-			break;
-		case V4L2_CID_CONTRAST:
-			tw_writeb(TW5864_CONTRAST, ctrl->val);
-			break;
-		case V4L2_CID_SATURATION:
-			tw_writeb(TW5864_SAT_U, ctrl->val);
-			tw_writeb(TW5864_SAT_V, ctrl->val);
-			break;
-		case V4L2_CID_COLOR_KILLER:
-			if (ctrl->val)
-				tw_andorb(TW5864_MISC2, 0xe0, 0xe0);
-			else
-				tw_andorb(TW5864_MISC2, 0xe0, 0x00);
-			break;
-		case V4L2_CID_CHROMA_AGC:
-			if (ctrl->val)
-				tw_andorb(TW5864_LOOP, 0x30, 0x20);
-			else
-				tw_andorb(TW5864_LOOP, 0x30, 0x00);
-			break;
+	case V4L2_CID_BRIGHTNESS:
+		tw_writeb(TW5864_BRIGHT, ctrl->val);
+		break;
+	case V4L2_CID_HUE:
+		tw_writeb(TW5864_HUE, ctrl->val);
+		break;
+	case V4L2_CID_CONTRAST:
+		tw_writeb(TW5864_CONTRAST, ctrl->val);
+		break;
+	case V4L2_CID_SATURATION:
+		tw_writeb(TW5864_SAT_U, ctrl->val);
+		tw_writeb(TW5864_SAT_V, ctrl->val);
+		break;
+	case V4L2_CID_COLOR_KILLER:
+		if (ctrl->val)
+			tw_andorb(TW5864_MISC2, 0xe0, 0xe0);
+		else
+			tw_andorb(TW5864_MISC2, 0xe0, 0x00);
+		break;
+	case V4L2_CID_CHROMA_AGC:
+		if (ctrl->val)
+			tw_andorb(TW5864_LOOP, 0x30, 0x20);
+		else
+			tw_andorb(TW5864_LOOP, 0x30, 0x00);
+		break;
 #endif
-		case V4L2_CID_DETECT_MD_GLOBAL_THRESHOLD:
-			memset(input->md_threshold_grid_values, ctrl->val, sizeof(input->md_threshold_grid_values));
-			return 0;
-		case V4L2_CID_DETECT_MD_MODE:
-			return 0;
-		case V4L2_CID_DETECT_MD_THRESHOLD_GRID:
-			/* input->md_threshold_grid_ctrl->p_new.p_u16 contains data */
-			memcpy(input->md_threshold_grid_values, input->md_threshold_grid_ctrl->p_new.p_u16, sizeof(input->md_threshold_grid_values));
-			return 0;
+	case V4L2_CID_DETECT_MD_GLOBAL_THRESHOLD:
+		memset(input->md_threshold_grid_values, ctrl->val,
+		       sizeof(input->md_threshold_grid_values));
+		return 0;
+	case V4L2_CID_DETECT_MD_MODE:
+		return 0;
+	case V4L2_CID_DETECT_MD_THRESHOLD_GRID:
+		/* input->md_threshold_grid_ctrl->p_new.p_u16 contains data */
+		memcpy(input->md_threshold_grid_values,
+		       input->md_threshold_grid_ctrl->p_new.p_u16,
+		       sizeof(input->md_threshold_grid_values));
+		return 0;
 	}
 	return 0;
 }
+
 /* ------------------------------------------------------------------ */
 
 static int tw5864_g_fmt_vid_cap(struct file *file, void *priv,
-		struct v4l2_format *f)
+				struct v4l2_format *f)
 {
 	struct tw5864_input *input = video_drvdata(file);
 
-	u8 indir_0x0Ne = tw_indir_readb(input->root, 0x00e + input->input_number * 0x010);
+	u8 indir_0x0Ne =
+	    tw_indir_readb(input->root, 0x00e + input->input_number * 0x010);
 	u8 std = (indir_0x0Ne & 0x70) >> 4;
 
 	if (indir_0x0Ne & 0x80) {
-		dev_err(&input->root->pci->dev, "Video format detection is in progress, please wait\n");
+		dev_err(&input->root->pci->dev,
+			"Video format detection is in progress, please wait\n");
 		return -EAGAIN;
 	}
 
 	if (std == STD_INVALID) {
-		dev_err(&input->root->pci->dev, "Video format detection done, no valid video format\n");
+		dev_err(&input->root->pci->dev,
+			"Video format detection done, no valid video format\n");
 		return -1;
 	}
 
 	f->fmt.pix.width = 720;
 	switch (std) {
-		default:
-			WARN_ON_ONCE(1);
-		case STD_NTSC:
-			f->fmt.pix.height = 480;
-			break;
-		case STD_PAL:
-		case STD_SECAM:
-			f->fmt.pix.height = 576;
-			break;
+	default:
+		WARN_ON_ONCE(1);
+	case STD_NTSC:
+		f->fmt.pix.height = 480;
+		break;
+	case STD_PAL:
+	case STD_SECAM:
+		f->fmt.pix.height = 576;
+		break;
 	}
-	f->fmt.pix.field        = V4L2_FIELD_NONE;
-	f->fmt.pix.pixelformat  = V4L2_PIX_FMT_H264;
+	f->fmt.pix.field = V4L2_FIELD_NONE;
+	f->fmt.pix.pixelformat = V4L2_PIX_FMT_H264;
 	f->fmt.pix.sizeimage = H264_VLC_BUF_SIZE;
-	f->fmt.pix.colorspace	= V4L2_COLORSPACE_SMPTE170M;
+	f->fmt.pix.colorspace = V4L2_COLORSPACE_SMPTE170M;
 	f->fmt.pix.priv = 0;
 	return 0;
 }
 
 static int tw5864_enum_input(struct file *file, void *priv,
-		struct v4l2_input *i)
+			     struct v4l2_input *i)
 {
 	struct tw5864_input *dev = video_drvdata(file);
 
-	u8 indir_0x0N0 = tw_indir_readb(dev->root, 0x000 + dev->input_number * 0x010);
-	u8 indir_0x0Nd = tw_indir_readb(dev->root, 0x00d + dev->input_number * 0x010);
-	u8 indir_0x0Ne = tw_indir_readb(dev->root, 0x00e + dev->input_number * 0x010);
+	u8 indir_0x0N0 =
+	    tw_indir_readb(dev->root, 0x000 + dev->input_number * 0x010);
+	u8 indir_0x0Nd =
+	    tw_indir_readb(dev->root, 0x00d + dev->input_number * 0x010);
+	u8 indir_0x0Ne =
+	    tw_indir_readb(dev->root, 0x00e + dev->input_number * 0x010);
 	u8 std = (indir_0x0Ne & 0x70) >> 4;
 	u8 v1 = indir_0x0N0;
 	u8 v2 = indir_0x0Nd;
@@ -512,20 +548,21 @@ static int tw5864_enum_input(struct file *file, void *priv,
 	if (i->index)
 		return -EINVAL;
 
-	// TODO Deduplicate
+	/* TODO Deduplicate */
 	if (indir_0x0Ne & 0x80) {
-		dev_err(&dev->root->pci->dev, "Video format detection is in progress, please wait\n");
+		dev_err(&dev->root->pci->dev,
+			"Video format detection is in progress, please wait\n");
 		return -EAGAIN;
 	}
 
 	if (std == STD_INVALID) {
-		dev_err(&dev->root->pci->dev, "Video format detection done, no valid video format\n");
+		dev_err(&dev->root->pci->dev,
+			"Video format detection done, no valid video format\n");
 		return -1;
 	}
 
 	i->type = V4L2_INPUT_TYPE_CAMERA;
 	snprintf(i->name, sizeof(i->name), "Encoder %d", dev->input_number);
-	//i->std = tw5864_get_v4l2_std(std);
 	i->std = TW5864_NORMS;
 	if (v1 & (1 << 7))
 		i->status |= V4L2_IN_ST_NO_SYNC;
@@ -554,17 +591,17 @@ static int tw5864_s_input(struct file *file, void *priv, unsigned int i)
 	return 0;
 }
 
-static int tw5864_querycap(struct file *file, void  *priv,
-		struct v4l2_capability *cap)
+static int tw5864_querycap(struct file *file, void *priv,
+			   struct v4l2_capability *cap)
 {
 	struct tw5864_input *dev = video_drvdata(file);
 
 	strcpy(cap->driver, "tw5864");
 	snprintf(cap->card, sizeof(cap->card), "TW5864 Encoder %d",
-			dev->input_number);
+		 dev->input_number);
 	sprintf(cap->bus_info, "PCI:%s", pci_name(dev->root->pci));
 	cap->device_caps = V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_READWRITE |
-		V4L2_CAP_STREAMING;
+	    V4L2_CAP_STREAMING;
 
 	cap->capabilities = cap->device_caps | V4L2_CAP_DEVICE_CAPS;
 	return 0;
@@ -574,17 +611,20 @@ static int tw5864_g_std(struct file *file, void *priv, v4l2_std_id *id)
 {
 	struct tw5864_input *dev = video_drvdata(file);
 
-	u8 indir_0x0Ne = tw_indir_readb(dev->root, 0x00e + dev->input_number * 0x010);
+	u8 indir_0x0Ne =
+	    tw_indir_readb(dev->root, 0x00e + dev->input_number * 0x010);
 	u8 std = (indir_0x0Ne & 0x70) >> 4;
 
-	// TODO Deduplicate
+	/* TODO Deduplicate */
 	if (indir_0x0Ne & 0x80) {
-		dev_err(&dev->root->pci->dev, "Video format detection is in progress, please wait\n");
+		dev_err(&dev->root->pci->dev,
+			"Video format detection is in progress, please wait\n");
 		return -EAGAIN;
 	}
 
 	if (std == STD_INVALID) {
-		dev_err(&dev->root->pci->dev, "Video format detection done, no valid video format\n");
+		dev_err(&dev->root->pci->dev,
+			"Video format detection done, no valid video format\n");
 		return -1;
 	}
 
@@ -598,7 +638,7 @@ static int tw5864_s_std(struct file *file, void *priv, v4l2_std_id id)
 
 	if (vb2_is_busy(&dev->vidq))
 		return -EBUSY;
-	// TODO FIXME compare with currently detected, refuse otherwise
+	/* TODO FIXME compare with currently detected, refuse otherwise */
 	if (!(id & TW5864_NORMS))
 		return -EINVAL;
 
@@ -606,19 +646,19 @@ static int tw5864_s_std(struct file *file, void *priv, v4l2_std_id id)
 }
 
 static int tw5864_try_fmt_vid_cap(struct file *file, void *priv,
-		struct v4l2_format *f)
+				  struct v4l2_format *f)
 {
 	return tw5864_g_fmt_vid_cap(file, priv, f);
 }
 
 static int tw5864_s_fmt_vid_cap(struct file *file, void *priv,
-		struct v4l2_format *f)
+				struct v4l2_format *f)
 {
 	return tw5864_try_fmt_vid_cap(file, priv, f);
 }
 
-static int tw5864_enum_fmt_vid_cap(struct file *file, void  *priv,
-		struct v4l2_fmtdesc *f)
+static int tw5864_enum_fmt_vid_cap(struct file *file, void *priv,
+				   struct v4l2_fmtdesc *f)
 {
 	if (f->index)
 		return -EINVAL;
@@ -630,15 +670,16 @@ static int tw5864_enum_fmt_vid_cap(struct file *file, void  *priv,
 }
 
 static int tw5864_subscribe_event(struct v4l2_fh *fh,
-		const struct v4l2_event_subscription *sub)
+				  const struct v4l2_event_subscription *sub)
 {
 
 	switch (sub->type) {
 	case V4L2_EVENT_CTRL:
 		return v4l2_ctrl_subscribe_event(fh, sub);
 	case V4L2_EVENT_MOTION_DET:
-		/* Allow for up to 30 events (1 second for NTSC) to be
-		 * stored. */
+		/*
+		 * Allow for up to 30 events (1 second for NTSC) to be stored.
+		 */
 		return v4l2_event_subscribe(fh, sub, 30, NULL);
 	}
 	return -EINVAL;
@@ -649,43 +690,44 @@ static const struct v4l2_ctrl_ops tw5864_ctrl_ops = {
 };
 
 static const struct v4l2_file_operations video_fops = {
-	.owner			= THIS_MODULE,
-	.open			= v4l2_fh_open,
-	.release		= vb2_fop_release,
-	.read			= vb2_fop_read,
-	.poll			= vb2_fop_poll,
-	.mmap			= vb2_fop_mmap,
-	.unlocked_ioctl		= video_ioctl2,
+	.owner = THIS_MODULE,
+	.open = v4l2_fh_open,
+	.release = vb2_fop_release,
+	.read = vb2_fop_read,
+	.poll = vb2_fop_poll,
+	.mmap = vb2_fop_mmap,
+	.unlocked_ioctl = video_ioctl2,
 };
 
 static const struct v4l2_ioctl_ops video_ioctl_ops = {
-	.vidioc_querycap		= tw5864_querycap,
-	.vidioc_enum_fmt_vid_cap	= tw5864_enum_fmt_vid_cap,
-	.vidioc_reqbufs			= vb2_ioctl_reqbufs,
-	.vidioc_create_bufs		= vb2_ioctl_create_bufs,
-	.vidioc_querybuf		= vb2_ioctl_querybuf,
-	.vidioc_qbuf			= vb2_ioctl_qbuf,
-	.vidioc_dqbuf			= vb2_ioctl_dqbuf,
-	.vidioc_s_std			= tw5864_s_std,
-	.vidioc_g_std			= tw5864_g_std,
-	.vidioc_enum_input		= tw5864_enum_input,
-	.vidioc_g_input			= tw5864_g_input,
-	.vidioc_s_input			= tw5864_s_input,
-	.vidioc_streamon		= vb2_ioctl_streamon,
-	.vidioc_streamoff		= vb2_ioctl_streamoff,
-	.vidioc_try_fmt_vid_cap		= tw5864_try_fmt_vid_cap,
-	.vidioc_s_fmt_vid_cap		= tw5864_s_fmt_vid_cap,
-	.vidioc_g_fmt_vid_cap		= tw5864_g_fmt_vid_cap,
-	.vidioc_log_status		= v4l2_ctrl_log_status,
-	.vidioc_subscribe_event		= tw5864_subscribe_event,
-	.vidioc_unsubscribe_event	= v4l2_event_unsubscribe,
+	.vidioc_querycap = tw5864_querycap,
+	.vidioc_enum_fmt_vid_cap = tw5864_enum_fmt_vid_cap,
+	.vidioc_reqbufs = vb2_ioctl_reqbufs,
+	.vidioc_create_bufs = vb2_ioctl_create_bufs,
+	.vidioc_querybuf = vb2_ioctl_querybuf,
+	.vidioc_qbuf = vb2_ioctl_qbuf,
+	.vidioc_dqbuf = vb2_ioctl_dqbuf,
+	.vidioc_s_std = tw5864_s_std,
+	.vidioc_g_std = tw5864_g_std,
+	.vidioc_enum_input = tw5864_enum_input,
+	.vidioc_g_input = tw5864_g_input,
+	.vidioc_s_input = tw5864_s_input,
+	.vidioc_streamon = vb2_ioctl_streamon,
+	.vidioc_streamoff = vb2_ioctl_streamoff,
+	.vidioc_try_fmt_vid_cap = tw5864_try_fmt_vid_cap,
+	.vidioc_s_fmt_vid_cap = tw5864_s_fmt_vid_cap,
+	.vidioc_g_fmt_vid_cap = tw5864_g_fmt_vid_cap,
+	.vidioc_log_status = v4l2_ctrl_log_status,
+	.vidioc_subscribe_event = tw5864_subscribe_event,
+	.vidioc_unsubscribe_event = v4l2_event_unsubscribe,
 };
+
 static struct video_device tw5864_video_template = {
-	.name			= "tw5864_video",
-	.fops			= &video_fops,
-	.ioctl_ops		= &video_ioctl_ops,
-	.release		= video_device_release_empty,
-	.tvnorms		= TW5864_NORMS,
+	.name = "tw5864_video",
+	.fops = &video_fops,
+	.ioctl_ops = &video_ioctl_ops,
+	.release = video_device_release_empty,
+	.tvnorms = TW5864_NORMS,
 };
 
 /* The TW5864 uses 192 (16x12) detection cells in full screen for motion
@@ -699,9 +741,10 @@ static struct video_device tw5864_video_template = {
 static const struct v4l2_ctrl_config tw5864_md_thresholds = {
 	.ops = &tw5864_ctrl_ops,
 	.id = V4L2_CID_DETECT_MD_THRESHOLD_GRID,
-	.dims = { MD_CELLS_HOR, MD_CELLS_VERT },
-	.def = 666,  /* FIXME FANCY CONSTANT, PICK REASONABLE PRACTICAL VALUE */
-	.max = 65535,
+	.dims = {MD_CELLS_HOR, MD_CELLS_VERT},
+	.def = 14,
+	/* See tw5864_md_metric_from_mvd() */
+	.max = 2 * 0x0f,
 	.step = 1,
 };
 
@@ -722,18 +765,26 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 	}
 
 	for (i = 0; i < H264_BUF_CNT; i++) {
-		dev->h264_vlc_buf[i].addr = dma_alloc_coherent(&dev->pci->dev, H264_VLC_BUF_SIZE, &dev->h264_vlc_buf[i].dma_addr, GFP_KERNEL|GFP_DMA32);
-		dev->h264_mv_buf[i].addr = dma_alloc_coherent(&dev->pci->dev, H264_MV_BUF_SIZE, &dev->h264_mv_buf[i].dma_addr, GFP_KERNEL|GFP_DMA32);
-		if (!dev->h264_vlc_buf[i].addr || !dev->h264_mv_buf[i].addr) {
-			dev_err(&dev->pci->dev, "dma alloc & map fail: %p %p\n", dev->h264_vlc_buf[i].addr, dev->h264_mv_buf[i].addr);
+		dev->h264_buf[i].vlc.addr =
+		    dma_alloc_coherent(&dev->pci->dev, H264_VLC_BUF_SIZE,
+				       &dev->h264_buf[i].vlc.dma_addr,
+				       GFP_KERNEL | GFP_DMA32);
+		dev->h264_buf[i].mv.addr =
+		    dma_alloc_coherent(&dev->pci->dev, H264_MV_BUF_SIZE,
+				       &dev->h264_buf[i].mv.dma_addr,
+				       GFP_KERNEL | GFP_DMA32);
+		if (!dev->h264_buf[i].vlc.addr || !dev->h264_buf[i].mv.addr) {
+			dev_err(&dev->pci->dev, "dma alloc & map fail\n");
 			goto dma_alloc_fail;
 		}
 	}
 
+	tasklet_init(&dev->tasklet, tw5864_handle_frame_task,
+		     (unsigned long)dev);
 	return 0;
 
 dma_alloc_fail:
-	;// TODO Free allocated
+	; /* TODO Free allocated */
 
 	i = TW5864_INPUTS;
 
@@ -744,94 +795,90 @@ input_init_fail:
 	return ret;
 }
 
-static int tw5864_video_input_init(struct tw5864_input *dev, int video_nr)
+static int tw5864_video_input_init(struct tw5864_input *input, int video_nr)
 {
-	struct tw5864_input *input = dev;  /* TODO rename dev to input */
 	int ret;
-	struct v4l2_ctrl_handler *hdl = &dev->hdl;
+	struct v4l2_ctrl_handler *hdl = &input->hdl;
 
-	mutex_init(&dev->lock);
-	spin_lock_init(&dev->slock);
+	mutex_init(&input->lock);
+	spin_lock_init(&input->slock);
 
 	/* setup video buffers queue */
-	INIT_LIST_HEAD(&dev->active);
-	dev->vidq.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-	dev->vidq.timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
-	dev->vidq.io_modes = VB2_MMAP | VB2_USERPTR | VB2_READ | VB2_DMABUF;
-	dev->vidq.ops = &tw5864_video_qops;
-	dev->vidq.mem_ops = &vb2_dma_contig_memops;
-	dev->vidq.drv_priv = dev;
-	dev->vidq.gfp_flags = __GFP_DMA32;
-	dev->vidq.buf_struct_size = sizeof(struct tw5864_buf);
-	dev->vidq.lock = &dev->lock;
-	dev->vidq.min_buffers_needed = 12;
-	ret = vb2_queue_init(&dev->vidq);
+	INIT_LIST_HEAD(&input->active);
+	input->vidq.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	input->vidq.timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
+	input->vidq.io_modes = VB2_MMAP | VB2_USERPTR | VB2_READ | VB2_DMABUF;
+	input->vidq.ops = &tw5864_video_qops;
+	input->vidq.mem_ops = &vb2_dma_contig_memops;
+	input->vidq.drv_priv = input;
+	input->vidq.gfp_flags = __GFP_DMA32;
+	input->vidq.buf_struct_size = sizeof(struct tw5864_buf);
+	input->vidq.lock = &input->lock;
+	input->vidq.min_buffers_needed = 12;
+	ret = vb2_queue_init(&input->vidq);
 	if (ret)
 		goto vb2_q_init_fail;
 
-	dev->vdev = tw5864_video_template;
-	// TODO Set tvnorms to actual recognized format instead of wildcard?
-	dev->vdev.v4l2_dev = &dev->root->v4l2_dev;
-	dev->vdev.lock = &dev->lock;
-	dev->vdev.queue = &dev->vidq;
-	video_set_drvdata(&dev->vdev, dev);
-
+	input->vdev = tw5864_video_template;
+	/* TODO Set tvnorms to actual recognized format instead of wildcard? */
+	input->vdev.v4l2_dev = &input->root->v4l2_dev;
+	input->vdev.lock = &input->lock;
+	input->vdev.queue = &input->vidq;
+	video_set_drvdata(&input->vdev, input);
 
 	/* Initialize the device control structures */
-	dev->alloc_ctx = vb2_dma_contig_init_ctx(&dev->root->pci->dev);
-	if (IS_ERR(dev->alloc_ctx)) {
-		ret = PTR_ERR(dev->alloc_ctx);
+	input->alloc_ctx = vb2_dma_contig_init_ctx(&input->root->pci->dev);
+	if (IS_ERR(input->alloc_ctx)) {
+		ret = PTR_ERR(input->alloc_ctx);
 		goto vb2_dma_contig_init_ctx_fail;
 	}
 
 	v4l2_ctrl_handler_init(hdl, 6);
 	v4l2_ctrl_new_std(hdl, &tw5864_ctrl_ops,
-			V4L2_CID_BRIGHTNESS, -128, 127, 1, 20);
+			  V4L2_CID_BRIGHTNESS, -128, 127, 1, 20);
 	v4l2_ctrl_new_std(hdl, &tw5864_ctrl_ops,
-			V4L2_CID_CONTRAST, 0, 255, 1, 100);
+			  V4L2_CID_CONTRAST, 0, 255, 1, 100);
 	v4l2_ctrl_new_std(hdl, &tw5864_ctrl_ops,
-			V4L2_CID_SATURATION, 0, 255, 1, 128);
+			  V4L2_CID_SATURATION, 0, 255, 1, 128);
 	/* NTSC only */
+	v4l2_ctrl_new_std(hdl, &tw5864_ctrl_ops, V4L2_CID_HUE, -128, 127, 1, 0);
 	v4l2_ctrl_new_std(hdl, &tw5864_ctrl_ops,
-			V4L2_CID_HUE, -128, 127, 1, 0);
+			  V4L2_CID_COLOR_KILLER, 0, 1, 1, 0);
 	v4l2_ctrl_new_std(hdl, &tw5864_ctrl_ops,
-			V4L2_CID_COLOR_KILLER, 0, 1, 1, 0);
-	v4l2_ctrl_new_std(hdl, &tw5864_ctrl_ops,
-			V4L2_CID_CHROMA_AGC, 0, 1, 1, 1);
+			  V4L2_CID_CHROMA_AGC, 0, 1, 1, 1);
 	v4l2_ctrl_new_std_menu(hdl, &tw5864_ctrl_ops,
-			V4L2_CID_DETECT_MD_MODE,
-			V4L2_DETECT_MD_MODE_THRESHOLD_GRID, 0,
-			V4L2_DETECT_MD_MODE_DISABLED);
+			       V4L2_CID_DETECT_MD_MODE,
+			       V4L2_DETECT_MD_MODE_THRESHOLD_GRID, 0,
+			       V4L2_DETECT_MD_MODE_DISABLED);
 	v4l2_ctrl_new_std(hdl, &tw5864_ctrl_ops,
-			V4L2_CID_DETECT_MD_GLOBAL_THRESHOLD,
-			tw5864_md_thresholds.min, tw5864_md_thresholds.max,
-			tw5864_md_thresholds.step, tw5864_md_thresholds.def);
+			  V4L2_CID_DETECT_MD_GLOBAL_THRESHOLD,
+			  tw5864_md_thresholds.min, tw5864_md_thresholds.max,
+			  tw5864_md_thresholds.step, tw5864_md_thresholds.def);
 	input->md_threshold_grid_ctrl =
-		v4l2_ctrl_new_custom(hdl, &tw5864_md_thresholds, NULL);
+	    v4l2_ctrl_new_custom(hdl, &tw5864_md_thresholds, NULL);
 	if (hdl->error) {
 		ret = hdl->error;
 		goto v4l2_ctrl_fail;
 	}
-	dev->vdev.ctrl_handler = hdl;
+	input->vdev.ctrl_handler = hdl;
 	v4l2_ctrl_handler_setup(hdl);
 
-
-	ret = video_register_device(&dev->vdev, VFL_TYPE_GRABBER, video_nr);
+	ret = video_register_device(&input->vdev, VFL_TYPE_GRABBER, video_nr);
 	if (ret)
 		goto v4l2_ctrl_fail;
 
-	pr_info("%s (IRQ %d): registered video device %s\n", dev->root->name,
-			dev->root->pci->irq, video_device_node_name(&dev->vdev));
+	pr_info("%s (IRQ %d): registered video device %s\n", input->root->name,
+		input->root->pci->irq, video_device_node_name(&input->vdev));
 
 	return 0;
 
 v4l2_ctrl_fail:
 	v4l2_ctrl_handler_free(hdl);
-	vb2_dma_contig_cleanup_ctx(dev->alloc_ctx);
+	vb2_dma_contig_cleanup_ctx(input->alloc_ctx);
 vb2_dma_contig_init_ctx_fail:
-	vb2_queue_release(&dev->vidq);
+	vb2_queue_release(&input->vidq);
 vb2_q_init_fail:
-	mutex_destroy(&dev->lock);
+	mutex_destroy(&input->lock);
 
 	return ret;
 }
@@ -849,22 +896,27 @@ void tw5864_video_fini(struct tw5864_dev *dev)
 {
 	int i;
 
+	tasklet_kill(&dev->tasklet);
+
 	for (i = 0; i < TW5864_INPUTS; i++)
 		tw5864_video_input_fini(&dev->inputs[i]);
 
 	for (i = 0; i < H264_BUF_CNT; i++) {
-		dma_free_coherent(&dev->pci->dev, H264_VLC_BUF_SIZE, dev->h264_vlc_buf[i].addr, dev->h264_vlc_buf[i].dma_addr);
-		dma_free_coherent(&dev->pci->dev, H264_MV_BUF_SIZE, dev->h264_mv_buf[i].addr, dev->h264_mv_buf[i].dma_addr);
+		dma_free_coherent(&dev->pci->dev, H264_VLC_BUF_SIZE,
+				  dev->h264_buf[i].vlc.addr,
+				  dev->h264_buf[i].vlc.dma_addr);
+		dma_free_coherent(&dev->pci->dev, H264_MV_BUF_SIZE,
+				  dev->h264_buf[i].mv.addr,
+				  dev->h264_buf[i].mv.dma_addr);
 	}
 }
 
 void tw5864_prepare_frame_headers(struct tw5864_input *input)
 {
-	struct tw5864_dev *dev = input->root;
 	struct tw5864_buf *vb = input->vb;
 	u8 *dst;
 	unsigned long dst_size;
-	unsigned long dst_space;
+	size_t dst_space;
 
 	u8 *sl_hdr;
 	unsigned long space_before_sl_hdr;
@@ -890,26 +942,24 @@ void tw5864_prepare_frame_headers(struct tw5864_input *input)
 	 * If this is first frame, put SPS and PPS
 	 */
 	if (input->frame_seqno == 0)
-		tw5864_h264_put_stream_header(&dst, &dst_space, QP_VALUE, input->width, input->height);
+		tw5864_h264_put_stream_header(&dst, &dst_space, QP_VALUE,
+					      input->width, input->height);
 
 	/* Put slice header */
 	sl_hdr = dst;
 	space_before_sl_hdr = dst_space;
-	tw5864_h264_put_slice_header(&dst, &dst_space, input->h264_idr_pic_id, input->h264_frame_seqno_in_gop, &input->tail_nb_bits, &input->tail);
+	tw5864_h264_put_slice_header(&dst, &dst_space, input->h264_idr_pic_id,
+				     input->h264_frame_seqno_in_gop,
+				     &input->tail_nb_bits, &input->tail);
 #if 0
-	dev_dbg(&dev->pci->dev, "slice_header for gop seqno %d: length: %d, tail: %d bits\n",
-			input->h264_frame_seqno_in_gop, space_before_sl_hdr - dst_space,
-			input->tail_nb_bits);
-	dev_dbg(&dev->pci->dev, "slice header: %02x %02x %02x %02x  %02x %02x %02x %02x ||| tail: %02x\n",
-			sl_hdr[0],
-			sl_hdr[1],
-			sl_hdr[2],
-			sl_hdr[3],
-			sl_hdr[4],
-			sl_hdr[5],
-			sl_hdr[6],
-			sl_hdr[7],
-			input->tail);
+	dev_dbg(&input->root->pci->dev,
+		"slice_header for gop seqno %d: length: %d, tail: %d bits\n",
+		input->h264_frame_seqno_in_gop, space_before_sl_hdr - dst_space,
+		input->tail_nb_bits);
+	dev_dbg(&input->root->pci->dev,
+		"slice header: %02x %02x %02x %02x  %02x %02x %02x %02x ||| tail: %02x\n",
+		sl_hdr[0], sl_hdr[1], sl_hdr[2], sl_hdr[3], sl_hdr[4],
+		sl_hdr[5], sl_hdr[6], sl_hdr[7], input->tail);
 #endif
 	input->vb = vb;
 	input->buf_cur_ptr = dst;
@@ -922,11 +972,15 @@ void tw5864_prepare_frame_headers(struct tw5864_input *input)
  */
 static unsigned int tw5864_md_metric_from_mvd(u32 mvd)
 {
+#if 0
 	unsigned int reserved = mvd >> 31;
 	unsigned int mb_type = (mvd >> 28) & 0x7;
-	/* non_zero_members: number of non-zero residuals in each macro block
-	 * after quantization */
+	/*
+	 * non_zero_members: number of non-zero residuals in each macro block
+	 * after quantization
+	 */
 	unsigned int non_zero_members = (mvd >> 20) & 0xff;
+#endif
 	unsigned int mv_y = (mvd >> 10) & 0x3ff;
 	unsigned int mv_x = mvd & 0x3ff;
 
@@ -937,10 +991,11 @@ static unsigned int tw5864_md_metric_from_mvd(u32 mvd)
 	return mv_y + mv_x;
 }
 
-static int tw5864_is_motion_triggered(struct tw5864_input *input)
+static int tw5864_is_motion_triggered(struct tw5864_h264_frame *frame)
 {
+	struct tw5864_input *input = frame->input;
 	struct tw5864_dev *dev = input->root;
-	u32 *mv = (u32 *)dev->h264_mv_buf[0].addr;
+	u32 *mv = (u32 *)frame->mv.addr;
 	int i;
 	int detected = 0;
 	unsigned int md_cells = MD_CELLS_HOR * MD_CELLS_VERT;
@@ -956,6 +1011,7 @@ static int tw5864_is_motion_triggered(struct tw5864_input *input)
 	for (i = 0; i < md_cells; i++) {
 		const u16 thresh = input->md_threshold_grid_values[i];
 		const unsigned int metric = tw5864_md_metric_from_mvd(mv[i]);
+
 		if (metric > thresh)
 			detected = 1;
 
@@ -973,7 +1029,10 @@ static int tw5864_is_motion_triggered(struct tw5864_input *input)
 #endif
 	}
 #ifdef DEBUG
-	dev_dbg(&dev->pci->dev, "input %d, frame md stats: min %u, max %u, avg %u, cells above threshold: %u\n", input->input_number, min, max, sum / md_cells, cnt_above_thresh);
+	dev_dbg(&dev->pci->dev,
+		"input %d, frame md stats: min %u, max %u, avg %u, cells above threshold: %u\n",
+		input->input_number, min, max, sum / md_cells,
+		cnt_above_thresh);
 #endif
 	return detected;
 }
@@ -982,205 +1041,192 @@ static int tw5864_is_motion_triggered(struct tw5864_input *input)
 static void tw5864_md_dump(struct tw5864_input *input)
 {
 	struct tw5864_dev *dev = input->root;
-	u32 *mv = (u32 *)dev->h264_mv_buf[0].addr;
+	u32 *mv = (u32 *)dev->h264_mv_buf[dev->h264_buf_index].addr;
 	int offset = 0;
 	int i;
 
 	if (input->h264_frame_seqno_in_gop) {
 		offset = 0;
 		for (i = 0; i < MD_CELLS_VERT; i++) {
-			dev_dbg(&dev->pci->dev, "MVD [%02d]: %08x %08x %08x %08x   %08x %08x %08x %08x   %08x %08x %08x %08x   %08x %08x %08x %08x\n",
-					i,
-					mv[offset +  0],
-					mv[offset +  1],
-					mv[offset +  2],
-					mv[offset +  3],
-					mv[offset +  4],
-					mv[offset +  5],
-					mv[offset +  6],
-					mv[offset +  7],
-					mv[offset +  8],
-					mv[offset +  9],
-					mv[offset + 10],
-					mv[offset + 11],
-					mv[offset + 12],
-					mv[offset + 13],
-					mv[offset + 14],
-					mv[offset + 15]
-			       );
+			dev_dbg(&dev->pci->dev,
+				"MVD [%02d]: %08x %08x %08x %08x   %08x %08x %08x %08x   %08x %08x %08x %08x   %08x %08x %08x %08x\n",
+				i, mv[offset + 0], mv[offset + 1],
+				mv[offset + 2], mv[offset + 3], mv[offset + 4],
+				mv[offset + 5], mv[offset + 6], mv[offset + 7],
+				mv[offset + 8], mv[offset + 9], mv[offset + 10],
+				mv[offset + 11], mv[offset + 12],
+				mv[offset + 13], mv[offset + 14],
+				mv[offset + 15]
+			    );
 			offset += MD_CELLS_HOR;
 		}
 		offset = 0;
 		for (i = 0; i < MD_CELLS_VERT; i++) {
-			dev_dbg(&dev->pci->dev, "MD heur [%02d]: % 2x % 2x % 2x % 2x   % 2x % 2x % 2x % 2x   % 2x % 2x % 2x % 2x   % 2x % 2x % 2x % 2x\n",
-					i,
-					tw5864_md_metric_from_mvd(mv[offset +  0]),
-					tw5864_md_metric_from_mvd(mv[offset +  1]),
-					tw5864_md_metric_from_mvd(mv[offset +  2]),
-					tw5864_md_metric_from_mvd(mv[offset +  3]),
-					tw5864_md_metric_from_mvd(mv[offset +  4]),
-					tw5864_md_metric_from_mvd(mv[offset +  5]),
-					tw5864_md_metric_from_mvd(mv[offset +  6]),
-					tw5864_md_metric_from_mvd(mv[offset +  7]),
-					tw5864_md_metric_from_mvd(mv[offset +  8]),
-					tw5864_md_metric_from_mvd(mv[offset +  9]),
-					tw5864_md_metric_from_mvd(mv[offset + 10]),
-					tw5864_md_metric_from_mvd(mv[offset + 11]),
-					tw5864_md_metric_from_mvd(mv[offset + 12]),
-					tw5864_md_metric_from_mvd(mv[offset + 13]),
-					tw5864_md_metric_from_mvd(mv[offset + 14]),
-					tw5864_md_metric_from_mvd(mv[offset + 15])
-			       );
+			dev_dbg(&dev->pci->dev,
+				"MD heur [%02d]: % 2x % 2x % 2x % 2x   % 2x % 2x % 2x % 2x   % 2x % 2x % 2x % 2x   % 2x % 2x % 2x % 2x\n",
+				i, tw5864_md_metric_from_mvd(mv[offset + 0]),
+				tw5864_md_metric_from_mvd(mv[offset + 1]),
+				tw5864_md_metric_from_mvd(mv[offset + 2]),
+				tw5864_md_metric_from_mvd(mv[offset + 3]),
+				tw5864_md_metric_from_mvd(mv[offset + 4]),
+				tw5864_md_metric_from_mvd(mv[offset + 5]),
+				tw5864_md_metric_from_mvd(mv[offset + 6]),
+				tw5864_md_metric_from_mvd(mv[offset + 7]),
+				tw5864_md_metric_from_mvd(mv[offset + 8]),
+				tw5864_md_metric_from_mvd(mv[offset + 9]),
+				tw5864_md_metric_from_mvd(mv[offset + 10]),
+				tw5864_md_metric_from_mvd(mv[offset + 11]),
+				tw5864_md_metric_from_mvd(mv[offset + 12]),
+				tw5864_md_metric_from_mvd(mv[offset + 13]),
+				tw5864_md_metric_from_mvd(mv[offset + 14]),
+				tw5864_md_metric_from_mvd(mv[offset + 15])
+			    );
 			offset += MD_CELLS_HOR;
 		}
 	}
 }
 #endif
 
-void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len)
+static void tw5864_handle_frame_task(unsigned long data)
 {
+	struct tw5864_dev *dev = (struct tw5864_dev *)data;
+
+	while (dev->h264_buf_r_index !=
+	       smp_load_acquire(&dev->h264_buf_w_index)) {
+#if 0
+		dev_dbg(&dev->pci->dev,
+			"consuming h264_buf[%d], %p, input %p\n",
+			dev->h264_buf_r_index,
+			&dev->h264_buf[dev->h264_buf_r_index],
+			dev->h264_buf[dev->h264_buf_r_index].input);
+#endif
+		tw5864_handle_frame(&dev->h264_buf[dev->h264_buf_r_index]);
+		/*
+		 * dev->h264_buf_r_index =
+		 * (dev->h264_buf_r_index + 1) % H264_BUF_CNT;
+		 */
+		smp_store_release(&dev->h264_buf_r_index,
+				  (dev->h264_buf_r_index + 1) % H264_BUF_CNT);
+	}
+}
+
+static void tw5864_handle_frame(struct tw5864_h264_frame *frame)
+{
+	struct tw5864_input *input = frame->input;
 	struct tw5864_dev *dev = input->root;
 	struct tw5864_buf *vb;
+	int frame_len = frame->vlc_len;
 	unsigned long dst_size;
 	unsigned long dst_space;
 	int skip_bytes = 3;
 
 #if 0
-	dev_dbg(&dev->pci->dev, "%s: %d %s frame_len = %d\n", __FILE__, __LINE__, __PRETTY_FUNCTION__, frame_len);
-	dev_dbg(&dev->pci->dev, "vlc: %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx   %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx \n",
-			((u8 *)dev->h264_vlc_buf[0].addr)[0x0],
-			((u8 *)dev->h264_vlc_buf[0].addr)[0x1],
-			((u8 *)dev->h264_vlc_buf[0].addr)[0x2],
-			((u8 *)dev->h264_vlc_buf[0].addr)[0x3],
-
-			((u8 *)dev->h264_vlc_buf[0].addr)[0x4],
-			((u8 *)dev->h264_vlc_buf[0].addr)[0x5],
-			((u8 *)dev->h264_vlc_buf[0].addr)[0x6],
-			((u8 *)dev->h264_vlc_buf[0].addr)[0x7],
-
-			((u8 *)dev->h264_vlc_buf[0].addr)[0x8],
-			((u8 *)dev->h264_vlc_buf[0].addr)[0x9],
-			((u8 *)dev->h264_vlc_buf[0].addr)[0xa],
-			((u8 *)dev->h264_vlc_buf[0].addr)[0xb],
-
-			((u8 *)dev->h264_vlc_buf[0].addr)[0xc],
-			((u8 *)dev->h264_vlc_buf[0].addr)[0xd],
-			((u8 *)dev->h264_vlc_buf[0].addr)[0xe],
-			((u8 *)dev->h264_vlc_buf[0].addr)[0xf]);
+	dev_dbg(&dev->pci->dev, "%s: %d %s frame_len = %d\n", __FILE__,
+		__LINE__, __PRETTY_FUNCTION__, frame_len);
+	dev_dbg(&dev->pci->dev,
+		"vlc: %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx   %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx\n",
+		((u8 *)frame->vlc.addr)[0x0], ((u8 *)frame->vlc.addr)[0x1],
+		((u8 *)frame->vlc.addr)[0x2], ((u8 *)frame->vlc.addr)[0x3],
+		((u8 *)frame->vlc.addr)[0x4], ((u8 *)frame->vlc.addr)[0x5],
+		((u8 *)frame->vlc.addr)[0x6], ((u8 *)frame->vlc.addr)[0x7],
+		((u8 *)frame->vlc.addr)[0x8], ((u8 *)frame->vlc.addr)[0x9],
+		((u8 *)frame->vlc.addr)[0xa], ((u8 *)frame->vlc.addr)[0xb],
+		((u8 *)frame->vlc.addr)[0xc], ((u8 *)frame->vlc.addr)[0xd],
+		((u8 *)frame->vlc.addr)[0xe], ((u8 *)frame->vlc.addr)[0xf]);
 #endif
 	spin_lock(&input->slock);
 	vb = input->vb;
 	input->vb = NULL;
 	spin_unlock(&input->slock);
 
-	if (!vb) {  /* Gone because of disabling */
+	if (!vb) {		/* Gone because of disabling */
 		dev_dbg(&dev->pci->dev, "vb is empty, dropping frame\n");
 		return;
 	}
 
+	/* TODO Make preliminary header write to dev->h264_buf, not to vb */
 	u8 *dst = input->buf_cur_ptr;
+
 	dst_size = vb2_plane_size(&vb->vb, 0);
 
 	dst_space = input->buf_cur_space_left;
-	frame_len -= skip_bytes;  /* skip first bytes of frame produced by hardware */
+	frame_len -= skip_bytes;
 	if (WARN_ON_ONCE(dst_space < frame_len)) {
-		dev_err_once(&dev->pci->dev, "Left space in vb2 buffer %lu is insufficient for frame length %lu, writing truncated frame\n", dst_space, frame_len);
+		dev_err_once(&dev->pci->dev,
+			     "Left space in vb2 buffer %lu is insufficient for frame length %d, writing truncated frame\n",
+			     dst_space, frame_len);
 		frame_len = dst_space;
 	}
 	u8 tail_mask = 0xff, vlc_mask = 0;
+#if 1
 	int i;
+
 	for (i = 0; i < 8 - input->tail_nb_bits; i++)
 		vlc_mask |= 1 << i;
 	tail_mask = (~vlc_mask) & 0xff;
+#else
+	tail_mask = h264_header_tail_bitmask;
+	vlc_mask = (~tail_mask) & 0xff;
+#endif
 
-	u8 vlc_first_byte = ((u8 *)(dev->h264_vlc_buf[0].addr + skip_bytes))[0];
-	dst[0] = (input->tail & tail_mask) | (vlc_first_byte  & vlc_mask );
+	u8 vlc_first_byte = ((u8 *)(frame->vlc.addr + skip_bytes))[0];
+
+	dst[0] = (input->tail & tail_mask) | (vlc_first_byte & vlc_mask);
 	skip_bytes++;
 	frame_len--;
 	dst++;
 	dst_space--;
-	memcpy(dst, dev->h264_vlc_buf[0].addr + skip_bytes, frame_len);
+	memcpy(dst, frame->vlc.addr + skip_bytes, frame_len);
 	dst_space -= frame_len;
 	vb2_set_plane_payload(&vb->vb, 0, dst_size - dst_space);
 #if 0
 	u8 *buf_very_beginning = vb2_plane_vaddr(&vb->vb, 0);
-	dev_dbg(&dev->pci->dev, "merged frame header [0]: %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx   %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx \n",
-			buf_very_beginning[0x0],
-			buf_very_beginning[0x1],
-			buf_very_beginning[0x2],
-			buf_very_beginning[0x3],
 
-			buf_very_beginning[0x4],
-			buf_very_beginning[0x5],
-			buf_very_beginning[0x6],
-			buf_very_beginning[0x7],
-
-			buf_very_beginning[0x8],
-			buf_very_beginning[0x9],
-			buf_very_beginning[0xa],
-			buf_very_beginning[0xb],
-
-			buf_very_beginning[0xc],
-			buf_very_beginning[0xd],
-			buf_very_beginning[0xe],
-			buf_very_beginning[0xf]);
-	dev_dbg(&dev->pci->dev, "merged frame header [1]: %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx   %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx \n",
-			buf_very_beginning[0x10],
-			buf_very_beginning[0x11],
-			buf_very_beginning[0x12],
-			buf_very_beginning[0x13],
-
-			buf_very_beginning[0x14],
-			buf_very_beginning[0x15],
-			buf_very_beginning[0x16],
-			buf_very_beginning[0x17],
-
-			buf_very_beginning[0x18],
-			buf_very_beginning[0x19],
-			buf_very_beginning[0x1a],
-			buf_very_beginning[0x1b],
-
-			buf_very_beginning[0x1c],
-			buf_very_beginning[0x1d],
-			buf_very_beginning[0x1e],
-			buf_very_beginning[0x1f]);
-	dev_dbg(&dev->pci->dev, "merged frame header [2]: %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx   %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx \n",
-			buf_very_beginning[0x20],
-			buf_very_beginning[0x21],
-			buf_very_beginning[0x22],
-			buf_very_beginning[0x23],
-
-			buf_very_beginning[0x24],
-			buf_very_beginning[0x25],
-			buf_very_beginning[0x26],
-			buf_very_beginning[0x27],
-
-			buf_very_beginning[0x28],
-			buf_very_beginning[0x29],
-			buf_very_beginning[0x2a],
-			buf_very_beginning[0x2b],
-
-			buf_very_beginning[0x2c],
-			buf_very_beginning[0x2d],
-			buf_very_beginning[0x2e],
-			buf_very_beginning[0x2f]);
+	dev_dbg(&dev->pci->dev,
+		"merged frame header [0]: %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx   %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx\n",
+		buf_very_beginning[0x0], buf_very_beginning[0x1],
+		buf_very_beginning[0x2], buf_very_beginning[0x3],
+		buf_very_beginning[0x4], buf_very_beginning[0x5],
+		buf_very_beginning[0x6], buf_very_beginning[0x7],
+		buf_very_beginning[0x8], buf_very_beginning[0x9],
+		buf_very_beginning[0xa], buf_very_beginning[0xb],
+		buf_very_beginning[0xc], buf_very_beginning[0xd],
+		buf_very_beginning[0xe], buf_very_beginning[0xf]);
+	dev_dbg(&dev->pci->dev,
+		"merged frame header [1]: %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx   %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx\n",
+		buf_very_beginning[0x10], buf_very_beginning[0x11],
+		buf_very_beginning[0x12], buf_very_beginning[0x13],
+		buf_very_beginning[0x14], buf_very_beginning[0x15],
+		buf_very_beginning[0x16], buf_very_beginning[0x17],
+		buf_very_beginning[0x18], buf_very_beginning[0x19],
+		buf_very_beginning[0x1a], buf_very_beginning[0x1b],
+		buf_very_beginning[0x1c], buf_very_beginning[0x1d],
+		buf_very_beginning[0x1e], buf_very_beginning[0x1f]);
+	dev_dbg(&dev->pci->dev,
+		"merged frame header [2]: %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx   %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx\n",
+		buf_very_beginning[0x20], buf_very_beginning[0x21],
+		buf_very_beginning[0x22], buf_very_beginning[0x23],
+		buf_very_beginning[0x24], buf_very_beginning[0x25],
+		buf_very_beginning[0x26], buf_very_beginning[0x27],
+		buf_very_beginning[0x28], buf_very_beginning[0x29],
+		buf_very_beginning[0x2a], buf_very_beginning[0x2b],
+		buf_very_beginning[0x2c], buf_very_beginning[0x2d],
+		buf_very_beginning[0x2e], buf_very_beginning[0x2f]);
 #endif
 
-
-	struct timeval now;
-	do_gettimeofday(&now);
-	timersub(&now, &input->start_time, &vb->vb.v4l2_buf.timestamp);
+	vb->vb.v4l2_buf.timestamp = frame->timestamp;
 
 	/* Check for motion flags */
-	if (
-            input->h264_frame_seqno_in_gop /* P-frame */ &&
-            tw5864_is_motion_triggered(input)) {
+	if (input->h264_frame_seqno_in_gop /* P-frame */  &&
+	    tw5864_is_motion_triggered(frame)) {
 		struct v4l2_event ev = {
 			.type = V4L2_EVENT_MOTION_DET,
 			.u.motion_det = {
-				.flags = V4L2_EVENT_MD_FL_HAVE_FRAME_SEQ,
-				.frame_sequence = &vb->vb.v4l2_buf.sequence,
-			},
+					 .flags =
+					 V4L2_EVENT_MD_FL_HAVE_FRAME_SEQ,
+					 .frame_sequence =
+					 vb->vb.v4l2_buf.sequence,
+					 },
 		};
 
 		v4l2_event_queue(&input->vdev, &ev);
@@ -1196,24 +1242,27 @@ void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len)
 v4l2_std_id tw5864_get_v4l2_std(enum tw5864_vid_std std)
 {
 	switch (std) {
-		case STD_NTSC: return V4L2_STD_NTSC_M;
-		case STD_PAL: return V4L2_STD_PAL_B;
-		case STD_SECAM: return V4L2_STD_SECAM_B;
-		case STD_INVALID: WARN_ON_ONCE(1); return 0;
+	case STD_NTSC:
+		return V4L2_STD_NTSC_M;
+	case STD_PAL:
+		return V4L2_STD_PAL_B;
+	case STD_SECAM:
+		return V4L2_STD_SECAM_B;
+	case STD_INVALID:
+		WARN_ON_ONCE(1);
+		return 0;
 	}
 	return 0;
 }
 
 enum tw5864_vid_std tw5864_from_v4l2_std(v4l2_std_id v4l2_std)
 {
-	if (v4l2_std & V4L2_STD_NTSC) {
+	if (v4l2_std & V4L2_STD_NTSC)
 		return STD_NTSC;
-	} else if (v4l2_std & V4L2_STD_PAL) {
+	if (v4l2_std & V4L2_STD_PAL)
 		return STD_PAL;
-	} else if (v4l2_std & V4L2_STD_SECAM) {
+	if (v4l2_std & V4L2_STD_SECAM)
 		return STD_SECAM;
-	} else {
-		WARN_ON_ONCE(1);
-		return STD_AUTO;
-	}
+	WARN_ON_ONCE(1);
+	return STD_AUTO;
 }
