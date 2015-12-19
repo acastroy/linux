@@ -1,4 +1,4 @@
-tw5864-objs := tw5864-core.o tw5864-video.o tw5864-config.o tw5864-h264.o tw5864-h264-v2.o
+tw5864-objs := tw5864-core.o tw5864-video.o tw5864-config.o tw5864-h264.o
 
 ccflags-y += -std=gnu99 -Wno-declaration-after-statement
 
