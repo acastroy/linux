@@ -897,12 +897,12 @@ void tw5864_prepare_frame_headers(struct tw5864_input *input)
 	 * If this is first frame, put SPS and PPS
 	 */
 	if (input->frame_seqno == 0)
-		tw5864_h264_put_stream_header(input->h264, &dst, &dst_space, QP_VALUE, input->width, input->height);
+		tw5864_h264_put_stream_header(&dst, &dst_space, QP_VALUE, input->width, input->height);
 
 	/* Put slice header */
 	sl_hdr = dst;
 	space_before_sl_hdr = dst_space;
-	tw5864_h264_put_slice_header(input->h264, &dst, &dst_space, input->h264_idr_pic_id, input->h264_frame_seqno_in_gop, &input->tail_nb_bits, &input->tail);
+	tw5864_h264_put_slice_header(&dst, &dst_space, input->h264_idr_pic_id, input->h264_frame_seqno_in_gop, &input->tail_nb_bits, &input->tail);
 	dev_dbg(&dev->pci->dev, "slice_header for gop seqno %d: length: %d, tail: %d bits\n",
 			input->h264_frame_seqno_in_gop, space_before_sl_hdr - dst_space,
 			input->tail_nb_bits);
