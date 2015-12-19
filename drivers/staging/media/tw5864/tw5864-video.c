@@ -1048,7 +1048,7 @@ void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len)
 	int skip_bytes = 3;
 
 	dev_dbg(&dev->pci->dev, "%s: %d %s frame_len = %d\n", __FILE__, __LINE__, __PRETTY_FUNCTION__, frame_len);
-#if 1
+#if 0
 	dev_dbg(&dev->pci->dev, "vlc: %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx   %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx \n",
 			((u8 *)dev->h264_vlc_buf[0].addr)[0x0],
 			((u8 *)dev->h264_vlc_buf[0].addr)[0x1],
@@ -1095,10 +1095,6 @@ void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len)
 		vlc_mask |= 1 << i;
 	tail_mask = (~vlc_mask) & 0xff;
 
-#if 0
-	tail_mask = vlc_mask = 0xff;
-#endif
-	dev_dbg(&dev->pci->dev, "tail_mask: %02x, vlc_maskL %02x\n", tail_mask, vlc_mask);
 	u8 vlc_first_byte = ((u8 *)(dev->h264_vlc_buf[0].addr + skip_bytes))[0];
 	dst[0] = (input->tail & tail_mask) | (vlc_first_byte  & vlc_mask );
 	skip_bytes++;
@@ -1108,7 +1104,7 @@ void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len)
 	memcpy(dst, dev->h264_vlc_buf[0].addr + skip_bytes, frame_len);
 	dst_space -= frame_len;
 	vb2_set_plane_payload(&vb->vb, 0, dst_size - dst_space);
-#if 1
+#if 0
 	u8 *buf_very_beginning = vb2_plane_vaddr(&vb->vb, 0);
 	dev_dbg(&dev->pci->dev, "merged frame header [0]: %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx   %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx \n",
 			buf_very_beginning[0x0],
