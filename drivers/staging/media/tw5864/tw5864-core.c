@@ -203,12 +203,9 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 			dev_err(&dev->pci->dev, "CRC of encoded frame doesn't match!\n");
 #endif
 
-		if (!input->discard_frames) {
-			tw5864_handle_frame(input, vlc_len);
-			input->frame_seqno++;
-		} else {
-			input->discard_frames--;
-		}
+		tw5864_handle_frame(input, vlc_len);
+		input->frame_seqno++;
+
 		dma_sync_single_for_device(&dev->pci->dev, dev->h264_vlc_buf[0].dma_addr, H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
 		dma_sync_single_for_device(&dev->pci->dev, dev->h264_mv_buf[0].dma_addr, H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
 

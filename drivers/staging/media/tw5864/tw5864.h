@@ -167,7 +167,6 @@ struct tw5864_input {
 	unsigned int h264_idr_pic_id;
 	unsigned int h264_frame_seqno_in_gop;
 	int enabled;
-	int discard_frames;
 	enum tw5864_vid_std     std;
 	v4l2_std_id             v4l2_std;
 	int tail_nb_bits;

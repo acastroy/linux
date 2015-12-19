@@ -93,7 +93,6 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 	input->std = std;
 	input->v4l2_std = tw5864_get_v4l2_std(std);
 
-	input->discard_frames = 0;//GOP_SIZE;
 	input->frame_seqno = 0;
 	input->h264_idr_pic_id = 0;
 	input->h264_frame_seqno_in_gop = 0;
