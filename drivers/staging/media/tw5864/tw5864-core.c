@@ -204,9 +204,10 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 
 			/* dev->h264_buf_w_index = cur_frame_index; */
 			smp_store_release(&dev->h264_buf_w_index, next_frame_index);
-
+#if 0
 			dev_dbg(&dev->pci->dev, "submitted h264_buf[%d], %p, input %p\n",
 					cur_frame_index, cur_frame, cur_frame->input);
+#endif
 			tasklet_schedule(&dev->tasklet);
 
 			cur_frame = next_frame;

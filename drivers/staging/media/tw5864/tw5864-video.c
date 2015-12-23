@@ -1048,10 +1048,12 @@ static void tw5864_handle_frame_task(unsigned long data)
 	struct tw5864_dev *dev = (struct tw5864_dev *) data;
 
 	while (dev->h264_buf_r_index != smp_load_acquire(&dev->h264_buf_w_index)) {
+#if 0
 		dev_dbg(&dev->pci->dev, "consuming h264_buf[%d], %p, input %p\n",
 				dev->h264_buf_r_index,
 				&dev->h264_buf[dev->h264_buf_r_index],
 				dev->h264_buf[dev->h264_buf_r_index].input);
+#endif
 		tw5864_handle_frame(&dev->h264_buf[dev->h264_buf_r_index]);
 		/* dev->h264_buf_r_index = (dev->h264_buf_r_index + 1) % H264_BUF_CNT; */
 		smp_store_release(&dev->h264_buf_r_index, (dev->h264_buf_r_index + 1) % H264_BUF_CNT);
