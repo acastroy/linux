@@ -201,6 +201,7 @@ struct tw5864_dev {
 #define H264_BUF_CNT 2
 	struct tw5864_recv_buf       h264_vlc_buf[H264_BUF_CNT];
 	struct tw5864_recv_buf       h264_mv_buf[H264_BUF_CNT];
+	int h264_buf_index;
 
 	u32                     timers_with_vlc_disabled;
 	int encoder_busy;
