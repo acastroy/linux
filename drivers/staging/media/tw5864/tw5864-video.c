@@ -35,6 +35,9 @@
 #include "tw5864.h"
 #include "tw5864-reg.h"
 
+static void tw5864_handle_frame_task(unsigned long data);
+static void tw5864_handle_frame(struct tw5864_h264_frame *frame);
+
 /* ------------------------------------------------------------- */
 /* vb2 queue operations                                          */
 
@@ -89,7 +92,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number) {
 		return -1;
 	}
 
-	do_gettimeofday(&input->start_time);
+	input->start_ktime = ktime_get();
 	input->std = std;
 	input->v4l2_std = tw5864_get_v4l2_std(std);
 
@@ -721,14 +724,15 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 	}
 
 	for (i = 0; i < H264_BUF_CNT; i++) {
-		dev->h264_vlc_buf[i].addr = dma_alloc_coherent(&dev->pci->dev, H264_VLC_BUF_SIZE, &dev->h264_vlc_buf[i].dma_addr, GFP_KERNEL|GFP_DMA32);
-		dev->h264_mv_buf[i].addr = dma_alloc_coherent(&dev->pci->dev, H264_MV_BUF_SIZE, &dev->h264_mv_buf[i].dma_addr, GFP_KERNEL|GFP_DMA32);
-		if (!dev->h264_vlc_buf[i].addr || !dev->h264_mv_buf[i].addr) {
-			dev_err(&dev->pci->dev, "dma alloc & map fail: %p %p\n", dev->h264_vlc_buf[i].addr, dev->h264_mv_buf[i].addr);
+		dev->h264_buf[i].vlc.addr = dma_alloc_coherent(&dev->pci->dev, H264_VLC_BUF_SIZE, &dev->h264_buf[i].vlc.dma_addr, GFP_KERNEL|GFP_DMA32);
+		dev->h264_buf[i].mv.addr = dma_alloc_coherent(&dev->pci->dev, H264_MV_BUF_SIZE, &dev->h264_buf[i].mv.dma_addr, GFP_KERNEL|GFP_DMA32);
+		if (!dev->h264_buf[i].vlc.addr || !dev->h264_buf[i].mv.addr) {
+			dev_err(&dev->pci->dev, "dma alloc & map fail\n");
 			goto dma_alloc_fail;
 		}
 	}
 
+	tasklet_init(&dev->tasklet, tw5864_handle_frame_task, (unsigned long) dev);
 	return 0;
 
 dma_alloc_fail:
@@ -848,12 +852,14 @@ void tw5864_video_fini(struct tw5864_dev *dev)
 {
 	int i;
 
+	tasklet_kill(&dev->tasklet);
+
 	for (i = 0; i < TW5864_INPUTS; i++)
 		tw5864_video_input_fini(&dev->inputs[i]);
 
 	for (i = 0; i < H264_BUF_CNT; i++) {
-		dma_free_coherent(&dev->pci->dev, H264_VLC_BUF_SIZE, dev->h264_vlc_buf[i].addr, dev->h264_vlc_buf[i].dma_addr);
-		dma_free_coherent(&dev->pci->dev, H264_MV_BUF_SIZE, dev->h264_mv_buf[i].addr, dev->h264_mv_buf[i].dma_addr);
+		dma_free_coherent(&dev->pci->dev, H264_VLC_BUF_SIZE, dev->h264_buf[i].vlc.addr, dev->h264_buf[i].vlc.dma_addr);
+		dma_free_coherent(&dev->pci->dev, H264_MV_BUF_SIZE, dev->h264_buf[i].mv.addr, dev->h264_buf[i].mv.dma_addr);
 	}
 }
 
@@ -936,10 +942,11 @@ static unsigned int tw5864_md_metric_from_mvd(u32 mvd)
 	return mv_y + mv_x;
 }
 
-static int tw5864_is_motion_triggered(struct tw5864_input *input)
+static int tw5864_is_motion_triggered(struct tw5864_h264_frame *frame)
 {
+	struct tw5864_input *input = frame->input;
 	struct tw5864_dev *dev = input->root;
-	u32 *mv = (u32 *)dev->h264_mv_buf[dev->h264_buf_index].addr;
+	u32 *mv = (u32 *)frame->mv.addr;
 	int i;
 	int detected = 0;
 	unsigned int md_cells = MD_CELLS_HOR * MD_CELLS_VERT;
@@ -1036,10 +1043,27 @@ static void tw5864_md_dump(struct tw5864_input *input)
 }
 #endif
 
-void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len)
+static void tw5864_handle_frame_task(unsigned long data)
 {
+	struct tw5864_dev *dev = (struct tw5864_dev *) data;
+
+	while (dev->h264_buf_r_index != smp_load_acquire(&dev->h264_buf_w_index)) {
+		dev_dbg(&dev->pci->dev, "consuming h264_buf[%d], %p, input %p\n",
+				dev->h264_buf_r_index,
+				&dev->h264_buf[dev->h264_buf_r_index],
+				dev->h264_buf[dev->h264_buf_r_index].input);
+		tw5864_handle_frame(&dev->h264_buf[dev->h264_buf_r_index]);
+		/* dev->h264_buf_r_index = (dev->h264_buf_r_index + 1) % H264_BUF_CNT; */
+		smp_store_release(&dev->h264_buf_r_index, (dev->h264_buf_r_index + 1) % H264_BUF_CNT);
+	}
+}
+
+static void tw5864_handle_frame(struct tw5864_h264_frame *frame)
+{
+	struct tw5864_input *input = frame->input;
 	struct tw5864_dev *dev = input->root;
 	struct tw5864_buf *vb;
+	int frame_len = frame->vlc_len;
 	unsigned long dst_size;
 	unsigned long dst_space;
 	int skip_bytes = 3;
@@ -1047,25 +1071,25 @@ void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len)
 #if 0
 	dev_dbg(&dev->pci->dev, "%s: %d %s frame_len = %d\n", __FILE__, __LINE__, __PRETTY_FUNCTION__, frame_len);
 	dev_dbg(&dev->pci->dev, "vlc: %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx   %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx \n",
-			((u8 *)dev->h264_vlc_buf[dev->h264_buf_index].addr)[0x0],
-			((u8 *)dev->h264_vlc_buf[dev->h264_buf_index].addr)[0x1],
-			((u8 *)dev->h264_vlc_buf[dev->h264_buf_index].addr)[0x2],
-			((u8 *)dev->h264_vlc_buf[dev->h264_buf_index].addr)[0x3],
+			((u8 *)frame->vlc.addr)[0x0],
+			((u8 *)frame->vlc.addr)[0x1],
+			((u8 *)frame->vlc.addr)[0x2],
+			((u8 *)frame->vlc.addr)[0x3],
 
-			((u8 *)dev->h264_vlc_buf[dev->h264_buf_index].addr)[0x4],
-			((u8 *)dev->h264_vlc_buf[dev->h264_buf_index].addr)[0x5],
-			((u8 *)dev->h264_vlc_buf[dev->h264_buf_index].addr)[0x6],
-			((u8 *)dev->h264_vlc_buf[dev->h264_buf_index].addr)[0x7],
+			((u8 *)frame->vlc.addr)[0x4],
+			((u8 *)frame->vlc.addr)[0x5],
+			((u8 *)frame->vlc.addr)[0x6],
+			((u8 *)frame->vlc.addr)[0x7],
 
-			((u8 *)dev->h264_vlc_buf[dev->h264_buf_index].addr)[0x8],
-			((u8 *)dev->h264_vlc_buf[dev->h264_buf_index].addr)[0x9],
-			((u8 *)dev->h264_vlc_buf[dev->h264_buf_index].addr)[0xa],
-			((u8 *)dev->h264_vlc_buf[dev->h264_buf_index].addr)[0xb],
+			((u8 *)frame->vlc.addr)[0x8],
+			((u8 *)frame->vlc.addr)[0x9],
+			((u8 *)frame->vlc.addr)[0xa],
+			((u8 *)frame->vlc.addr)[0xb],
 
-			((u8 *)dev->h264_vlc_buf[dev->h264_buf_index].addr)[0xc],
-			((u8 *)dev->h264_vlc_buf[dev->h264_buf_index].addr)[0xd],
-			((u8 *)dev->h264_vlc_buf[dev->h264_buf_index].addr)[0xe],
-			((u8 *)dev->h264_vlc_buf[dev->h264_buf_index].addr)[0xf]);
+			((u8 *)frame->vlc.addr)[0xc],
+			((u8 *)frame->vlc.addr)[0xd],
+			((u8 *)frame->vlc.addr)[0xe],
+			((u8 *)frame->vlc.addr)[0xf]);
 #endif
 	spin_lock(&input->slock);
 	vb = input->vb;
@@ -1077,6 +1101,7 @@ void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len)
 		return;
 	}
 
+	/* TODO Make preliminary header write to dev->h264_buf, not to vb */
 	u8 *dst = input->buf_cur_ptr;
 	dst_size = vb2_plane_size(&vb->vb, 0);
 
@@ -1087,18 +1112,23 @@ void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len)
 		frame_len = dst_space;
 	}
 	u8 tail_mask = 0xff, vlc_mask = 0;
+#if 1
 	int i;
 	for (i = 0; i < 8 - input->tail_nb_bits; i++)
 		vlc_mask |= 1 << i;
 	tail_mask = (~vlc_mask) & 0xff;
+#else
+	tail_mask = h264_header_tail_bitmask;
+	vlc_mask = (~tail_mask) & 0xff;
+#endif
 
-	u8 vlc_first_byte = ((u8 *)(dev->h264_vlc_buf[dev->h264_buf_index].addr + skip_bytes))[0];
+	u8 vlc_first_byte = ((u8 *)(frame->vlc.addr + skip_bytes))[0];
 	dst[0] = (input->tail & tail_mask) | (vlc_first_byte  & vlc_mask );
 	skip_bytes++;
 	frame_len--;
 	dst++;
 	dst_space--;
-	memcpy(dst, dev->h264_vlc_buf[dev->h264_buf_index].addr + skip_bytes, frame_len);
+	memcpy(dst, frame->vlc.addr + skip_bytes, frame_len);
 	dst_space -= frame_len;
 	vb2_set_plane_payload(&vb->vb, 0, dst_size - dst_space);
 #if 0
@@ -1165,15 +1195,12 @@ void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len)
 			buf_very_beginning[0x2f]);
 #endif
 
-
-	struct timeval now;
-	do_gettimeofday(&now);
-	timersub(&now, &input->start_time, &vb->vb.v4l2_buf.timestamp);
+	vb->vb.v4l2_buf.timestamp = frame->timestamp;
 
 	/* Check for motion flags */
 	if (
             input->h264_frame_seqno_in_gop /* P-frame */ &&
-            tw5864_is_motion_triggered(input)) {
+            tw5864_is_motion_triggered(frame)) {
 		struct v4l2_event ev = {
 			.type = V4L2_EVENT_MOTION_DET,
 			.u.motion_det = {

@@ -109,17 +109,6 @@ u8 tw_indir_readb(struct tw5864_dev *dev, u16 addr) {
 	return data & 0xff;
 }
 
-void timersub(const struct timeval* tvp, const struct timeval* uvp, struct timeval* vvp)
-{
-	vvp->tv_sec = tvp->tv_sec - uvp->tv_sec;
-	vvp->tv_usec = tvp->tv_usec - uvp->tv_usec;
-	if (vvp->tv_usec < 0)
-	{
-		--vvp->tv_sec;
-		vvp->tv_usec += 1000000;
-	}
-}
-
 static void tw5864_interrupts_enable(struct tw5864_dev *dev)
 {
 	mutex_lock(&dev->lock);
@@ -187,6 +176,11 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 	tw_writel(TW5864_INTR_CLR_H, 0xffff);
 
 	if (status & TW5864_INTR_VLC_DONE) {
+		int cur_frame_index = dev->h264_buf_w_index;
+		int next_frame_index = (dev->h264_buf_w_index + 1) % H264_BUF_CNT;
+		struct tw5864_h264_frame *cur_frame = &dev->h264_buf[cur_frame_index];
+		struct tw5864_h264_frame *next_frame = &dev->h264_buf[next_frame_index];
+
 		vlc_len = tw_readl(TW5864_VLC_LENGTH) << 2;
 		vlc_crc = tw_readl(TW5864_VLC_CRC_REG);
 		channel = tw_readl(TW5864_DSP) & TW5864_DSP_ENC_CHN;
@@ -195,26 +189,38 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 
 		input = &dev->inputs[channel];
 
-		dma_sync_single_for_cpu(&dev->pci->dev, dev->h264_vlc_buf[dev->h264_buf_index].dma_addr, H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
-		dma_sync_single_for_cpu(&dev->pci->dev, dev->h264_mv_buf[dev->h264_buf_index].dma_addr, H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
+		dma_sync_single_for_cpu(&dev->pci->dev, cur_frame->vlc.dma_addr, H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
+		dma_sync_single_for_cpu(&dev->pci->dev, cur_frame->mv.dma_addr, H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
 
 #ifdef DEBUG
-		if (vlc_crc != crc_check_sum((u32*)dev->h264_vlc_buf[dev->h264_buf_index].addr, vlc_len))
+		if (vlc_crc != crc_check_sum((u32*)cur_frame->vlc.addr, vlc_len))
 			dev_err(&dev->pci->dev, "CRC of encoded frame doesn't match!\n");
 #endif
 
-		tw5864_handle_frame(input, vlc_len);
+		if (next_frame_index != ACCESS_ONCE(dev->h264_buf_r_index)) {
+			cur_frame->vlc_len = vlc_len;
+			cur_frame->input = input;
+			cur_frame->timestamp = ktime_to_timeval(ktime_sub(ktime_get(), input->start_ktime));
+
+			/* dev->h264_buf_w_index = cur_frame_index; */
+			smp_store_release(&dev->h264_buf_w_index, next_frame_index);
+
+			dev_dbg(&dev->pci->dev, "submitted h264_buf[%d], %p, input %p\n",
+					cur_frame_index, cur_frame, cur_frame->input);
+			tasklet_schedule(&dev->tasklet);
+
+			cur_frame = next_frame;
+		} else {
+			dev_err(&dev->pci->dev, "Skipped frame on input %d because all buffers busy\n", channel);
+		}
+
 		input->frame_seqno++;
 
-		/* Switch to next buffer set in circular fashion */
-		dev->h264_buf_index++;
-		dev->h264_buf_index %= H264_BUF_CNT;
+		dma_sync_single_for_device(&dev->pci->dev, cur_frame->vlc.dma_addr, H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
+		dma_sync_single_for_device(&dev->pci->dev, cur_frame->mv.dma_addr, H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
 
-		dma_sync_single_for_device(&dev->pci->dev, dev->h264_vlc_buf[dev->h264_buf_index].dma_addr, H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
-		dma_sync_single_for_device(&dev->pci->dev, dev->h264_mv_buf[dev->h264_buf_index].dma_addr, H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
-
-		tw_writel(TW5864_VLC_STREAM_BASE_ADDR, dev->h264_vlc_buf[dev->h264_buf_index].dma_addr);
-		tw_writel(TW5864_MV_STREAM_BASE_ADDR, dev->h264_mv_buf[dev->h264_buf_index].dma_addr);
+		tw_writel(TW5864_VLC_STREAM_BASE_ADDR, cur_frame->vlc.dma_addr);
+		tw_writel(TW5864_MV_STREAM_BASE_ADDR, cur_frame->mv.dma_addr);
 
 		tw_writel(TW5864_VLC_DSP_INTR,0x00000001);
 		tw_writel(TW5864_PCI_INTR_STATUS, TW5864_VLC_DONE_INTR);
@@ -468,9 +474,10 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	tw_indir_writeb(dev, 0xefd, 0xf0);
 #endif
 
-	dev->h264_buf_index = 0;
-	tw_writel(TW5864_VLC_STREAM_BASE_ADDR, dev->h264_vlc_buf[dev->h264_buf_index].dma_addr);
-	tw_writel(TW5864_MV_STREAM_BASE_ADDR, dev->h264_mv_buf[dev->h264_buf_index].dma_addr);
+	dev->h264_buf_r_index = 0;
+	dev->h264_buf_w_index = 0;
+	tw_writel(TW5864_VLC_STREAM_BASE_ADDR, dev->h264_buf[dev->h264_buf_w_index].vlc.dma_addr);
+	tw_writel(TW5864_MV_STREAM_BASE_ADDR, dev->h264_buf[dev->h264_buf_w_index].mv.dma_addr);
 
 	for (int i = 0; i < TW5864_INPUTS; i++) {
 		tw_indir_writeb(dev, 0x00e + i * 0x010, 0x07);

@@ -32,6 +32,7 @@
 #include <linux/mutex.h>
 #include <linux/io.h>
 #include <linux/debugfs.h>
+#include <linux/interrupt.h>
 
 #include <media/v4l2-common.h>
 #include <media/v4l2-ioctl.h>
@@ -184,12 +185,28 @@ struct tw5864_input {
 	u32 reg_dsp_i4x4_weight;
 	u32                     buf_id;
 
-	struct timeval start_time;
+	ktime_t start_ktime;
 
 	struct tw5864_buf *vb;
 
     struct v4l2_ctrl *md_threshold_grid_ctrl;
     u16 md_threshold_grid_values[12*16];
+};
+
+struct tw5864_h264_frame {
+	struct tw5864_recv_buf vlc;
+	struct tw5864_recv_buf mv;
+
+	int vlc_len;
+	struct tw5864_input *input;
+
+	u8 h264_header[64];
+	size_t h264_header_len;
+	u8 h264_header_tail;
+	u8 h264_header_tail_bitmask;
+
+	struct timeval timestamp;
+	/* TODO use scatter-gather API somehow? */
 };
 
 /* global device status */
@@ -198,10 +215,12 @@ struct tw5864_dev {
 	spinlock_t		slock;
 	struct v4l2_device	v4l2_dev;
 	struct tw5864_input     inputs[TW5864_INPUTS];
-#define H264_BUF_CNT 2
-	struct tw5864_recv_buf       h264_vlc_buf[H264_BUF_CNT];
-	struct tw5864_recv_buf       h264_mv_buf[H264_BUF_CNT];
-	int h264_buf_index;
+#define H264_BUF_CNT 16
+	struct tw5864_h264_frame h264_buf[H264_BUF_CNT];
+	int h264_buf_r_index;
+	int h264_buf_w_index;
+
+	struct tasklet_struct tasklet;
 
 	u32                     timers_with_vlc_disabled;
 	int encoder_busy;
@@ -250,12 +269,10 @@ void pci_init_ad(struct tw5864_dev *dev);
 int tw5864_video_init(struct tw5864_dev *dev, int *video_nr);
 void tw5864_video_fini(struct tw5864_dev *dev);
 void tw5864_prepare_frame_headers(struct tw5864_input *input);
-void tw5864_handle_frame(struct tw5864_input *input, unsigned long frame_len);
 void tw5864_h264_put_stream_header(u8 **buf, size_t *space_left, int qp, int width, int height);
 void tw5864_h264_put_slice_header(u8 **buf, size_t *space_left, unsigned int idr_pic_id, unsigned int frame_seqno_in_gop, int *tail_nb_bits, u8 *tail);
 void tw5864_request_encoded_frame(struct tw5864_input *input);
 void tw5864_push_to_make_it_roll(struct tw5864_input *input);
-void timersub(const struct timeval* tvp, const struct timeval* uvp, struct timeval* vvp);
 
 static const unsigned int   Lambda_lookup_table[52] =
 {
