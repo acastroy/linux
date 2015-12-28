@@ -257,24 +257,24 @@
 #define TW5864_SENIF_VER_MIR       0x0D0C	/* [15:0] Vertical Mirror for channel n */
 
 /*
-FRAME_WIDTH_BUSn_A 0x15F: 4 CIF
-                   0x2CF: 1 D1 + 3 CIF
-                   0x2CF: 2 D1
-FRAME_WIDTH_BUSn_B 0x15F: 4 CIF
-                   0x2CF: 1 D1 + 3 CIF
-                   0x2CF: 2 D1
-FRAME_HEIGHT_BUSn_A 0x11F: 4CIF (PAL)
-                    0x23F: 1D1 + 3CIF (PAL)
-                    0x23F: 2 D1 (PAL)
-                    0x0EF: 4CIF (NTSC)
-                    0x1DF: 1D1 + 3CIF (NTSC)
-                    0x1DF: 2 D1 (NTSC)
-FRAME_HEIGHT_BUSn_B 0x11F: 4CIF (PAL)
-                    0x23F: 1D1 + 3CIF (PAL)
-                    0x23F: 2 D1 (PAL)
-                    0x0EF: 4CIF (NTSC)
-                    0x1DF: 1D1 + 3CIF (NTSC)
-                    0x1DF: 2 D1 (NTSC)
+ * FRAME_WIDTH_BUSn_A 0x15F: 4 CIF
+ *                    0x2CF: 1 D1 + 3 CIF
+ *                    0x2CF: 2 D1
+ * FRAME_WIDTH_BUSn_B 0x15F: 4 CIF
+ *                    0x2CF: 1 D1 + 3 CIF
+ *                    0x2CF: 2 D1
+ * FRAME_HEIGHT_BUSn_A 0x11F: 4CIF (PAL)
+ *                     0x23F: 1D1 + 3CIF (PAL)
+ *                     0x23F: 2 D1 (PAL)
+ *                     0x0EF: 4CIF (NTSC)
+ *                     0x1DF: 1D1 + 3CIF (NTSC)
+ *                     0x1DF: 2 D1 (NTSC)
+ * FRAME_HEIGHT_BUSn_B 0x11F: 4CIF (PAL)
+ *                     0x23F: 1D1 + 3CIF (PAL)
+ *                     0x23F: 2 D1 (PAL)
+ *                     0x0EF: 4CIF (NTSC)
+ *                     0x1DF: 1D1 + 3CIF (NTSC)
+ *                     0x1DF: 2 D1 (NTSC)
 */
 #define TW5864_FRAME_WIDTH_BUS_A(bus)  (0x0D10 + 0x0010 * bus)
 #define TW5864_FRAME_WIDTH_BUS_B(bus)  (0x0D14 + 0x0010 * bus)
