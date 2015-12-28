@@ -5,7 +5,7 @@ static uint8_t marker[] = { 0x00, 0x00, 0x00, 0x01 };
 
 static int tw5864_h264_gen_sps_rbsp(u8 *buf, size_t size, int width, int height)
 {
-	bs_t bs, *s;
+	struct bs bs, *s;
 	const int i_mb_width = width / 16;
 	const int i_mb_height = height / 16;
 
@@ -36,7 +36,7 @@ static int tw5864_h264_gen_sps_rbsp(u8 *buf, size_t size, int width, int height)
 
 static int tw5864_h264_gen_pps_rbsp(u8 *buf, size_t size, int qp)
 {
-	bs_t bs, *s;
+	struct bs bs, *s;
 
 	s = &bs;
 	bs_init(s, buf, size);
@@ -64,7 +64,7 @@ static int tw5864_h264_gen_slice_head(u8 *buf, size_t size,
 				      unsigned int frame_seqno_in_gop,
 				      int *tail_nb_bits, u8 *tail)
 {
-	bs_t bs, *s;
+	struct bs bs, *s;
 	int is_i_frame = frame_seqno_in_gop == 0;
 	int i_poc_lsb = (frame_seqno_in_gop << 1);	/* why multiplied by two? TODO try without multiplication */
 
