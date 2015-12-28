@@ -80,7 +80,8 @@ void tw_indir_writeb(struct tw5864_dev *dev, u16 addr, u8 data)
 	int timeout = 30000;
 	addr <<= 2;
 
-	while ((tw_readl(TW5864_IND_CTL) >> 31) && (timeout--)) ;
+	while ((tw_readl(TW5864_IND_CTL) >> 31) && (timeout--))
+		;
 	if (!timeout)
 		dev_err(&dev->pci->dev,
 			"tw_indir_writel() timeout before writing\n");
@@ -95,7 +96,8 @@ u8 tw_indir_readb(struct tw5864_dev *dev, u16 addr)
 	u32 data = 0;
 	addr <<= 2;
 
-	while ((tw_readl(TW5864_IND_CTL) >> 31) && (timeout--)) ;
+	while ((tw_readl(TW5864_IND_CTL) >> 31) && (timeout--))
+		;
 	if (!timeout)
 		dev_err(&dev->pci->dev,
 			"tw_indir_writel() timeout before reading\n");
@@ -103,7 +105,8 @@ u8 tw_indir_readb(struct tw5864_dev *dev, u16 addr)
 	tw_writel(TW5864_IND_CTL, addr | TW5864_ENABLE);
 
 	timeout = 30000;
-	while ((tw_readl(TW5864_IND_CTL) >> 31) && (timeout--)) ;
+	while ((tw_readl(TW5864_IND_CTL) >> 31) && (timeout--))
+		;
 	if (!timeout)
 		dev_err(&dev->pci->dev,
 			"tw_indir_writel() timeout at reading\n");
@@ -138,7 +141,7 @@ static void tw5864_interrupts_disable(struct tw5864_dev *dev)
 		(((u32)(x) & (u32)0x000000ffUL) << 24) | \
 		(((u32)(x) & (u32)0x0000ff00UL) <<  8) | \
 		(((u32)(x) & (u32)0x00ff0000UL) >>  8) | \
-		(((u32)(x) & (u32)0xff000000UL) >> 24) ))
+		(((u32)(x) & (u32)0xff000000UL) >> 24)))
 
 #define PLATFORM_ENDIAN_SAME 1
 static u32 crc_check_sum(u32 *data, int len)
@@ -355,7 +358,7 @@ static size_t regs_dump(struct tw5864_dev *dev, char *buf, size_t size)
 	return count;
 }
 
-#define DEBUGFS_BUF_SIZE	1024 * 1024
+#define DEBUGFS_BUF_SIZE	(1024 * 1024)
 
 struct debugfs_buffer {
 	size_t count;
