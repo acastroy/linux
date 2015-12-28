@@ -50,8 +50,7 @@
 
 #include "tables_upload.c"
 
-MODULE_DESCRIPTION
-    ("v4l2 driver module for tw5864 based video capture & encoding cards");
+MODULE_DESCRIPTION("v4l2 driver module for tw5864 based video capture & encoding cards");
 MODULE_AUTHOR("Andrey Utkin <andrey.utkin@corp.bluecherry.net>");
 MODULE_LICENSE("GPL");
 
@@ -78,6 +77,7 @@ static const struct pci_device_id tw5864_pci_tbl[] = {
 void tw_indir_writeb(struct tw5864_dev *dev, u16 addr, u8 data)
 {
 	int timeout = 30000;
+
 	addr <<= 2;
 
 	while ((tw_readl(TW5864_IND_CTL) >> 31) && (timeout--))
@@ -94,6 +94,7 @@ u8 tw_indir_readb(struct tw5864_dev *dev, u16 addr)
 {
 	int timeout = 30000;
 	u32 data = 0;
+
 	addr <<= 2;
 
 	while ((tw_readl(TW5864_IND_CTL) >> 31) && (timeout--))
@@ -449,7 +450,7 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	}
 	dev->mmio = ioremap_nocache(pci_resource_start(pci_dev, 0),
 				    pci_resource_len(pci_dev, 0));
-	if (NULL == dev->mmio) {
+	if (!dev->mmio) {
 		err = -EIO;
 		pr_err("%s: can't ioremap() MMIO memory\n", dev->name);
 		goto ioremap_fail;

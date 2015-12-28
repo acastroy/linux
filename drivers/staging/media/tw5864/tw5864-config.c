@@ -150,8 +150,8 @@ static unsigned char audio_tbl_ntsc_tw2865_16KHz[] __used = {
 	0x07, 0x6B, 0x13, 0xEF, 0x0A, 0x01
 };
 
-int pci_i2c_read(struct tw5864_dev *dev, u8 devid, u8 devfn, u8 *buf);
-int pci_i2c_multi_read(struct tw5864_dev *dev, u8 devid, u8 devfn, u8 *buf,
+static int pci_i2c_read(struct tw5864_dev *dev, u8 devid, u8 devfn, u8 *buf);
+static int pci_i2c_multi_read(struct tw5864_dev *dev, u8 devid, u8 devfn, u8 *buf,
 		       u32 count)
 {
 	int i = 0;
@@ -209,7 +209,7 @@ int pci_i2c_multi_write(struct tw5864_dev *dev, u8 devid, u8 devfn, u8 *buf,
 	return 0;
 }
 
-int pci_i2c_read(struct tw5864_dev *dev, u8 devid, u8 devfn, u8 *buf)
+static int pci_i2c_read(struct tw5864_dev *dev, u8 devid, u8 devfn, u8 *buf)
 {
 	u32 val = 0;
 	int timeout = TW5864_IIC_TIMEOUT;
@@ -341,10 +341,9 @@ static int tw28xx_clkp_delay(struct tw5864_dev *dev, u8 devid, u32 base_ch,
 			tw_writel(TW5864_H264EN_BUS0_MAP, base_ch);
 			tw_writel(0x9218, 0x1);	/*clear error flags */
 			mdelay(100);
-			if (tw_readl(0x9218)) {
+			if (tw_readl(0x9218))
 				continue;
-			}
-			printk("auto detect CLKP_DEL = %02x\n", delay);
+			dev_dbg(&dev->pci->dev, "auto detect CLKP_DEL = %02x\n", delay);
 			break;
 		}
 		if (delay >= 0x10) {
