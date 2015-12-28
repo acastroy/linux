@@ -66,7 +66,7 @@ static void tw5864_buf_queue(struct vb2_buffer *vb)
 	struct tw5864_buf *buf = container_of(vb, struct tw5864_buf, vb);
 	unsigned long flags;
 
-	spin_lock_irqsave(&dev->slock, flags);	// TODO FIXME which locking is minimal and sufficient?
+	spin_lock_irqsave(&dev->slock, flags);
 	list_add_tail(&buf->list, &dev->active);
 	spin_unlock_irqrestore(&dev->slock, flags);
 }
@@ -197,29 +197,26 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number)
 	tw_clearl(TW5864_FULL_HALF_MODE_SEL, 1 << input_number);
 #endif
 
-	tw_indir_writeb(dev, 0x200 + 4 * input_number, d1_width / 4);	// analog input width / 4
+	/* analog input width / 4 */
+	tw_indir_writeb(dev, 0x200 + 4 * input_number, d1_width / 4);
 	tw_indir_writeb(dev, 0x201 + 4 * input_number, d1_height / 4);
 
-	tw_indir_writeb(dev, 0x202 + 4 * input_number, input->width / 4);	// output width / 4
-	tw_indir_writeb(dev, 0x203 + 4 * input_number, /* cif_height */ input->height / 4);	/* TODO Should use cif_height, not input's? */
+	/* output width / 4 */
+	tw_indir_writeb(dev, 0x202 + 4 * input_number, input->width / 4);
+	/* TODO Should use cif_height, not input's? */
+	tw_indir_writeb(dev, 0x203 + 4 * input_number, /* cif_height */ input->height / 4);
 
-#if 0
-	tw_indir_writeb(dev, 0x200 + 4 * 4 * input_number, d1_width / 4);	// analog input width / 4
-	tw_indir_writeb(dev, 0x201 + 4 * 4 * input_number, d1_height / 4);
-
-	tw_indir_writeb(dev, 0x202 + 4 * 4 * input_number, input->width / 4);	// output width / 4
-	tw_indir_writeb(dev, 0x203 + 4 * 4 * input_number, /* cif_height */ input->height / 4);	/* TODO Should use cif_height, not input's? */
-#endif
-
+	/* TODO Drop */
 	for (i = 0; i < 4 * TW5864_INPUTS; i++) {
-		tw_indir_writeb(dev, 0x200 + 4 * i, d1_width / 4);	// analog input width / 4
+		tw_indir_writeb(dev, 0x200 + 4 * i, d1_width / 4);
 		tw_indir_writeb(dev, 0x201 + 4 * i, d1_height / 4);
 
-		tw_indir_writeb(dev, 0x202 + 4 * i, input->width / 4);	// output width / 4
-		tw_indir_writeb(dev, 0x203 + 4 * i, /* cif_height */ input->height / 4);	/* TODO Should use cif_height, not input's? */
+		tw_indir_writeb(dev, 0x202 + 4 * i, input->width / 4);
+		tw_indir_writeb(dev, 0x203 + 4 * i, /* cif_height */ input->height / 4);
 	}
+	/* TODO Drop END */
 
-	tw_writel(TW5864_DSP_PIC_MAX_MB, ((input->width / 16) << 8) | (input->height / 16));	/* FIXME 8 pixels lacking from CIF. If we want CIF to work at all. */
+	tw_writel(TW5864_DSP_PIC_MAX_MB, ((input->width / 16) << 8) | (input->height / 16));
 
 	/* TODO FIXME Simplify and immediately check for regressions */
 	tw_writel(TW5864_FRAME_WIDTH_BUS_A(input_number),
@@ -350,11 +347,13 @@ void tw5864_request_encoded_frame(struct tw5864_input *input)
 	tw_writel(TW5864_DSP_INTRA_MODE, 0x00000070);
 
 	if (input->frame_seqno % GOP_SIZE == 0) {
-		tw_writel(TW5864_MOTION_SEARCH_ETC, 0x00000008);	// produce intra frame
+		/* Produce I-frame */
+		tw_writel(TW5864_MOTION_SEARCH_ETC, 0x00000008);
 		input->h264_frame_seqno_in_gop = 0;
 		input->h264_idr_pic_id++;
 		input->h264_idr_pic_id &= TW5864_DSP_REF_FRM;
 	} else {
+		/* Produce P-frame */
 		tw_writel(TW5864_MOTION_SEARCH_ETC, 0x000000BF);
 		input->h264_frame_seqno_in_gop++;
 	}
@@ -363,7 +362,6 @@ void tw5864_request_encoded_frame(struct tw5864_input *input)
 		  TW5864_VLC_PCI_SEL | ((input->tail_nb_bits + 24) <<
 					TW5864_VLC_BIT_ALIGN_SHIFT) |
 		  input->reg_dsp_qp);
-	//tw_writel(TW5864_DSP_REF, (tw_readl(TW5864_DSP_REF) & ~TW5864_DSP_REF_FRM) | input->h264_idr_pic_id); // or just nothing?
 
 	u32 enc_buf_id_new = tw_mask_shift_readl(TW5864_ENC_BUF_PTR_REC1, 0x3,
 						 2 * input->input_number);
@@ -376,8 +374,6 @@ void tw5864_request_encoded_frame(struct tw5864_input *input)
 	tw_writel(TW5864_PCI_INTR_CTL, 0x00000073);	/* Unneeded? TODO decode, remove unneeded bits */
 	tw_writel(TW5864_MASTER_ENB_REG, TW5864_PCI_VLC_INTR_ENB);	/* TODO Unneeded? */
 
-	/* TODO FIXME Set bitstream output address, have more than single buffer
-	 * for all channels, to enable bottom half processing approach */
 	tw_writel(TW5864_SLICE, 0x00008000);
 	tw_writel(TW5864_SLICE, 0x00000000);
 }
@@ -438,7 +434,6 @@ static struct vb2_ops tw5864_video_qops = {
 /* ------------------------------------------------------------------ */
 static int tw5864_s_ctrl(struct v4l2_ctrl *ctrl)
 {
-	// TODO
 	struct tw5864_input *input =
 	    container_of(ctrl->handler, struct tw5864_input, hdl);
 	struct tw5864_dev *dev = input->root;
@@ -548,7 +543,7 @@ static int tw5864_enum_input(struct file *file, void *priv,
 	if (i->index)
 		return -EINVAL;
 
-	// TODO Deduplicate
+	/* TODO Deduplicate */
 	if (indir_0x0Ne & 0x80) {
 		dev_err(&dev->root->pci->dev,
 			"Video format detection is in progress, please wait\n");
@@ -563,7 +558,6 @@ static int tw5864_enum_input(struct file *file, void *priv,
 
 	i->type = V4L2_INPUT_TYPE_CAMERA;
 	snprintf(i->name, sizeof(i->name), "Encoder %d", dev->input_number);
-	//i->std = tw5864_get_v4l2_std(std);
 	i->std = TW5864_NORMS;
 	if (v1 & (1 << 7))
 		i->status |= V4L2_IN_ST_NO_SYNC;
@@ -616,7 +610,7 @@ static int tw5864_g_std(struct file *file, void *priv, v4l2_std_id *id)
 	    tw_indir_readb(dev->root, 0x00e + dev->input_number * 0x010);
 	u8 std = (indir_0x0Ne & 0x70) >> 4;
 
-	// TODO Deduplicate
+	/* TODO Deduplicate */
 	if (indir_0x0Ne & 0x80) {
 		dev_err(&dev->root->pci->dev,
 			"Video format detection is in progress, please wait\n");
@@ -639,7 +633,7 @@ static int tw5864_s_std(struct file *file, void *priv, v4l2_std_id id)
 
 	if (vb2_is_busy(&dev->vidq))
 		return -EBUSY;
-	// TODO FIXME compare with currently detected, refuse otherwise
+	/* TODO FIXME compare with currently detected, refuse otherwise */
 	if (!(id & TW5864_NORMS))
 		return -EINVAL;
 
@@ -783,7 +777,7 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 	return 0;
 
 dma_alloc_fail:
-	;			// TODO Free allocated
+	; /* TODO Free allocated */
 
 	i = TW5864_INPUTS;
 
@@ -820,7 +814,7 @@ static int tw5864_video_input_init(struct tw5864_input *dev, int video_nr)
 		goto vb2_q_init_fail;
 
 	dev->vdev = tw5864_video_template;
-	// TODO Set tvnorms to actual recognized format instead of wildcard?
+	/* TODO Set tvnorms to actual recognized format instead of wildcard? */
 	dev->vdev.v4l2_dev = &dev->root->v4l2_dev;
 	dev->vdev.lock = &dev->lock;
 	dev->vdev.queue = &dev->vidq;

@@ -168,8 +168,8 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 	u32 status;
 	u32 vlc_len;
 	u32 vlc_crc;
-	u32 vlc_reg;		// TW5864_VLC
-	u32 vlc_buf_reg;	// TW5864_VLC_BUF
+	u32 vlc_reg;
+	u32 vlc_buf_reg;
 	int channel;
 	int i;
 	unsigned long flags;
@@ -418,7 +418,6 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 		return -ENOMEM;
 
 	snprintf(dev->name, sizeof(dev->name), "tw5864:%s", pci_name(pci_dev));
-	//dev_set_name(&pci_dev->dev, "tw5864:%s", pci_name(pci_dev));
 
 	err = v4l2_device_register(&pci_dev->dev, &dev->v4l2_dev);
 	if (err)
@@ -521,7 +520,7 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 
 	for (int i = 0; i < TW5864_INPUTS; i++) {
 		tw_indir_writeb(dev, 0x00e + i * 0x010, 0x07);
-		tw_indir_writeb(dev, 0x00f + i * 0x010, 0xff);	// to initiate auto format recognition
+		tw_indir_writeb(dev, 0x00f + i * 0x010, 0xff);	/* to initiate auto format recognition */
 	}
 
 	tw_writel(TW5864_SEN_EN_CH, 0x000f);
@@ -600,7 +599,8 @@ static int tw5864_suspend(struct pci_dev *pci_dev, pm_message_t state)
 
 	pci_save_state(pci_dev);
 	pci_set_power_state(pci_dev, pci_choose_state(pci_dev, state));
-	// vb2_discard_done(&dev->vidq);  // TODO replace with a new tw5864_video_suspend(dev);
+	/* vb2_discard_done(&dev->vidq); */
+	/* TODO replace with a new tw5864_video_suspend(dev); */
 
 	return 0;
 }
