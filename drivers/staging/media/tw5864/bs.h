@@ -7,7 +7,7 @@ typedef struct bs_s {
 	int i_left;		/* i_count number of available bits */
 } bs_t;
 
-static inline void bs_init(bs_t * s, void *p_data, int i_data)
+static inline void bs_init(bs_t *s, void *p_data, int i_data)
 {
 	s->p_start = p_data;
 	s->p = p_data;
@@ -15,34 +15,34 @@ static inline void bs_init(bs_t * s, void *p_data, int i_data)
 	s->i_left = 8;
 }
 
-static inline int bs_pos(bs_t * s)
+static inline int bs_pos(bs_t *s)
 {
 	return (8 * (s->p - s->p_start) + 8 - s->i_left);
 }
 
-static inline int bs_eof(bs_t * s)
+static inline int bs_eof(bs_t *s)
 {
 	return (s->p >= s->p_end ? 1 : 0);
 }
 
-static inline int bs_len(bs_t * s)
+static inline int bs_len(bs_t *s)
 {
 	return (s->p - s->p_start);
 }
 
-static inline int bs_left(bs_t * s)
+static inline int bs_left(bs_t *s)
 {
 	return (8 - s->i_left);
 }
 
-static inline void bs_direct_write(bs_t * s, u8 value)
+static inline void bs_direct_write(bs_t *s, u8 value)
 {
 	*s->p = value;
 	s->p++;
 	s->i_left = 8;
 }
 
-static inline void bs_write(bs_t * s, int i_count, u32 i_bits)
+static inline void bs_write(bs_t *s, int i_count, u32 i_bits)
 {
 	if (s->p >= s->p_end - 4)
 		return;
@@ -55,9 +55,8 @@ static inline void bs_write(bs_t * s, int i_count, u32 i_bits)
 			break;
 		} else {
 			*s->p =
-			    (*s->
-			     p << s->i_left) | (i_bits >> (i_count -
-							   s->i_left));
+			    (*s->p << s->i_left) | (i_bits >> (i_count -
+							       s->i_left));
 			i_count -= s->i_left;
 			s->p++;
 			s->i_left = 8;
@@ -65,7 +64,7 @@ static inline void bs_write(bs_t * s, int i_count, u32 i_bits)
 	}
 }
 
-static inline void bs_write1(bs_t * s, u32 i_bit)
+static inline void bs_write1(bs_t *s, u32 i_bit)
 {
 	if (s->p < s->p_end) {
 		*s->p <<= 1;
@@ -78,7 +77,7 @@ static inline void bs_write1(bs_t * s, u32 i_bit)
 	}
 }
 
-static inline void bs_align_0(bs_t * s)
+static inline void bs_align_0(bs_t *s)
 {
 	if (s->i_left != 8) {
 		*s->p <<= s->i_left;
@@ -87,7 +86,7 @@ static inline void bs_align_0(bs_t * s)
 	}
 }
 
-static inline void bs_sh_align(bs_t * s)
+static inline void bs_sh_align(bs_t *s)
 {
 	if (s->i_left != 8) {
 		*s->p <<= s->i_left;
@@ -95,7 +94,7 @@ static inline void bs_sh_align(bs_t * s)
 	}
 }
 
-static inline void bs_align_1(bs_t * s)
+static inline void bs_align_1(bs_t *s)
 {
 	if (s->i_left != 8) {
 		*s->p <<= s->i_left;
@@ -105,32 +104,32 @@ static inline void bs_align_1(bs_t * s)
 	}
 }
 
-static inline void bs_align(bs_t * s)
+static inline void bs_align(bs_t *s)
 {
 	bs_align_0(s);
 }
 
 /* golomb functions */
-static inline void bs_write_ue(bs_t * s, u32 val)
+static inline void bs_write_ue(bs_t *s, u32 val)
 {
 	int i_size = 0;
 	static const int i_size0_255[256] = {
 		1, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5,
-		    5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+		5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
 		6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
-		    6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+		6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
 		7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
-		    7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+		7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
 		7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
-		    7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+		7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
 		8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
-		    8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+		8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
 		8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
-		    8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+		8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
 		8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
-		    8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+		8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
 		8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
-		    8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8
+		8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8
 	};
 
 	if (val == 0) {
@@ -152,12 +151,12 @@ static inline void bs_write_ue(bs_t * s, u32 val)
 	}
 }
 
-static inline void bs_write_se(bs_t * s, int val)
+static inline void bs_write_se(bs_t *s, int val)
 {
 	bs_write_ue(s, val <= 0 ? -val * 2 : val * 2 - 1);
 }
 
-static inline void bs_write_te(bs_t * s, int x, int val)
+static inline void bs_write_te(bs_t *s, int x, int val)
 {
 	if (x == 1) {
 		bs_write1(s, 1 & ~val);
@@ -166,7 +165,7 @@ static inline void bs_write_te(bs_t * s, int x, int val)
 	}
 }
 
-static inline void bs_rbsp_trailing(bs_t * s)
+static inline void bs_rbsp_trailing(bs_t *s)
 {
 	bs_write1(s, 1);
 	if (s->i_left != 8) {
@@ -180,25 +179,25 @@ static inline int bs_size_ue(unsigned int val)
 		1, 3, 3, 5, 5, 5, 5, 7, 7, 7, 7, 7, 7, 7, 7,
 		9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
 		11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11,
-		    11, 11, 11, 11, 11, 11, 11,
+		11, 11, 11, 11, 11, 11, 11,
 		11, 11, 11, 11, 11, 11, 11, 11, 11, 13, 13, 13, 13, 13, 13, 13,
-		    13, 13, 13, 13, 13, 13, 13,
+		13, 13, 13, 13, 13, 13, 13,
 		13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13,
-		    13, 13, 13, 13, 13, 13, 13,
+		13, 13, 13, 13, 13, 13, 13,
 		13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13,
-		    13, 13, 13, 13, 13, 13, 13,
+		13, 13, 13, 13, 13, 13, 13,
 		13, 13, 13, 13, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-		    15, 15, 15, 15, 15, 15, 15,
+		15, 15, 15, 15, 15, 15, 15,
 		15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-		    15, 15, 15, 15, 15, 15, 15,
+		15, 15, 15, 15, 15, 15, 15,
 		15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-		    15, 15, 15, 15, 15, 15, 15,
+		15, 15, 15, 15, 15, 15, 15,
 		15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-		    15, 15, 15, 15, 15, 15, 15,
+		15, 15, 15, 15, 15, 15, 15,
 		15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-		    15, 15, 15, 15, 15, 15, 15,
+		15, 15, 15, 15, 15, 15, 15,
 		15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-		    15
+		15
 	};
 
 	if (val < 255) {
