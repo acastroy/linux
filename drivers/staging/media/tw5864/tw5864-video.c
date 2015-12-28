@@ -253,6 +253,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number)
 			 * Et cetera.
 			 */
 			u32 unary_framerate = 0xffff;
+
 			tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD
 				  (input_number, i), unary_framerate);
 			tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD
@@ -323,6 +324,7 @@ void tw5864_push_to_make_it_roll(struct tw5864_input *input)
 	u32 enc_buf_id = tw_mask_shift_readl(TW5864_SENIF_ORG_FRM_PTR1, 0x3,
 					     2 * input->input_number);
 	int enc_buf_id_new = enc_buf_id;
+
 	enc_buf_id_new += 1;
 	enc_buf_id_new %= 4;
 
@@ -383,6 +385,7 @@ void tw5864_request_encoded_frame(struct tw5864_input *input)
 static int tw5864_disable_input(struct tw5864_dev *dev, int input_number)
 {
 	unsigned long flags;
+
 	dev_dbg(&dev->pci->dev, "Disabling channel %d\n", input_number);
 	mutex_lock(&dev->lock);
 
@@ -1005,6 +1008,7 @@ static int tw5864_is_motion_triggered(struct tw5864_h264_frame *frame)
 	for (i = 0; i < md_cells; i++) {
 		const u16 thresh = input->md_threshold_grid_values[i];
 		const unsigned int metric = tw5864_md_metric_from_mvd(mv[i]);
+
 		if (metric > thresh)
 			detected = 1;
 
@@ -1114,7 +1118,7 @@ static void tw5864_handle_frame(struct tw5864_h264_frame *frame)
 	dev_dbg(&dev->pci->dev, "%s: %d %s frame_len = %d\n", __FILE__,
 		__LINE__, __PRETTY_FUNCTION__, frame_len);
 	dev_dbg(&dev->pci->dev,
-		"vlc: %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx   %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx \n",
+		"vlc: %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx   %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx\n",
 		((u8 *)frame->vlc.addr)[0x0], ((u8 *)frame->vlc.addr)[0x1],
 		((u8 *)frame->vlc.addr)[0x2], ((u8 *)frame->vlc.addr)[0x3],
 		((u8 *)frame->vlc.addr)[0x4], ((u8 *)frame->vlc.addr)[0x5],
@@ -1136,6 +1140,7 @@ static void tw5864_handle_frame(struct tw5864_h264_frame *frame)
 
 	/* TODO Make preliminary header write to dev->h264_buf, not to vb */
 	u8 *dst = input->buf_cur_ptr;
+
 	dst_size = vb2_plane_size(&vb->vb, 0);
 
 	dst_space = input->buf_cur_space_left;
@@ -1149,6 +1154,7 @@ static void tw5864_handle_frame(struct tw5864_h264_frame *frame)
 	u8 tail_mask = 0xff, vlc_mask = 0;
 #if 1
 	int i;
+
 	for (i = 0; i < 8 - input->tail_nb_bits; i++)
 		vlc_mask |= 1 << i;
 	tail_mask = (~vlc_mask) & 0xff;
@@ -1158,6 +1164,7 @@ static void tw5864_handle_frame(struct tw5864_h264_frame *frame)
 #endif
 
 	u8 vlc_first_byte = ((u8 *)(frame->vlc.addr + skip_bytes))[0];
+
 	dst[0] = (input->tail & tail_mask) | (vlc_first_byte & vlc_mask);
 	skip_bytes++;
 	frame_len--;
@@ -1168,8 +1175,9 @@ static void tw5864_handle_frame(struct tw5864_h264_frame *frame)
 	vb2_set_plane_payload(&vb->vb, 0, dst_size - dst_space);
 #if 0
 	u8 *buf_very_beginning = vb2_plane_vaddr(&vb->vb, 0);
+
 	dev_dbg(&dev->pci->dev,
-		"merged frame header [0]: %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx   %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx \n",
+		"merged frame header [0]: %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx   %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx\n",
 		buf_very_beginning[0x0], buf_very_beginning[0x1],
 		buf_very_beginning[0x2], buf_very_beginning[0x3],
 		buf_very_beginning[0x4], buf_very_beginning[0x5],
@@ -1179,7 +1187,7 @@ static void tw5864_handle_frame(struct tw5864_h264_frame *frame)
 		buf_very_beginning[0xc], buf_very_beginning[0xd],
 		buf_very_beginning[0xe], buf_very_beginning[0xf]);
 	dev_dbg(&dev->pci->dev,
-		"merged frame header [1]: %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx   %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx \n",
+		"merged frame header [1]: %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx   %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx\n",
 		buf_very_beginning[0x10], buf_very_beginning[0x11],
 		buf_very_beginning[0x12], buf_very_beginning[0x13],
 		buf_very_beginning[0x14], buf_very_beginning[0x15],
@@ -1189,7 +1197,7 @@ static void tw5864_handle_frame(struct tw5864_h264_frame *frame)
 		buf_very_beginning[0x1c], buf_very_beginning[0x1d],
 		buf_very_beginning[0x1e], buf_very_beginning[0x1f]);
 	dev_dbg(&dev->pci->dev,
-		"merged frame header [2]: %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx   %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx \n",
+		"merged frame header [2]: %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx   %02hhx %02hhx %02hhx %02hhx  %02hhx %02hhx %02hhx %02hhx\n",
 		buf_very_beginning[0x20], buf_very_beginning[0x21],
 		buf_very_beginning[0x22], buf_very_beginning[0x23],
 		buf_very_beginning[0x24], buf_very_beginning[0x25],
@@ -1243,14 +1251,12 @@ v4l2_std_id tw5864_get_v4l2_std(enum tw5864_vid_std std)
 
 enum tw5864_vid_std tw5864_from_v4l2_std(v4l2_std_id v4l2_std)
 {
-	if (v4l2_std & V4L2_STD_NTSC) {
+	if (v4l2_std & V4L2_STD_NTSC)
 		return STD_NTSC;
-	} else if (v4l2_std & V4L2_STD_PAL) {
+	if (v4l2_std & V4L2_STD_PAL)
 		return STD_PAL;
-	} else if (v4l2_std & V4L2_STD_SECAM) {
+	if (v4l2_std & V4L2_STD_SECAM)
 		return STD_SECAM;
-	} else {
-		WARN_ON_ONCE(1);
-		return STD_AUTO;
-	}
+	WARN_ON_ONCE(1);
+	return STD_AUTO;
 }

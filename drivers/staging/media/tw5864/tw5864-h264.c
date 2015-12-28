@@ -6,6 +6,8 @@ static uint8_t marker[] = { 0x00, 0x00, 0x00, 0x01 };
 static int tw5864_h264_gen_sps_rbsp(u8 *buf, size_t size, int width, int height)
 {
 	bs_t bs, *s;
+	const int i_mb_width = width / 16;
+	const int i_mb_height = height / 16;
 
 	s = &bs;
 	bs_init(s, buf, size);
@@ -22,9 +24,7 @@ static int tw5864_h264_gen_sps_rbsp(u8 *buf, size_t size, int width, int height)
 
 	bs_write_ue(s, 1 /* i_num_ref_frames */);
 	bs_write(s, 1, 0 /* b_gaps_in_frame_num_value_allowed */);
-	const int i_mb_width = width / 16;
 	bs_write_ue(s, i_mb_width - 1);
-	const int i_mb_height = height / 16;
 	bs_write_ue(s, i_mb_height - 1);
 	bs_write(s, 1, 1 /* b_frame_mbs_only */);
 	bs_write(s, 1, 0 /* b_direct8x8_inference */);
@@ -66,6 +66,7 @@ static int tw5864_h264_gen_slice_head(u8 *buf, size_t size,
 {
 	bs_t bs, *s;
 	int is_i_frame = frame_seqno_in_gop == 0;
+	int i_poc_lsb = (frame_seqno_in_gop << 1);	/* why multiplied by two? TODO try without multiplication */
 
 	s = &bs;
 	bs_init(s, buf, size);
@@ -76,7 +77,6 @@ static int tw5864_h264_gen_slice_head(u8 *buf, size_t size,
 	if (is_i_frame)
 		bs_write_ue(s, idr_pic_id);
 
-	int i_poc_lsb = (frame_seqno_in_gop << 1);	/* why multiplied by two? TODO try without multiplication */
 	bs_write(s, i_log2_max_poc_lsb, i_poc_lsb);
 
 	if (!is_i_frame)

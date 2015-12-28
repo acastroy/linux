@@ -257,6 +257,7 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 	if (status & TW5864_INTR_TIMER) {
 		int encoder_busy;
 		int stuck = 0;
+
 		dev->timers_with_vlc_disabled++;
 		if (dev->timers_with_vlc_disabled > 1000) {
 			dev_err(&dev->pci->dev,
