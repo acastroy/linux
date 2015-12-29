@@ -568,7 +568,7 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 		  TW5864_MVD_VLC_MAST_ENB);
 
 	for (int i = 0; i < 4; i++)
-		tw5864_roll_buf_id(dev, i);
+		tw5864_push_to_make_it_roll(&dev->inputs[i]);  //tw5864_roll_buf_id(dev, i);
 
 	/*
 	 * TODO Enable timer irq on demand, don't use it at all when it is not
