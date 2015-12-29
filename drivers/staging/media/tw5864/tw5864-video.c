@@ -376,6 +376,9 @@ void tw5864_request_encoded_frame(struct tw5864_input *input)
 					TW5864_VLC_BIT_ALIGN_SHIFT) |
 		  input->reg_dsp_qp);
 
+	input->buf_id = tw_mask_shift_readl(TW5864_SENIF_ORG_FRM_PTR1, 0x3,
+					     2 * input->input_number);
+
 	tw5864_roll_buf_id(dev, input->input_number);
 
 	/* Unneeded? TODO decode, remove unneeded bits */
