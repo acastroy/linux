@@ -282,6 +282,8 @@ static int tw5864_enable_input(struct tw5864_input *input)
 			     ? TW5864_FRAME_BUS1 : TW5864_FRAME_BUS2,
 			     0xff, (input_number % 2) * 8, reg_frame_bus);
 
+	tw5864_roll_buf_ids(dev, input->input_number);
+
 	spin_lock_irqsave(&dev->slock, flags);
 	input->enabled = 1;
 	spin_unlock_irqrestore(&dev->slock, flags);
@@ -333,6 +335,16 @@ void tw5864_push_to_make_it_roll(struct tw5864_input *input)
 		enc_buf_id_new, enc_buf_id, input->input_number);
 }
 
+void tw5864_roll_buf_id(struct tw5864_dev *dev, int input_number)
+{
+	u32 enc_buf_id_new = tw_mask_shift_readl(TW5864_ENC_BUF_PTR_REC1, 0x3,
+						 2 * input_number);
+	tw_writel(TW5864_DSP_ENC_ORG_PTR_REG,
+		  ((enc_buf_id_new + 1) % 4) << TW5864_DSP_ENC_ORG_PTR_SHIFT);
+	tw_writel(TW5864_DSP_ENC_REC,
+		  (((enc_buf_id_new + 1) % 4) << 12) | (enc_buf_id_new & 0x3));
+}
+
 void tw5864_request_encoded_frame(struct tw5864_input *input)
 {
 	struct tw5864_dev *dev = input->root;
@@ -364,13 +376,7 @@ void tw5864_request_encoded_frame(struct tw5864_input *input)
 					TW5864_VLC_BIT_ALIGN_SHIFT) |
 		  input->reg_dsp_qp);
 
-	u32 enc_buf_id_new = tw_mask_shift_readl(TW5864_ENC_BUF_PTR_REC1, 0x3,
-						 2 * input->input_number);
-
-	tw_writel(TW5864_DSP_ENC_ORG_PTR_REG,
-		  ((enc_buf_id_new + 1) % 4) << TW5864_DSP_ENC_ORG_PTR_SHIFT);
-	tw_writel(TW5864_DSP_ENC_REC,
-		  (((enc_buf_id_new + 1) % 4) << 12) | (enc_buf_id_new & 0x3));
+	tw5864_roll_buf_ids(dev, input->input_number);
 
 	/* Unneeded? TODO decode, remove unneeded bits */
 	tw_writel(TW5864_PCI_INTR_CTL, 0x00000073);

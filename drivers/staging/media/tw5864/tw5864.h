@@ -277,6 +277,7 @@ void tw5864_h264_put_slice_header(u8 **buf, size_t *space_left,
 				  int *tail_nb_bits, u8 *tail);
 void tw5864_request_encoded_frame(struct tw5864_input *input);
 void tw5864_push_to_make_it_roll(struct tw5864_input *input);
+void tw5864_roll_buf_id(struct tw5864_dev *dev, int input_number);
 
 static const unsigned int Lambda_lookup_table[52] = {
 	0x0020, 0x0020, 0x0020, 0x0020,
