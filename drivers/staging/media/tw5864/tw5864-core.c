@@ -556,10 +556,10 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	tw_writel(TW5864_ENC_BUF_PTR_REC1, 0x0000);
 	tw_writel(TW5864_ENC_BUF_PTR_REC2, 0x0000);
 	/*
-	 * Timer interval is 8 ms. TODO Select lower interval to avoid frame
+	 * Timer interval is 1 ms. TODO Select lower interval to avoid frame
 	 * losing on full load. What about on-demand change of interval?
 	 */
-	tw_writel(TW5864_PCI_INTTM_SCALE, 3);
+	tw_writel(TW5864_PCI_INTTM_SCALE, 0);
 
 	tw_writel(TW5864_INTERLACING, TW5864_DI_EN);
 	tw_writel(TW5864_MASTER_ENB_REG, TW5864_PCI_VLC_INTR_ENB);
