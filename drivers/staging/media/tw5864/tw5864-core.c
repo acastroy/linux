@@ -280,8 +280,12 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 				 * inputs in queue manner?)
 				 */
 				input = &dev->inputs[i];
-				if (!input->enabled)
+
+				spin_lock_irqsave(&input->slock, flags);
+				if (!input->enabled) {
+					spin_unlock_irqrestore(&input->slock, flags);
 					continue;
+				}
 
 				int senif_org_frm_ptr =
 				    tw_mask_shift_readl
@@ -303,8 +307,10 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 					 * encoder is busy,
 					 * stop traversing inputs
 					 */
+					spin_unlock_irqrestore(&input->slock, flags);
 					break;
 				}
+				spin_unlock_irqrestore(&input->slock, flags);
 			}	/* for(...) inputs traversal */
 		}		/* if (!encoder_busy) */
 		tw_writel(TW5864_PCI_INTR_STATUS, TW5864_TIMER_INTR);
