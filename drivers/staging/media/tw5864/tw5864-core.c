@@ -298,10 +298,12 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 						    (input);
 					input->buf_id = senif_org_frm_ptr;
 
+					spin_unlock_irqrestore(&input->slock, flags);
 					spin_lock(&dev->slock);
 					dev->encoder_busy = 1;
 					spin_unlock(&dev->slock);
 					tw5864_request_encoded_frame(input);
+					spin_lock_irqsave(&input->slock, flags);
 					/*
 					 * encoder is busy,
 					 * stop traversing inputs
