@@ -478,13 +478,13 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	spin_lock_init(&dev->slock);
 	dev->encoder_busy = 0;
 
-	/* Enable interrupts */
-	tw5864_interrupts_enable(dev);
-
 	dev->debugfs_dir = debugfs_create_dir(dev->name, NULL);
 	err = tw5864_video_init(dev, video_nr);
 	if (err)
 		goto video_init_fail;
+
+	/* Enable interrupts */
+	tw5864_interrupts_enable(dev);
 
 	/* get irq */
 	err = devm_request_irq(&pci_dev->dev, pci_dev->irq, tw5864_isr,
