@@ -2160,6 +2160,4 @@
 /* Clock PLL / Analog IP Control */
 /* Some registers skipped TODO */
 
-#include "tw5864-reg-undefined.h"
-
 #endif
