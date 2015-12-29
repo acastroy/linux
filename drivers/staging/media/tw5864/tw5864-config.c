@@ -124,8 +124,8 @@ static unsigned char audio_tbl_ntsc_tw2865_16KHz[] __used = {
 };
 
 static int pci_i2c_read(struct tw5864_dev *dev, u8 devid, u8 devfn, u8 *buf);
-static int pci_i2c_multi_read(struct tw5864_dev *dev, u8 devid, u8 devfn, u8 *buf,
-		       u32 count)
+static int pci_i2c_multi_read(struct tw5864_dev *dev, u8 devid, u8 devfn,
+			      u8 *buf, u32 count)
 {
 	int i = 0;
 	u32 val = 0;
@@ -307,7 +307,8 @@ static int tw28xx_clkp_delay(struct tw5864_dev *dev, u8 devid, u32 base_ch,
 			mdelay(100);
 			if (tw_readl(0x9218))
 				continue;
-			dev_dbg(&dev->pci->dev, "auto detect CLKP_DEL = %02x\n", delay);
+			dev_dbg(&dev->pci->dev, "auto detect CLKP_DEL = %02x\n",
+				delay);
 			break;
 		}
 		if (delay >= 0x10) {

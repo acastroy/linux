@@ -110,8 +110,10 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number)
 	input->reg_emu_en_various_etc = TW5864_EMU_EN_LPF | TW5864_EMU_EN_BHOST
 	    | TW5864_EMU_EN_SEN | TW5864_EMU_EN_ME | TW5864_EMU_EN_DDR;
 	input->reg_dsp = input_number	/* channel id */
-	    | TW5864_DSP_CHROM_SW	/* TODO Does this matter? Goes so in reference driver. */
-	    | ((0xa << 8) & TW5864_DSP_MB_DELAY)	/* Value from ref driver */
+	    /* TODO Does this matter? Goes so in reference driver. */
+	    | TW5864_DSP_CHROM_SW
+	    /* Value from ref driver */
+	    | ((0xa << 8) & TW5864_DSP_MB_DELAY)
 	    ;
 
 	input->resolution = D1;
@@ -132,7 +134,8 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number)
 	input->reg_interlacing = 0x4;
 
 	/* TODO FIXME Take some mutex guarding channels enabling stuff since we
-	 * edit values, release when we're done with it. */
+	 * edit values, release when we're done with it.
+	 */
 
 	switch (input->resolution) {
 	case D1:
@@ -143,7 +146,8 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number)
 		downscale_enabled = 0;
 		input->reg_dsp_codec |= TW5864_CIF_MAP_MD | TW5864_HD1_MAP_MD;
 		input->reg_emu_en_various_etc |= TW5864_DSP_FRAME_TYPE_D1;
-		input->reg_interlacing = 0x6;	/* TODO WTF 0x2? Try with default 0x4 */
+		/* TODO WTF 0x2? Try with default 0x4 */
+		input->reg_interlacing = 0x6;
 
 		tw_setl(TW5864_FULL_HALF_FLAG, 1 << input_number);
 		break;
@@ -204,7 +208,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number)
 	/* output width / 4 */
 	tw_indir_writeb(dev, 0x202 + 4 * input_number, input->width / 4);
 	/* TODO Should use cif_height, not input's? */
-	tw_indir_writeb(dev, 0x203 + 4 * input_number, /* cif_height */ input->height / 4);
+	tw_indir_writeb(dev, 0x203 + 4 * input_number, input->height / 4);
 
 	/* TODO Drop */
 	for (i = 0; i < 4 * TW5864_INPUTS; i++) {
@@ -212,11 +216,12 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number)
 		tw_indir_writeb(dev, 0x201 + 4 * i, d1_height / 4);
 
 		tw_indir_writeb(dev, 0x202 + 4 * i, input->width / 4);
-		tw_indir_writeb(dev, 0x203 + 4 * i, /* cif_height */ input->height / 4);
+		tw_indir_writeb(dev, 0x203 + 4 * i, input->height / 4);
 	}
 	/* TODO Drop END */
 
-	tw_writel(TW5864_DSP_PIC_MAX_MB, ((input->width / 16) << 8) | (input->height / 16));
+	tw_writel(TW5864_DSP_PIC_MAX_MB,
+			((input->width / 16) << 8) | (input->height / 16));
 
 	/* TODO FIXME Simplify and immediately check for regressions */
 	tw_writel(TW5864_FRAME_WIDTH_BUS_A(input_number),
@@ -269,8 +274,10 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number)
 	tw_mask_shift_writel(TW5864_H264EN_CH_FMT_REG1, 0x3, 2 * input_number,
 			     fmt_reg_value);
 
-	/* Some undocumented kind of framerate control... TODO Figure out, at
-	 * last change only needed bus here, not all */
+	/*
+	 * Some undocumented kind of framerate control... TODO Figure out, at
+	 * last change only needed bus here, not all
+	 */
 	/* TODO Move to global static config */
 	tw_writel(TW5864_H264EN_RATE_MAX_LINE_REG1,
 		  std == STD_NTSC ? 0x3bd : 0x318);
@@ -371,8 +378,10 @@ void tw5864_request_encoded_frame(struct tw5864_input *input)
 	tw_writel(TW5864_DSP_ENC_REC,
 		  (((enc_buf_id_new + 1) % 4) << 12) | (enc_buf_id_new & 0x3));
 
-	tw_writel(TW5864_PCI_INTR_CTL, 0x00000073);	/* Unneeded? TODO decode, remove unneeded bits */
-	tw_writel(TW5864_MASTER_ENB_REG, TW5864_PCI_VLC_INTR_ENB);	/* TODO Unneeded? */
+	/* Unneeded? TODO decode, remove unneeded bits */
+	tw_writel(TW5864_PCI_INTR_CTL, 0x00000073);
+	/* TODO Unneeded? */
+	tw_writel(TW5864_MASTER_ENB_REG, TW5864_PCI_VLC_INTR_ENB);
 
 	tw_writel(TW5864_SLICE, 0x00008000);
 	tw_writel(TW5864_SLICE, 0x00000000);
@@ -672,8 +681,9 @@ static int tw5864_subscribe_event(struct v4l2_fh *fh,
 	case V4L2_EVENT_CTRL:
 		return v4l2_ctrl_subscribe_event(fh, sub);
 	case V4L2_EVENT_MOTION_DET:
-		/* Allow for up to 30 events (1 second for NTSC) to be
-		 * stored. */
+		/*
+		 * Allow for up to 30 events (1 second for NTSC) to be stored.
+		 */
 		return v4l2_event_subscribe(fh, sub, 30, NULL);
 	}
 	return -EINVAL;
@@ -736,7 +746,8 @@ static const struct v4l2_ctrl_config tw5864_md_thresholds = {
 	.ops = &tw5864_ctrl_ops,
 	.id = V4L2_CID_DETECT_MD_THRESHOLD_GRID,
 	.dims = {MD_CELLS_HOR, MD_CELLS_VERT},
-	.def = 666,		/* FIXME FANCY CONSTANT, PICK REASONABLE PRACTICAL VALUE */
+	/* FIXME FANCY CONSTANT, PICK REASONABLE PRACTICAL VALUE */
+	.def = 666,
 	.max = 65535,
 	.step = 1,
 };
@@ -969,8 +980,10 @@ static unsigned int tw5864_md_metric_from_mvd(u32 mvd)
 {
 	unsigned int reserved = mvd >> 31;
 	unsigned int mb_type = (mvd >> 28) & 0x7;
-	/* non_zero_members: number of non-zero residuals in each macro block
-	 * after quantization */
+	/*
+	 * non_zero_members: number of non-zero residuals in each macro block
+	 * after quantization
+	 */
 	unsigned int non_zero_members = (mvd >> 20) & 0xff;
 	unsigned int mv_y = (mvd >> 10) & 0x3ff;
 	unsigned int mv_x = mvd & 0x3ff;
@@ -1092,7 +1105,10 @@ static void tw5864_handle_frame_task(unsigned long data)
 			dev->h264_buf[dev->h264_buf_r_index].input);
 #endif
 		tw5864_handle_frame(&dev->h264_buf[dev->h264_buf_r_index]);
-		/* dev->h264_buf_r_index = (dev->h264_buf_r_index + 1) % H264_BUF_CNT; */
+		/*
+		 * dev->h264_buf_r_index =
+		 * (dev->h264_buf_r_index + 1) % H264_BUF_CNT;
+		 */
 		smp_store_release(&dev->h264_buf_r_index,
 				  (dev->h264_buf_r_index + 1) % H264_BUF_CNT);
 	}
@@ -1138,7 +1154,7 @@ static void tw5864_handle_frame(struct tw5864_h264_frame *frame)
 	dst_size = vb2_plane_size(&vb->vb, 0);
 
 	dst_space = input->buf_cur_space_left;
-	frame_len -= skip_bytes;	/* skip first bytes of frame produced by hardware */
+	frame_len -= skip_bytes;
 	if (WARN_ON_ONCE(dst_space < frame_len)) {
 		dev_err_once(&dev->pci->dev,
 			     "Left space in vb2 buffer %lu is insufficient for frame length %lu, writing truncated frame\n",

@@ -273,7 +273,12 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 			dev->timers_with_vlc_disabled = 0;
 
 			for (i = 0; i < TW5864_INPUTS; i++) {
-				/* FIXME There's risk that only first enabled port will work most of time. Rework dispatching (maybe avoid timer? traverse inputs in queue manner?) */
+				/*
+				 * FIXME There's risk that only first enabled
+				 * port will work most of time. Rework
+				 * dispatching (maybe avoid timer? traverse
+				 * inputs in queue manner?)
+				 */
 				input = &dev->inputs[i];
 				if (!input->enabled)
 					continue;
@@ -282,7 +287,8 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 				    tw_mask_shift_readl
 				    (TW5864_SENIF_ORG_FRM_PTR1, 0x3,
 				     2 * input->input_number);
-				if (input->buf_id != senif_org_frm_ptr || stuck) {
+				if (input->buf_id != senif_org_frm_ptr
+				    || stuck) {
 					if (stuck)
 						tw5864_push_to_make_it_roll
 						    (input);
@@ -293,7 +299,11 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 					spin_unlock_irqrestore(&dev->slock,
 							       flags);
 					tw5864_request_encoded_frame(input);
-					break;	/* encoder is busy, stop traversing inputs */
+					/*
+					 * encoder is busy,
+					 * stop traversing inputs
+					 */
+					break;
 				}
 			}	/* for(...) inputs traversal */
 		}		/* if (!encoder_busy) */
@@ -432,7 +442,10 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 
 	pci_set_master(pci_dev);
 
-	/* FIXME: What exactly for is this needed? Which mask(s) this driver needs? */
+	/*
+	 * FIXME: What exactly for is this needed? Which mask(s) this driver
+	 * needs?
+	 */
 	if (!pci_dma_supported(pci_dev, DMA_BIT_MASK(32))) {
 		pr_info("%s: Oops: no 32bit PCI DMA ???\n", dev->name);
 		err = -EIO;
@@ -488,7 +501,8 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 
 #if 1
 	/* Picture is distorted without this block */
-	tw_indir_writeb(dev, 0x041, 0x03);	/*use falling edge to sample ,54M to 108M */
+	/*use falling edge to sample ,54M to 108M */
+	tw_indir_writeb(dev, 0x041, 0x03);
 	tw_indir_writeb(dev, 0xefe, 0x00);
 
 	tw_indir_writeb(dev, 0xee6, 0x02);
@@ -520,7 +534,8 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 
 	for (int i = 0; i < TW5864_INPUTS; i++) {
 		tw_indir_writeb(dev, 0x00e + i * 0x010, 0x07);
-		tw_indir_writeb(dev, 0x00f + i * 0x010, 0xff);	/* to initiate auto format recognition */
+		/* to initiate auto format recognition */
+		tw_indir_writeb(dev, 0x00f + i * 0x010, 0xff);
 	}
 
 	tw_writel(TW5864_SEN_EN_CH, 0x000f);
@@ -533,14 +548,21 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 
 	tw_writel(TW5864_ENC_BUF_PTR_REC1, 0x0000);
 	tw_writel(TW5864_ENC_BUF_PTR_REC2, 0x0000);
-	tw_writel(TW5864_PCI_INTTM_SCALE, 3);	/* Timer interval is 8 ms. TODO Select lower interval to avoid frame losing on full load. What about on-demand change of interval? */
+	/*
+	 * Timer interval is 8 ms. TODO Select lower interval to avoid frame
+	 * losing on full load. What about on-demand change of interval?
+	 */
+	tw_writel(TW5864_PCI_INTTM_SCALE, 3);
 
 	tw_writel(TW5864_INTERLACING, TW5864_DI_EN);
 	tw_writel(TW5864_MASTER_ENB_REG, TW5864_PCI_VLC_INTR_ENB);
 	tw_writel(TW5864_PCI_INTR_CTL,
 		  TW5864_TIMER_INTR_ENB | TW5864_PCI_MAST_ENB |
 		  TW5864_MVD_VLC_MAST_ENB);
-	/* TODO Enable timer irq on demand, don't use it at all when it is not needed. */
+	/*
+	 * TODO Enable timer irq on demand, don't use it at all when it is not
+	 * needed.
+	 */
 	dev->irqmask |= TW5864_INTR_VLC_DONE | TW5864_INTR_TIMER;
 	tw5864_irqmask_apply(dev);
 
@@ -614,8 +636,9 @@ static int tw5864_resume(struct pci_dev *pci_dev)
 	pci_set_power_state(pci_dev, PCI_D0);
 	pci_restore_state(pci_dev);
 
-	/* Do things that are done in tw5864_initdev ,
-	   except of initializing memory structures. */
+	/* Do things that are done in tw5864_initdev,
+	 * except of initializing memory structures.
+	 */
 
 	msleep(100);
 

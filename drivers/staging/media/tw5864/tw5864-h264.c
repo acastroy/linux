@@ -66,7 +66,8 @@ static int tw5864_h264_gen_slice_head(u8 *buf, size_t size,
 {
 	struct bs bs, *s;
 	int is_i_frame = frame_seqno_in_gop == 0;
-	int i_poc_lsb = (frame_seqno_in_gop << 1);	/* why multiplied by two? TODO try without multiplication */
+	/* why multiplied by two? TODO try without multiplication */
+	int i_poc_lsb = (frame_seqno_in_gop << 1);
 
 	s = &bs;
 	bs_init(s, buf, size);
@@ -151,7 +152,8 @@ void tw5864_h264_put_slice_header(u8 **buf, size_t *space_left,
 	*buf += 4;
 	*space_left -= 4;
 
-	**buf = (frame_seqno_in_gop == 0) ? 0x25 : 0x21;	/* Frame NAL header */
+	/* Frame NAL header */
+	**buf = (frame_seqno_in_gop == 0) ? 0x25 : 0x21;
 	*buf += 1;
 	*space_left -= 1;
 
