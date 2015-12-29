@@ -282,7 +282,7 @@ static int tw5864_enable_input(struct tw5864_input *input)
 			     ? TW5864_FRAME_BUS1 : TW5864_FRAME_BUS2,
 			     0xff, (input_number % 2) * 8, reg_frame_bus);
 
-	tw5864_roll_buf_ids(dev, input->input_number);
+	tw5864_roll_buf_id(dev, input->input_number);
 
 	spin_lock_irqsave(&dev->slock, flags);
 	input->enabled = 1;
@@ -376,7 +376,7 @@ void tw5864_request_encoded_frame(struct tw5864_input *input)
 					TW5864_VLC_BIT_ALIGN_SHIFT) |
 		  input->reg_dsp_qp);
 
-	tw5864_roll_buf_ids(dev, input->input_number);
+	tw5864_roll_buf_id(dev, input->input_number);
 
 	/* Unneeded? TODO decode, remove unneeded bits */
 	tw_writel(TW5864_PCI_INTR_CTL, 0x00000073);
