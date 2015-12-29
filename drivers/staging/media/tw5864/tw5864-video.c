@@ -71,14 +71,12 @@ static void tw5864_buf_queue(struct vb2_buffer *vb)
 	spin_unlock_irqrestore(&dev->slock, flags);
 }
 
-/* TODO Change interface of this function - pass just tw5864_input */
-int tw5864_enable_input(struct tw5864_dev *dev, int input_number)
+static int tw5864_enable_input(struct tw5864_input *input)
 {
-	struct tw5864_input *input = &dev->inputs[input_number];
+	struct tw5864_dev *dev = input->root;
+	int input_number = input->input_number;
 	unsigned long flags;
 	int i;
-
-	BUG_ON(input_number < 0 || input_number >= 4);
 
 	dev_dbg(&dev->pci->dev, "Enabling channel %d\n", input_number);
 
@@ -289,7 +287,7 @@ int tw5864_enable_input(struct tw5864_dev *dev, int input_number)
 			     0xff, (input_number % 2) * 8, reg_frame_bus);
 
 	spin_lock_irqsave(&dev->slock, flags);
-	dev->inputs[input_number].enabled = 1;
+	input->enabled = 1;
 	spin_unlock_irqrestore(&dev->slock, flags);
 
 	return 0;
@@ -405,7 +403,7 @@ static int tw5864_start_streaming(struct vb2_queue *q, unsigned int count)
 {
 	struct tw5864_input *input = vb2_get_drv_priv(q);
 
-	tw5864_enable_input(input->root, input->input_number);
+	tw5864_enable_input(input);
 	return 0;
 }
 
@@ -746,9 +744,9 @@ static const struct v4l2_ctrl_config tw5864_md_thresholds = {
 	.ops = &tw5864_ctrl_ops,
 	.id = V4L2_CID_DETECT_MD_THRESHOLD_GRID,
 	.dims = {MD_CELLS_HOR, MD_CELLS_VERT},
-	/* FIXME FANCY CONSTANT, PICK REASONABLE PRACTICAL VALUE */
-	.def = 666,
-	.max = 65535,
+	.def = 14,
+	/* See tw5864_md_metric_from_mvd() */
+	.max = 2 * 0x0f,
 	.step = 1,
 };
 
@@ -799,42 +797,41 @@ input_init_fail:
 	return ret;
 }
 
-static int tw5864_video_input_init(struct tw5864_input *dev, int video_nr)
+static int tw5864_video_input_init(struct tw5864_input *input, int video_nr)
 {
-	struct tw5864_input *input = dev;	/* TODO rename dev to input */
 	int ret;
-	struct v4l2_ctrl_handler *hdl = &dev->hdl;
+	struct v4l2_ctrl_handler *hdl = &input->hdl;
 
-	mutex_init(&dev->lock);
-	spin_lock_init(&dev->slock);
+	mutex_init(&input->lock);
+	spin_lock_init(&input->slock);
 
 	/* setup video buffers queue */
-	INIT_LIST_HEAD(&dev->active);
-	dev->vidq.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-	dev->vidq.timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
-	dev->vidq.io_modes = VB2_MMAP | VB2_USERPTR | VB2_READ | VB2_DMABUF;
-	dev->vidq.ops = &tw5864_video_qops;
-	dev->vidq.mem_ops = &vb2_dma_contig_memops;
-	dev->vidq.drv_priv = dev;
-	dev->vidq.gfp_flags = __GFP_DMA32;
-	dev->vidq.buf_struct_size = sizeof(struct tw5864_buf);
-	dev->vidq.lock = &dev->lock;
-	dev->vidq.min_buffers_needed = 12;
-	ret = vb2_queue_init(&dev->vidq);
+	INIT_LIST_HEAD(&input->active);
+	input->vidq.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	input->vidq.timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
+	input->vidq.io_modes = VB2_MMAP | VB2_USERPTR | VB2_READ | VB2_DMABUF;
+	input->vidq.ops = &tw5864_video_qops;
+	input->vidq.mem_ops = &vb2_dma_contig_memops;
+	input->vidq.drv_priv = input;
+	input->vidq.gfp_flags = __GFP_DMA32;
+	input->vidq.buf_struct_size = sizeof(struct tw5864_buf);
+	input->vidq.lock = &input->lock;
+	input->vidq.min_buffers_needed = 12;
+	ret = vb2_queue_init(&input->vidq);
 	if (ret)
 		goto vb2_q_init_fail;
 
-	dev->vdev = tw5864_video_template;
+	input->vdev = tw5864_video_template;
 	/* TODO Set tvnorms to actual recognized format instead of wildcard? */
-	dev->vdev.v4l2_dev = &dev->root->v4l2_dev;
-	dev->vdev.lock = &dev->lock;
-	dev->vdev.queue = &dev->vidq;
-	video_set_drvdata(&dev->vdev, dev);
+	input->vdev.v4l2_dev = &input->root->v4l2_dev;
+	input->vdev.lock = &input->lock;
+	input->vdev.queue = &input->vidq;
+	video_set_drvdata(&input->vdev, input);
 
 	/* Initialize the device control structures */
-	dev->alloc_ctx = vb2_dma_contig_init_ctx(&dev->root->pci->dev);
-	if (IS_ERR(dev->alloc_ctx)) {
-		ret = PTR_ERR(dev->alloc_ctx);
+	input->alloc_ctx = vb2_dma_contig_init_ctx(&input->root->pci->dev);
+	if (IS_ERR(input->alloc_ctx)) {
+		ret = PTR_ERR(input->alloc_ctx);
 		goto vb2_dma_contig_init_ctx_fail;
 	}
 
@@ -865,25 +862,25 @@ static int tw5864_video_input_init(struct tw5864_input *dev, int video_nr)
 		ret = hdl->error;
 		goto v4l2_ctrl_fail;
 	}
-	dev->vdev.ctrl_handler = hdl;
+	input->vdev.ctrl_handler = hdl;
 	v4l2_ctrl_handler_setup(hdl);
 
-	ret = video_register_device(&dev->vdev, VFL_TYPE_GRABBER, video_nr);
+	ret = video_register_device(&input->vdev, VFL_TYPE_GRABBER, video_nr);
 	if (ret)
 		goto v4l2_ctrl_fail;
 
-	pr_info("%s (IRQ %d): registered video device %s\n", dev->root->name,
-		dev->root->pci->irq, video_device_node_name(&dev->vdev));
+	pr_info("%s (IRQ %d): registered video device %s\n", input->root->name,
+		input->root->pci->irq, video_device_node_name(&input->vdev));
 
 	return 0;
 
 v4l2_ctrl_fail:
 	v4l2_ctrl_handler_free(hdl);
-	vb2_dma_contig_cleanup_ctx(dev->alloc_ctx);
+	vb2_dma_contig_cleanup_ctx(input->alloc_ctx);
 vb2_dma_contig_init_ctx_fail:
-	vb2_queue_release(&dev->vidq);
+	vb2_queue_release(&input->vidq);
 vb2_q_init_fail:
-	mutex_destroy(&dev->lock);
+	mutex_destroy(&input->lock);
 
 	return ret;
 }
