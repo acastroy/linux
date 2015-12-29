@@ -546,7 +546,7 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	tw_writel(0x09208, 0x00002222);
 	tw_writel(0x0920c, 0x00003333);
 
-	tw_writel(TW5864_ENC_BUF_PTR_REC1, 0x0000);
+	tw_writel(TW5864_ENC_BUF_PTR_REC1, 0x00ff);
 	tw_writel(TW5864_ENC_BUF_PTR_REC2, 0x0000);
 	/*
 	 * Timer interval is 8 ms. TODO Select lower interval to avoid frame
