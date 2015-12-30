@@ -439,7 +439,9 @@ static int tw5864_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct tw5864_input *input =
 	    container_of(ctrl->handler, struct tw5864_input, hdl);
+#if 0
 	struct tw5864_dev *dev = input->root;
+#endif
 
 	switch (ctrl->id) {
 #if 0
@@ -911,11 +913,10 @@ void tw5864_video_fini(struct tw5864_dev *dev)
 
 void tw5864_prepare_frame_headers(struct tw5864_input *input)
 {
-	struct tw5864_dev *dev = input->root;
 	struct tw5864_buf *vb = input->vb;
 	u8 *dst;
 	unsigned long dst_size;
-	unsigned long dst_space;
+	size_t dst_space;
 
 	u8 *sl_hdr;
 	unsigned long space_before_sl_hdr;
@@ -951,11 +952,11 @@ void tw5864_prepare_frame_headers(struct tw5864_input *input)
 				     input->h264_frame_seqno_in_gop,
 				     &input->tail_nb_bits, &input->tail);
 #if 0
-	dev_dbg(&dev->pci->dev,
+	dev_dbg(&input->root->pci->dev,
 		"slice_header for gop seqno %d: length: %d, tail: %d bits\n",
 		input->h264_frame_seqno_in_gop, space_before_sl_hdr - dst_space,
 		input->tail_nb_bits);
-	dev_dbg(&dev->pci->dev,
+	dev_dbg(&input->root->pci->dev,
 		"slice header: %02x %02x %02x %02x  %02x %02x %02x %02x ||| tail: %02x\n",
 		sl_hdr[0], sl_hdr[1], sl_hdr[2], sl_hdr[3], sl_hdr[4],
 		sl_hdr[5], sl_hdr[6], sl_hdr[7], input->tail);
@@ -971,6 +972,7 @@ void tw5864_prepare_frame_headers(struct tw5864_input *input)
  */
 static unsigned int tw5864_md_metric_from_mvd(u32 mvd)
 {
+#if 0
 	unsigned int reserved = mvd >> 31;
 	unsigned int mb_type = (mvd >> 28) & 0x7;
 	/*
@@ -978,6 +980,7 @@ static unsigned int tw5864_md_metric_from_mvd(u32 mvd)
 	 * after quantization
 	 */
 	unsigned int non_zero_members = (mvd >> 20) & 0xff;
+#endif
 	unsigned int mv_y = (mvd >> 10) & 0x3ff;
 	unsigned int mv_x = mvd & 0x3ff;
 
@@ -1150,7 +1153,7 @@ static void tw5864_handle_frame(struct tw5864_h264_frame *frame)
 	frame_len -= skip_bytes;
 	if (WARN_ON_ONCE(dst_space < frame_len)) {
 		dev_err_once(&dev->pci->dev,
-			     "Left space in vb2 buffer %lu is insufficient for frame length %lu, writing truncated frame\n",
+			     "Left space in vb2 buffer %lu is insufficient for frame length %d, writing truncated frame\n",
 			     dst_space, frame_len);
 		frame_len = dst_space;
 	}
@@ -1222,7 +1225,7 @@ static void tw5864_handle_frame(struct tw5864_h264_frame *frame)
 					 .flags =
 					 V4L2_EVENT_MD_FL_HAVE_FRAME_SEQ,
 					 .frame_sequence =
-					 &vb->vb.v4l2_buf.sequence,
+					 vb->vb.v4l2_buf.sequence,
 					 },
 		};
 
