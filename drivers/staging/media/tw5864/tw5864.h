@@ -222,8 +222,9 @@ struct tw5864_dev {
 
 	struct tasklet_struct tasklet;
 
-	u32 timers_with_vlc_disabled;
 	int encoder_busy;
+	/* Input number to check next (in RR fashion) */
+	int next_i;
 
 	/* TODO audio stuff */
 

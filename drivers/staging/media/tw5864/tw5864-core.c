@@ -162,6 +162,8 @@ static u32 crc_check_sum(u32 *data, int len)
 	return val;
 }
 
+static void tw5864_timer_isr(struct tw5864_dev *dev);
+
 static irqreturn_t tw5864_isr(int irq, void *dev_id)
 {
 	struct tw5864_dev *dev = dev_id;
@@ -171,7 +173,6 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 	u32 vlc_reg;
 	u32 vlc_buf_reg;
 	int channel;
-	int i;
 	unsigned long flags;
 	struct tw5864_input *input = NULL;
 
@@ -256,63 +257,7 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 	}
 
 	if (status & TW5864_INTR_TIMER) {
-		int encoder_busy;
-		int stuck = 0;
-
-		dev->timers_with_vlc_disabled++;
-		if (dev->timers_with_vlc_disabled > 1000) {
-			dev_err(&dev->pci->dev,
-				"Encoding timed out! Trying to initiate it again.\n");
-			stuck = 1;
-		}
-		spin_lock_irqsave(&dev->slock, flags);
-		encoder_busy = dev->encoder_busy;
-		spin_unlock_irqrestore(&dev->slock, flags);
-
-		if (!encoder_busy || stuck) {	/* TODO procedure */
-			dev->timers_with_vlc_disabled = 0;
-
-			for (i = 0; i < TW5864_INPUTS; i++) {
-				/*
-				 * FIXME There's risk that only first enabled
-				 * port will work most of time. Rework
-				 * dispatching (maybe avoid timer? traverse
-				 * inputs in queue manner?)
-				 */
-				input = &dev->inputs[i];
-
-				spin_lock_irqsave(&input->slock, flags);
-				if (!input->enabled) {
-					spin_unlock_irqrestore(&input->slock, flags);
-					continue;
-				}
-
-				int senif_org_frm_ptr =
-				    tw_mask_shift_readl
-				    (TW5864_SENIF_ORG_FRM_PTR1, 0x3,
-				     2 * input->input_number);
-				if (input->buf_id != senif_org_frm_ptr
-				    || stuck) {
-					if (stuck)
-						tw5864_push_to_make_it_roll
-						    (input);
-					input->buf_id = senif_org_frm_ptr;
-
-					spin_lock_irqsave(&dev->slock, flags);
-					dev->encoder_busy = 1;
-					spin_unlock_irqrestore(&dev->slock,
-							       flags);
-					tw5864_request_encoded_frame(input);
-					/*
-					 * encoder is busy,
-					 * stop traversing inputs
-					 */
-					spin_unlock_irqrestore(&input->slock, flags);
-					break;
-				}
-				spin_unlock_irqrestore(&input->slock, flags);
-			}	/* for(...) inputs traversal */
-		}		/* if (!encoder_busy) */
+		tw5864_timer_isr(dev);
 		tw_writel(TW5864_PCI_INTR_STATUS, TW5864_TIMER_INTR);
 	}
 
@@ -322,6 +267,53 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 	}
 
 	return IRQ_HANDLED;
+}
+
+static void tw5864_timer_isr(struct tw5864_dev *dev)
+{
+	unsigned long flags;
+	int i;
+	int encoder_busy;
+
+	spin_lock_irqsave(&dev->slock, flags);
+	encoder_busy = dev->encoder_busy;
+	spin_unlock_irqrestore(&dev->slock, flags);
+
+	if (encoder_busy)
+		return;
+
+	/*
+	 * Traversing inputs in round-robin fashion, starting from next to the
+	 * last processed one
+	 */
+	for (i = 0; i < TW5864_INPUTS; i++) {
+		int next_input = (i + dev->next_i) % TW5864_INPUTS;
+		struct tw5864_input *input = &dev->inputs[next_input];
+		int raw_buf_id;  /* id of internal buf with last raw frame */
+
+		spin_lock_irqsave(&input->slock, flags);
+		if (!input->enabled)
+			goto next;
+
+		raw_buf_id = tw_mask_shift_readl(TW5864_SENIF_ORG_FRM_PTR1, 0x3,
+					      2 * input->input_number);
+
+		/* Check if new raw frame is available */
+		if (input->buf_id == raw_buf_id)
+			goto next;
+
+		input->buf_id = raw_buf_id;
+		spin_unlock_irqrestore(&input->slock, flags);
+
+		spin_lock(&dev->slock);
+		dev->encoder_busy = 1;
+		spin_unlock(&dev->slock);
+		tw5864_request_encoded_frame(input);
+		break;
+next:
+		spin_unlock_irqrestore(&input->slock, flags);
+		continue;
+	}
 }
 
 static size_t regs_dump(struct tw5864_dev *dev, char *buf, size_t size)
@@ -552,8 +544,25 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	tw_writel(0x09208, 0x00002222);
 	tw_writel(0x0920c, 0x00003333);
 
+	/*
+	 * Quote from Intersil (manufacturer):
+	 * 0x0038 is managed by HW, and by default it won't pass the pointer set
+	 * at 0x0010. So if you don't do encoding, 0x0038 should stay at '3'
+	 * (with 4 frames in buffer). If you encode one frame and then move
+	 * 0x0010 to '1' for example, HW will take one more frame and set it to
+	 * buffer #0, and then you should see 0x0038 is set to '0'.  There is
+	 * only one HW encoder engine, so 4 channels cannot get encoded
+	 * simultaneously. But each channel does have its own buffer (for
+	 * original frames and reconstructed frames). So there is no problem to
+	 * manage encoding for 4 channels at same time and no need to force
+	 * I-frames in switching channels.
+	 * End of quote.
+	 *
+	 * From my evidence, default value of 0x0038 (TW5864_SENIF_ORG_FRM_PTR1)
+	 * for each channel is 0. By setting 0x0010 (TW5864_ENC_BUF_PTR_REC1) to
+	 * any other value makes 0x0010 and 0x0038 "roll" together continuously.
+	 */
 	tw_writel(TW5864_ENC_BUF_PTR_REC1, 0x00ff);
-	tw_writel(TW5864_ENC_BUF_PTR_REC2, 0x0000);
 	/*
 	 * Timer interval is 8 ms. TODO Select lower interval to avoid frame
 	 * losing on full load. What about on-demand change of interval?
