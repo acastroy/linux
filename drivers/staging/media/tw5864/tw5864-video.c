@@ -76,7 +76,6 @@ static int tw5864_enable_input(struct tw5864_input *input)
 	struct tw5864_dev *dev = input->root;
 	int input_number = input->input_number;
 	unsigned long flags;
-	int i;
 
 	dev_dbg(&dev->pci->dev, "Enabling channel %d\n", input_number);
 
@@ -208,16 +207,6 @@ static int tw5864_enable_input(struct tw5864_input *input)
 	/* TODO Should use cif_height, not input's? */
 	tw_indir_writeb(dev, 0x203 + 4 * input_number, input->height / 4);
 
-	/* TODO Drop */
-	for (i = 0; i < 4 * TW5864_INPUTS; i++) {
-		tw_indir_writeb(dev, 0x200 + 4 * i, d1_width / 4);
-		tw_indir_writeb(dev, 0x201 + 4 * i, d1_height / 4);
-
-		tw_indir_writeb(dev, 0x202 + 4 * i, input->width / 4);
-		tw_indir_writeb(dev, 0x203 + 4 * i, input->height / 4);
-	}
-	/* TODO Drop END */
-
 	tw_writel(TW5864_DSP_PIC_MAX_MB,
 			((input->width / 16) << 8) | (input->height / 16));
 
@@ -230,41 +219,27 @@ static int tw5864_enable_input(struct tw5864_input *input)
 		  frame_height_bus_value);
 	tw_writel(TW5864_FRAME_HEIGHT_BUS_B(input_number),
 		  (frame_height_bus_value + 1) / 2 - 1);
-	for (i = 0; i < 4; i++) {
-		tw_writel(TW5864_FRAME_WIDTH_BUS_A(i), frame_width_bus_value);
-		tw_writel(TW5864_FRAME_WIDTH_BUS_B(i), frame_width_bus_value);
-		tw_writel(TW5864_FRAME_HEIGHT_BUS_A(i), frame_height_bus_value);
-		tw_writel(TW5864_FRAME_HEIGHT_BUS_B(i),
-			  (frame_height_bus_value + 1) / 2 - 1);
-		if (i == 0) {
-			/*
-			 * This register value seems to follow such approach:
-			 * In each second interval, when processing Nth frame,
-			 * it checks Nth bit of register value and, if the bit
-			 * is 1, it processes the frame, otherwise the frame is
-			 * discarded.
-			 * So unary representation would work, but more or less
-			 * equal gaps between the frames should be preserved.
-			 * So for 30 (24) FPS it can be set to 0xffff.
-			 * For 1 FPS - 0x0001.
-			 * For 2 FPS - 0x0101.
-			 * For 4 FPS - 0x1111.
-			 * For 8 FPS - 0x9999 (binary 0101 0101 0101 0101).
-			 * Et cetera.
-			 */
-			u32 unary_framerate = 0xffff;
 
-			tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD
-				  (input_number, i), unary_framerate);
-			tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD
-				  (input_number, i), unary_framerate);
-		} else {
-			tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD
-				  (input_number, i), 0);
-			tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD
-				  (input_number, i), 0);
-		}
-	}
+	/*
+	 * This register value seems to follow such approach: In each second
+	 * interval, when processing Nth frame, it checks Nth bit of register
+	 * value and, if the bit is 1, it processes the frame, otherwise the
+	 * frame is discarded.
+	 * So unary representation would work, but more or less equal gaps
+	 * between the frames should be preserved.
+	 * So for 30 (24) FPS it can be set to 0xffff.
+	 * For 1 FPS - 0x0001.
+	 * For 2 FPS - 0x0101.
+	 * For 4 FPS - 0x1111.
+	 * For 8 FPS - 0x9999 (binary 0101 0101 0101 0101).
+	 * Et cetera.
+	 */
+	u32 unary_framerate = 0xffff;
+
+	tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(input_number, 0),
+		  unary_framerate);
+	tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(input_number, 0),
+		  unary_framerate);
 
 	if (downscale_enabled)
 		tw_setl(TW5864_H264EN_CH_DNS, 1 << input_number);
@@ -276,7 +251,7 @@ static int tw5864_enable_input(struct tw5864_input *input)
 			     (input_number < 2
 			      ? TW5864_H264EN_RATE_MAX_LINE_REG1
 			      : TW5864_H264EN_RATE_MAX_LINE_REG2),
-			     0x1f, 5 * input_number,std == STD_NTSC ? 29 : 24);
+			     0x1f, 5 * input_number, std == STD_NTSC ? 29 : 24);
 
 	tw_mask_shift_writel((input_number < 2)
 			     ? TW5864_FRAME_BUS1 : TW5864_FRAME_BUS2,
@@ -287,50 +262,6 @@ static int tw5864_enable_input(struct tw5864_input *input)
 	spin_unlock_irqrestore(&dev->slock, flags);
 
 	return 0;
-}
-
-void tw5864_push_to_make_it_roll(struct tw5864_input *input)
-{
-	struct tw5864_dev *dev = input->root;
-	/*
-	 * AFAIU we need to update input's part of
-	 * TW5864_ENC_BUF_PTR_REC1 just to anything different, then it
-	 * and TW5864_SENIF_ORG_FRM_PTR1 occasionally start to roll by
-	 * themselves. It is surprising, but it was learnt from practice.
-	 *
-	 * Quote from Intersil (manufacturer): 0x0038 is managed by HW,
-	 * and by default it won't pass the pointer set at 0x0010. So if
-	 * you don't do encoding, 0x0038 should stay at '3' (with 4
-	 * frames in buffer). If you encode one frame and then move
-	 * 0x0010 to '1' for example, HW will take one more frame and
-	 * set it to buffer #0, and then you should see 0x0038 is set to
-	 * '0'.  There is only one HW encoder engine, so 4 channels
-	 * cannot get encoded simultaneously. But each channel does have
-	 * its own buffer (for original frames and reconstructed
-	 * frames). So there is no problem to manage encoding for 4
-	 * channels at same time and no need to force I-frames in
-	 * switching channels.
-	 * End of quote.
-	 */
-	/*
-	 * Well, this situation of pushing and self-rolling may lead to
-	 * race condition between HW internal write to this register and write
-	 * from kernel.
-	 * Maybe make such pushing write when the device is initialized, so that
-	 * we don't need to do it during streaming?
-	 */
-	u32 enc_buf_id = tw_mask_shift_readl(TW5864_SENIF_ORG_FRM_PTR1, 0x3,
-					     2 * input->input_number);
-	int enc_buf_id_new = enc_buf_id;
-
-	enc_buf_id_new += 1;
-	enc_buf_id_new %= 4;
-
-	tw_mask_shift_writel(TW5864_ENC_BUF_PTR_REC1, 0x3,
-			     2 * input->input_number, enc_buf_id_new);
-	dev_dbg(&dev->pci->dev,
-		"0x0010 set to %d (was %d) in context of input %d\n",
-		enc_buf_id_new, enc_buf_id, input->input_number);
 }
 
 void tw5864_request_encoded_frame(struct tw5864_input *input)
