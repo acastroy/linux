@@ -25,8 +25,6 @@
  *  GNU General Public License for more details.
  */
 
-#define DEBUG 1
-
 #include <linux/module.h>
 #include <media/v4l2-common.h>
 #include <media/v4l2-event.h>

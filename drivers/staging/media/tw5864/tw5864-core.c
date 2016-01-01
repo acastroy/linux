@@ -26,8 +26,6 @@
  *  GNU General Public License for more details.
  */
 
-#define DEBUG 1
-
 #include <linux/init.h>
 #include <linux/list.h>
 #include <linux/module.h>
