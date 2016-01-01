@@ -1054,7 +1054,6 @@ static void tw5864_handle_frame(struct tw5864_h264_frame *frame)
 		return;
 	}
 
-	/* TODO Make preliminary header write to dev->h264_buf, not to vb */
 	u8 *dst = input->buf_cur_ptr;
 
 	dst_size = vb2_plane_size(&vb->vb, 0);
