@@ -184,16 +184,6 @@ static int tw5864_enable_input(struct tw5864_input *input)
 		break;
 	}
 
-#if 0
-	/*
-	 * Select Part A mode. tw_setl instead of tw_clearl for Part B mode.
-	 *
-	 * I guess "Part B" is primarily for downscaled version of same channel
-	 * which goes in Part A of same bus
-	 */
-	tw_clearl(TW5864_FULL_HALF_MODE_SEL, 1 << input_number);
-#endif
-
 	/* analog input width / 4 */
 	tw_indir_writeb(dev, 0x200 + 4 * input_number, d1_width / 4);
 	tw_indir_writeb(dev, 0x201 + 4 * input_number, d1_height / 4);
@@ -205,7 +195,6 @@ static int tw5864_enable_input(struct tw5864_input *input)
 	tw_writel(TW5864_DSP_PIC_MAX_MB,
 			((input->width / 16) << 8) | (input->height / 16));
 
-	/* TODO FIXME Simplify and immediately check for regressions */
 	tw_writel(TW5864_FRAME_WIDTH_BUS_A(input_number),
 		  frame_width_bus_value);
 	tw_writel(TW5864_FRAME_WIDTH_BUS_B(input_number),

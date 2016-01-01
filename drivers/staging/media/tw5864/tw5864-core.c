@@ -510,6 +510,14 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	tw_indir_writeb(dev, 0xef0, 0x00);
 	tw_indir_writeb(dev, 0xef0, 0xe0);
 	mdelay(10);
+
+	/*
+	 * Select Part A mode for all channels.
+	 * tw_setl instead of tw_clearl for Part B mode.
+	 *
+	 * I guess "Part B" is primarily for downscaled version of same channel
+	 * which goes in Part A of same bus
+	 */
 	tw_writel(TW5864_FULL_HALF_MODE_SEL, 0);
 
 	tw_indir_writeb(dev, 0xefa, 0x44);
