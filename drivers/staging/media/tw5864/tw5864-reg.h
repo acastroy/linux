@@ -1237,7 +1237,7 @@
 #define TW5864_IND_DATA            0xB804
 
 /* 0xC000 ~ 0xC7FC -- Preview Register Map */
-/* Mostly skipped this section. TODO */
+/* Mostly skipped this section. */
 /*
  * [15:0] Status of Vsync Synchronized PCI_PV_CH_EN (Read Only)
  * 1 Channel Enabled
@@ -1252,9 +1252,9 @@
 #define TW5864_PCI_PV_CH_EN       0xC004
 
 /* 0xC800 ~ 0xC804 -- JPEG Capture Register Map */
-/* Skipped. TODO */
+/* Skipped. */
 /* 0xD000 ~ 0xD0FC -- JPEG Control Register Map */
-/* Skipped. TODO */
+/* Skipped. */
 
 /* 0xE000 ~ 0xFC04 – Motion Vector Register Map */
 
@@ -1436,7 +1436,7 @@
  * PREV_PCI_ENB_CHN[1] Enable 10th preview channel
  */
 #define TW5864_PREV_PCI_ENB_CHN   0x18040
-/* Description skipped. TODO */
+/* Description skipped. */
 #define TW5864_PREV_FRAME_FORMAT_IN 0x18044
 /* IIC enable */
 #define TW5864_IIC_ENB            0x18048
@@ -1459,9 +1459,9 @@
 #define TW5864_VLC_STREAM_BASE_ADDR 0x18080
 /* MV stream base address */
 #define TW5864_MV_STREAM_BASE_ADDR 0x18084
-/* 0x180a0 – 0x180bc: audio burst base address. Skipped. TODO */
-/* 0x180C0 ~ 0x180DC – JPEG Push Mode Buffer Base Address. Skipped. TODO */
-/* 0x18100 – 0x1817c: preview burst base address. Skipped. TODO */
+/* 0x180a0 – 0x180bc: audio burst base address. Skipped. */
+/* 0x180C0 ~ 0x180DC – JPEG Push Mode Buffer Base Address. Skipped. */
+/* 0x18100 – 0x1817c: preview burst base address. Skipped. */
 
 /* 0x80000 ~ 0x87FFF -- DDR Burst RW Register Map */
 #define TW5864_DDR_CTL            0x80000
@@ -1765,7 +1765,7 @@
 /* Enable recognition of NTSC (M). (Default) */
 #define TW5864_INDIR_VIN_F_NTSCEN (1 << 0)
 
-/* Some registers skipped. TODO */
+/* Some registers skipped. */
 
 /*
  * Audio Input ADC gain control
@@ -1791,7 +1791,7 @@
 /* [3:0] channel 2, [7:4] channel 3 */
 #define TW5864_INDIR_AIGAIN2 0x061
 
-/* Some registers skipped TODO */
+/* Some registers skipped */
 
 #define TW5864_INDIR_AIN_0x06D 0x06D
 /* Define controls in register TW5864_INDIR_AIN_0x06D */
@@ -1819,7 +1819,7 @@
  */
 #define TW5864_INDIR_AIN_MIX_MUTE 0x1f
 
-/* Some registers skipped TODO */
+/* Some registers skipped */
 
 #define TW5864_INDIR_AIN_0x0E3 0x0E3
 /* Define controls in register TW5864_INDIR_AIN_0x0E3 */
@@ -1914,7 +1914,7 @@
  */
 #define TW5864_INDIR_AIN_A5DETENA 0x0E5
 
-/* Some registers skipped TODO */
+/* Some registers skipped */
 
 /*
  * [7:3]: DEV_ID The TW5864 product ID code is 01000
@@ -2154,4 +2154,4 @@
 #define TW5864_INDIR_MASK_CH_SEL 0x3FE
 
 /* Clock PLL / Analog IP Control */
-/* Some registers skipped TODO */
+/* Some registers skipped */
