@@ -116,16 +116,9 @@ static void tw5864_interrupts_disable(struct tw5864_dev *dev)
 	mutex_unlock(&dev->lock);
 }
 
+#define DEBUG
 #ifdef DEBUG
-#define SWAP32(x) \
-	((u32)( \
-		(((u32)(x) & (u32)0x000000ffUL) << 24) | \
-		(((u32)(x) & (u32)0x0000ff00UL) <<  8) | \
-		(((u32)(x) & (u32)0x00ff0000UL) >>  8) | \
-		(((u32)(x) & (u32)0xff000000UL) >> 24)))
-
-#define PLATFORM_ENDIAN_SAME 1
-static u32 crc_check_sum(u32 *data, int len)
+static u32 checksum(u32 *data, int len)
 {
 	u32 val, count_len = len;
 
@@ -134,11 +127,7 @@ static u32 crc_check_sum(u32 *data, int len)
 		val ^= *data++;
 		count_len -= 4;
 	}
-#if defined(PLATFORM_ENDIAN_SAME)
-	val ^= SWAP32((len >> 2));
-#else
-	val ^= (len >> 2);
-#endif
+	val ^= htonl((len >> 2));
 	return val;
 }
 #endif
@@ -189,7 +178,7 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 
 #ifdef DEBUG
 		if (vlc_crc !=
-		    crc_check_sum((u32 *)cur_frame->vlc.addr, vlc_len))
+		    checksum((u32 *)cur_frame->vlc.addr, vlc_len))
 			dev_err(&dev->pci->dev,
 				"CRC of encoded frame doesn't match!\n");
 #endif
