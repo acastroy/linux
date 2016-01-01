@@ -15,9 +15,6 @@
  *  GNU General Public License for more details.
  */
 
-#ifndef _TW5864_REG_H_
-#define _TW5864_REG_H_
-
 /* ---------------------------------------------------------------------- */
 
 /* According to TW5864_datasheet_0.6d.pdf, tw5864b1-ds.pdf */
@@ -2158,5 +2155,3 @@
 
 /* Clock PLL / Analog IP Control */
 /* Some registers skipped TODO */
-
-#endif
