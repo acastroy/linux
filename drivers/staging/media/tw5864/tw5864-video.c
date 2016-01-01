@@ -640,6 +640,7 @@ static const struct v4l2_ctrl_config tw5864_md_thresholds = {
 
 static int tw5864_video_input_init(struct tw5864_input *dev, int video_nr);
 static void tw5864_video_input_fini(struct tw5864_input *dev);
+static void tw5864_tables_upload(struct tw5864_dev *dev);
 
 int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 {
@@ -662,9 +663,7 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 		}
 	}
 
-	WriteForwardQuantizationTable(dev);
-	WriteInverseQuantizationTable(dev);
-	WriteEncodeVLCLookupTable(dev);
+	tw5864_tables_upload(dev);
 	pci_init_ad(dev);
 
 	/* Picture is distorted without this block */
