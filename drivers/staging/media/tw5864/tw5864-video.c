@@ -147,7 +147,7 @@ static int tw5864_enable_input(struct tw5864_input *input)
 		downscale_enabled = 0;
 		input->reg_dsp_codec |= TW5864_CIF_MAP_MD | TW5864_HD1_MAP_MD;
 		input->reg_emu_en_various_etc |= TW5864_DSP_FRAME_TYPE_D1;
-		input->reg_interlacing = TW5864_DI_EN;
+		input->reg_interlacing = TW5864_DI_EN | TW5864_DSP_INTER_ST;
 
 		tw_setl(TW5864_FULL_HALF_FLAG, 1 << input_number);
 		break;
