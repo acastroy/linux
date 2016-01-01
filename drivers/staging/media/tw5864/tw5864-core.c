@@ -493,7 +493,6 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	WriteEncodeVLCLookupTable(dev);
 	pci_init_ad(dev);
 
-#if 1
 	/* Picture is distorted without this block */
 	/*use falling edge to sample ,54M to 108M */
 	tw_indir_writeb(dev, 0x041, 0x03);
@@ -525,7 +524,6 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 
 	tw_indir_writeb(dev, 0xefc, 0x00);
 	tw_indir_writeb(dev, 0xefd, 0xf0);
-#endif
 
 	dev->h264_buf_r_index = 0;
 	dev->h264_buf_w_index = 0;
