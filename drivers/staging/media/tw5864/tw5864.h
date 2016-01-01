@@ -178,7 +178,7 @@ struct tw5864_input {
 	u32 reg_vlc;
 	u32 reg_dsp_codec;
 	u32 reg_dsp;
-	u32 reg_emu_en_various_etc;
+	u32 reg_emu;
 	u32 reg_dsp_qp;
 	u32 reg_dsp_ref_mvp_lambda;
 	u32 reg_dsp_i4x4_weight;

@@ -28,9 +28,8 @@
 /* [15:0] The Version register for H264 core (Read Only) */
 #define TW5864_H264REV             0x0000
 
-/* TODO Improve naming */
-#define TW5864_EMU_EN_VARIOUS_ETC  0x0004
-/* Define controls in register TW5864_EMU_EN_VARIOUS_ETC */
+#define TW5864_EMU                 0x0004
+/* Define controls in register TW5864_EMU */
 /* DDR controller enabled */
 #define TW5864_EMU_EN_DDR        (1 << 0)
 /* Enable bit for Inter module */

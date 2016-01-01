@@ -117,7 +117,7 @@ static int tw5864_enable_input(struct tw5864_input *input)
 	input->reg_dsp_qp = QP_VALUE;
 	input->reg_dsp_ref_mvp_lambda = Lambda_lookup_table[QP_VALUE];
 	input->reg_dsp_i4x4_weight = Intra4X4_Lambda3[QP_VALUE];
-	input->reg_emu_en_various_etc = TW5864_EMU_EN_LPF | TW5864_EMU_EN_BHOST
+	input->reg_emu = TW5864_EMU_EN_LPF | TW5864_EMU_EN_BHOST
 	    | TW5864_EMU_EN_SEN | TW5864_EMU_EN_ME | TW5864_EMU_EN_DDR;
 	input->reg_dsp = input_number	/* channel id */
 	    | TW5864_DSP_CHROM_SW
@@ -148,7 +148,7 @@ static int tw5864_enable_input(struct tw5864_input *input)
 		fmt_reg_value = 0;
 		downscale_enabled = 0;
 		input->reg_dsp_codec |= TW5864_CIF_MAP_MD | TW5864_HD1_MAP_MD;
-		input->reg_emu_en_various_etc |= TW5864_DSP_FRAME_TYPE_D1;
+		input->reg_emu |= TW5864_DSP_FRAME_TYPE_D1;
 		input->reg_interlacing = TW5864_DI_EN | TW5864_DSP_INTER_ST;
 
 		tw_setl(TW5864_FULL_HALF_FLAG, 1 << input_number);
@@ -162,7 +162,7 @@ static int tw5864_enable_input(struct tw5864_input *input)
 		fmt_reg_value = 0;
 		downscale_enabled = 0;
 		input->reg_dsp_codec |= TW5864_HD1_MAP_MD;
-		input->reg_emu_en_various_etc |= TW5864_DSP_FRAME_TYPE_D1;
+		input->reg_emu |= TW5864_DSP_FRAME_TYPE_D1;
 
 		tw_clearl(TW5864_FULL_HALF_FLAG, 1 << input_number);
 
@@ -263,7 +263,7 @@ void tw5864_request_encoded_frame(struct tw5864_input *input)
 	struct tw5864_dev *dev = input->root;
 
 	tw_setl(TW5864_DSP_CODEC, TW5864_CIF_MAP_MD | TW5864_HD1_MAP_MD);
-	tw_writel(TW5864_EMU_EN_VARIOUS_ETC, input->reg_emu_en_various_etc);
+	tw_writel(TW5864_EMU, input->reg_emu);
 	tw_writel(TW5864_INTERLACING, input->reg_interlacing);
 	tw_writel(TW5864_DSP, input->reg_dsp);
 
