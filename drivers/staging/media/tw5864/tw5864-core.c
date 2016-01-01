@@ -457,7 +457,6 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 
 	mutex_init(&dev->lock);
 	spin_lock_init(&dev->slock);
-	dev->encoder_busy = 0;
 
 	dev->debugfs_dir = debugfs_create_dir(dev->name, NULL);
 	err = tw5864_video_init(dev, video_nr);
@@ -474,96 +473,6 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 
 	debugfs_create_file("regs_dump", S_IRUGO, dev->debugfs_dir, dev,
 			    &debugfs_regs_dump_fops);
-
-	dev_info(&dev->pci->dev, "hi everybody, it's info\n");
-	dev_dbg(&dev->pci->dev, "hi everybody, it's debug\n");
-
-	WriteForwardQuantizationTable(dev);
-	WriteInverseQuantizationTable(dev);
-	WriteEncodeVLCLookupTable(dev);
-	pci_init_ad(dev);
-
-	/* Picture is distorted without this block */
-	/*use falling edge to sample ,54M to 108M */
-	tw_indir_writeb(dev, 0x041, 0x03);
-	tw_indir_writeb(dev, 0xefe, 0x00);
-
-	tw_indir_writeb(dev, 0xee6, 0x02);
-	tw_indir_writeb(dev, 0xee7, 0x02);
-	tw_indir_writeb(dev, 0xee8, 0x02);
-	tw_indir_writeb(dev, 0xeeb, 0x02);
-	tw_indir_writeb(dev, 0xeec, 0x02);
-	tw_indir_writeb(dev, 0xeed, 0x02);
-
-	/* vi reset */
-	tw_indir_writeb(dev, 0xef0, 0x00);
-	tw_indir_writeb(dev, 0xef0, 0xe0);
-	mdelay(10);
-
-	/*
-	 * Select Part A mode for all channels.
-	 * tw_setl instead of tw_clearl for Part B mode.
-	 *
-	 * I guess "Part B" is primarily for downscaled version of same channel
-	 * which goes in Part A of same bus
-	 */
-	tw_writel(TW5864_FULL_HALF_MODE_SEL, 0);
-
-	tw_indir_writeb(dev, 0xefa, 0x44);
-	tw_indir_writeb(dev, 0xefb, 0x44);
-
-	tw_indir_writeb(dev, 0xefc, 0x00);
-	tw_indir_writeb(dev, 0xefd, 0xf0);
-
-	dev->h264_buf_r_index = 0;
-	dev->h264_buf_w_index = 0;
-	tw_writel(TW5864_VLC_STREAM_BASE_ADDR,
-		  dev->h264_buf[dev->h264_buf_w_index].vlc.dma_addr);
-	tw_writel(TW5864_MV_STREAM_BASE_ADDR,
-		  dev->h264_buf[dev->h264_buf_w_index].mv.dma_addr);
-
-	for (int i = 0; i < TW5864_INPUTS; i++) {
-		tw_indir_writeb(dev, 0x00e + i * 0x010, 0x07);
-		/* to initiate auto format recognition */
-		tw_indir_writeb(dev, 0x00f + i * 0x010, 0xff);
-	}
-
-	tw_writel(TW5864_SEN_EN_CH, 0x000f);
-	tw_writel(TW5864_H264EN_CH_EN, 0x000f);
-
-	tw_writel(0x09200, 0x00000000);
-	tw_writel(0x09204, 0x00001111);
-	tw_writel(0x09208, 0x00002222);
-	tw_writel(0x0920c, 0x00003333);
-
-	/*
-	 * Quote from Intersil (manufacturer):
-	 * 0x0038 is managed by HW, and by default it won't pass the pointer set
-	 * at 0x0010. So if you don't do encoding, 0x0038 should stay at '3'
-	 * (with 4 frames in buffer). If you encode one frame and then move
-	 * 0x0010 to '1' for example, HW will take one more frame and set it to
-	 * buffer #0, and then you should see 0x0038 is set to '0'.  There is
-	 * only one HW encoder engine, so 4 channels cannot get encoded
-	 * simultaneously. But each channel does have its own buffer (for
-	 * original frames and reconstructed frames). So there is no problem to
-	 * manage encoding for 4 channels at same time and no need to force
-	 * I-frames in switching channels.
-	 * End of quote.
-	 *
-	 * From my evidence, default value of 0x0038 (TW5864_SENIF_ORG_FRM_PTR1)
-	 * for each channel is 0. By setting 0x0010 (TW5864_ENC_BUF_PTR_REC1) to
-	 * any other value makes 0x0010 and 0x0038 "roll" together continuously.
-	 */
-	tw_writel(TW5864_ENC_BUF_PTR_REC1, 0x00ff);
-	tw_writel(TW5864_PCI_INTTM_SCALE, 3);
-
-	tw_writel(TW5864_INTERLACING, TW5864_DI_EN);
-	tw_writel(TW5864_MASTER_ENB_REG, TW5864_PCI_VLC_INTR_ENB);
-	tw_writel(TW5864_PCI_INTR_CTL,
-		  TW5864_TIMER_INTR_ENB | TW5864_PCI_MAST_ENB |
-		  TW5864_MVD_VLC_MAST_ENB);
-	dev->irqmask |= TW5864_INTR_VLC_DONE | TW5864_INTR_TIMER;
-	tw5864_irqmask_apply(dev);
 
 	return 0;
 
