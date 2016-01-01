@@ -114,13 +114,6 @@ u8 tw_indir_readb(struct tw5864_dev *dev, u16 addr)
 	return data & 0xff;
 }
 
-static void tw5864_interrupts_enable(struct tw5864_dev *dev)
-{
-	mutex_lock(&dev->lock);
-
-	mutex_unlock(&dev->lock);
-}
-
 void tw5864_irqmask_apply(struct tw5864_dev *dev)
 {
 	tw_writel(TW5864_INTR_ENABLE_L, dev->irqmask & 0xffff);
@@ -465,9 +458,6 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	mutex_init(&dev->lock);
 	spin_lock_init(&dev->slock);
 	dev->encoder_busy = 0;
-
-	/* Enable interrupts */
-	tw5864_interrupts_enable(dev);
 
 	dev->debugfs_dir = debugfs_create_dir(dev->name, NULL);
 	err = tw5864_video_init(dev, video_nr);
