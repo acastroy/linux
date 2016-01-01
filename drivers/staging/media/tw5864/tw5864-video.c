@@ -33,6 +33,8 @@
 #include "tw5864.h"
 #include "tw5864-reg.h"
 
+#include "tables_upload.c"
+
 static void tw5864_handle_frame_task(unsigned long data);
 static void tw5864_handle_frame(struct tw5864_h264_frame *frame);
 

@@ -46,8 +46,6 @@
 #include "tw5864.h"
 #include "tw5864-reg.h"
 
-#include "tables_upload.c"
-
 MODULE_DESCRIPTION("v4l2 driver module for tw5864 based video capture & encoding cards");
 MODULE_AUTHOR("Andrey Utkin <andrey.utkin@corp.bluecherry.net>");
 MODULE_LICENSE("GPL");
