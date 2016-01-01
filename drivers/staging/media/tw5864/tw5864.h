@@ -131,7 +131,6 @@ struct tw5864_fmt {
 	u32 twformat;
 };
 
-/* bad name, TODO improve */
 struct tw5864_dma_buf {
 	void *addr;
 	dma_addr_t dma_addr;
@@ -206,7 +205,6 @@ struct tw5864_h264_frame {
 	u8 h264_header_tail_bitmask;
 
 	struct timeval timestamp;
-	/* TODO use scatter-gather API somehow? */
 };
 
 /* global device status */
@@ -225,8 +223,6 @@ struct tw5864_dev {
 	int encoder_busy;
 	/* Input number to check next (in RR fashion) */
 	int next_i;
-
-	/* TODO audio stuff */
 
 	/* pci i/o */
 	char name[64];
