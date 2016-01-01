@@ -199,11 +199,6 @@ struct tw5864_h264_frame {
 	int vlc_len;
 	struct tw5864_input *input;
 
-	u8 h264_header[64];
-	size_t h264_header_len;
-	u8 h264_header_tail;
-	u8 h264_header_tail_bitmask;
-
 	struct timeval timestamp;
 };
 

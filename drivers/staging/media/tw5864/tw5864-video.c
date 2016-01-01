@@ -1066,17 +1066,13 @@ static void tw5864_handle_frame(struct tw5864_h264_frame *frame)
 			     dst_space, frame_len);
 		frame_len = dst_space;
 	}
+
 	u8 tail_mask = 0xff, vlc_mask = 0;
-#if 1
 	int i;
 
 	for (i = 0; i < 8 - input->tail_nb_bits; i++)
 		vlc_mask |= 1 << i;
 	tail_mask = (~vlc_mask) & 0xff;
-#else
-	tail_mask = h264_header_tail_bitmask;
-	vlc_mask = (~tail_mask) & 0xff;
-#endif
 
 	u8 vlc_first_byte = ((u8 *)(frame->vlc.addr + skip_bytes))[0];
 
