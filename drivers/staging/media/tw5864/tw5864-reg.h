@@ -232,11 +232,6 @@
 #define TW5864_RST_MV_PTR          0x0068
 #define TW5864_INTERLACING         0x0200
 /* Define controls in register TW5864_INTERLACING */
-/*
- * Inter_Mode Start. 2-nd bit? A
- * guess. Missing in datasheet
- */
-#define TW5864_DSP_INTER_ST      (1 << 1)
 /* Deinterlacer Enable */
 #define TW5864_DI_EN             (1 << 2)
 /*
