@@ -291,15 +291,16 @@ void tw5864_request_encoded_frame(struct tw5864_input *input)
 	tw_writel(TW5864_SLICE, 0x00000000);
 }
 
-static int tw5864_disable_input(struct tw5864_dev *dev, int input_number)
+static int tw5864_disable_input(struct tw5864_input *input)
 {
+	struct tw5864_dev *dev = input->root;
 	unsigned long flags;
 
-	dev_dbg(&dev->pci->dev, "Disabling channel %d\n", input_number);
+	dev_dbg(&dev->pci->dev, "Disabling channel %d\n", input->input_number);
 	mutex_lock(&dev->lock);
 
 	spin_lock_irqsave(&dev->slock, flags);
-	dev->inputs[input_number].enabled = 0;
+	input->enabled = 0;
 	spin_unlock_irqrestore(&dev->slock, flags);
 	mutex_unlock(&dev->lock);
 	return 0;
@@ -318,7 +319,7 @@ static void tw5864_stop_streaming(struct vb2_queue *q)
 	unsigned long flags;
 	struct tw5864_input *input = vb2_get_drv_priv(q);
 
-	tw5864_disable_input(input->root, input->input_number);
+	tw5864_disable_input(input);
 
 	spin_lock_irqsave(&input->slock, flags);
 	if (input->vb) {
