@@ -642,7 +642,7 @@ static void tw5864_video_input_fini(struct tw5864_input *dev);
 int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 {
 	int i;
-	int ret;
+	int ret = -1;
 
 	for (i = 0; i < H264_BUF_CNT; i++) {
 		dev->h264_buf[i].vlc.addr =
@@ -655,6 +655,7 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 				       GFP_KERNEL | GFP_DMA32);
 		if (!dev->h264_buf[i].vlc.addr || !dev->h264_buf[i].mv.addr) {
 			dev_err(&dev->pci->dev, "dma alloc & map fail\n");
+			ret = -ENOMEM;
 			goto dma_alloc_fail;
 		}
 	}
