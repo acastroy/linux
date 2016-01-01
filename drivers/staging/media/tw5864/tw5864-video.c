@@ -115,7 +115,6 @@ static int tw5864_enable_input(struct tw5864_input *input)
 
 	int d1_width = 720;
 	int d1_height = (std == STD_NTSC) ? 480 : 576;
-	/* int cif_height = d1_height / 4; */
 
 	input->width = d1_width;
 	input->height = d1_height;
@@ -201,7 +200,6 @@ static int tw5864_enable_input(struct tw5864_input *input)
 
 	/* output width / 4 */
 	tw_indir_writeb(dev, 0x202 + 4 * input_number, input->width / 4);
-	/* TODO Should use cif_height, not input's? */
 	tw_indir_writeb(dev, 0x203 + 4 * input_number, input->height / 4);
 
 	tw_writel(TW5864_DSP_PIC_MAX_MB,
