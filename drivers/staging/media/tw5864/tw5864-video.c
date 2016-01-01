@@ -287,8 +287,6 @@ void tw5864_request_encoded_frame(struct tw5864_input *input)
 	tw_writel(TW5864_DSP_ENC_REC,
 		  (((enc_buf_id_new + 1) % 4) << 12) | (enc_buf_id_new & 0x3));
 
-	/* Unneeded? TODO decode, remove unneeded bits */
-	tw_writel(TW5864_PCI_INTR_CTL, 0x00000073);
 	/* TODO Unneeded? */
 	tw_writel(TW5864_MASTER_ENB_REG, TW5864_PCI_VLC_INTR_ENB);
 
