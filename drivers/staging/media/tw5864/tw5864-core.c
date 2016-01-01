@@ -610,6 +610,8 @@ static void tw5864_finidev(struct pci_dev *pci_dev)
 	devm_kfree(&pci_dev->dev, dev);
 }
 
+#undef CONFIG_PM
+
 #ifdef CONFIG_PM
 
 static int tw5864_suspend(struct pci_dev *pci_dev, pm_message_t state)
