@@ -107,9 +107,7 @@ static int tw5864_enable_input(struct tw5864_input *input)
 	input->reg_emu_en_various_etc = TW5864_EMU_EN_LPF | TW5864_EMU_EN_BHOST
 	    | TW5864_EMU_EN_SEN | TW5864_EMU_EN_ME | TW5864_EMU_EN_DDR;
 	input->reg_dsp = input_number	/* channel id */
-	    /* TODO Does this matter? Goes so in reference driver. */
 	    | TW5864_DSP_CHROM_SW
-	    /* Value from ref driver */
 	    | ((0xa << 8) & TW5864_DSP_MB_DELAY)
 	    ;
 
