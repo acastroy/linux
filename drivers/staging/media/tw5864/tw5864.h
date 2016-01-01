@@ -180,6 +180,8 @@ struct tw5864_input {
 
 	struct v4l2_ctrl *md_threshold_grid_ctrl;
 	u16 md_threshold_grid_values[12 * 16];
+	int qp;
+	int gop;
 };
 
 struct tw5864_h264_frame {

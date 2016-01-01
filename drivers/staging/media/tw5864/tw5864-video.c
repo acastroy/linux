@@ -104,9 +104,9 @@ static int tw5864_enable_input(struct tw5864_input *input)
 	input->h264_idr_pic_id = 0;
 	input->h264_frame_seqno_in_gop = 0;
 
-	input->reg_dsp_qp = QP_VALUE;
-	input->reg_dsp_ref_mvp_lambda = Lambda_lookup_table[QP_VALUE];
-	input->reg_dsp_i4x4_weight = Intra4X4_Lambda3[QP_VALUE];
+	input->reg_dsp_qp = input->qp;
+	input->reg_dsp_ref_mvp_lambda = Lambda_lookup_table[input->qp];
+	input->reg_dsp_i4x4_weight = Intra4X4_Lambda3[input->qp];
 	input->reg_emu = TW5864_EMU_EN_LPF | TW5864_EMU_EN_BHOST
 	    | TW5864_EMU_EN_SEN | TW5864_EMU_EN_ME | TW5864_EMU_EN_DDR;
 	input->reg_dsp = input_number	/* channel id */
@@ -262,7 +262,7 @@ void tw5864_request_encoded_frame(struct tw5864_input *input)
 	tw_writel(TW5864_DSP_I4x4_WEIGHT, input->reg_dsp_i4x4_weight);
 	tw_writel(TW5864_DSP_INTRA_MODE, 0x00000070);
 
-	if (input->frame_seqno % GOP_SIZE == 0) {
+	if (input->frame_seqno % input->gop == 0) {
 		/* Produce I-frame */
 		tw_writel(TW5864_MOTION_SEARCH_ETC, 0x00000008);
 		input->h264_frame_seqno_in_gop = 0;
@@ -382,6 +382,17 @@ static int tw5864_s_ctrl(struct v4l2_ctrl *ctrl)
 			tw_andorb(TW5864_LOOP, 0x30, 0x00);
 		break;
 #endif
+	case V4L2_CID_MPEG_VIDEO_GOP_SIZE:
+		input->gop = ctrl->val;
+		return 0;
+	case V4L2_CID_MPEG_VIDEO_H264_MIN_QP:
+		spin_lock(&input->slock);
+		input->qp = ctrl->val;
+		input->reg_dsp_qp = input->qp;
+		input->reg_dsp_ref_mvp_lambda = Lambda_lookup_table[input->qp];
+		input->reg_dsp_i4x4_weight = Intra4X4_Lambda3[input->qp];
+		spin_unlock(&input->slock);
+		return 0;
 	case V4L2_CID_DETECT_MD_GLOBAL_THRESHOLD:
 		memset(input->md_threshold_grid_values, ctrl->val,
 		       sizeof(input->md_threshold_grid_values));
@@ -827,6 +838,10 @@ static int tw5864_video_input_init(struct tw5864_input *input, int video_nr)
 			  V4L2_CID_COLOR_KILLER, 0, 1, 1, 0);
 	v4l2_ctrl_new_std(hdl, &tw5864_ctrl_ops,
 			  V4L2_CID_CHROMA_AGC, 0, 1, 1, 1);
+	v4l2_ctrl_new_std(hdl, &tw5864_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_GOP_SIZE, 1, 255, 1, GOP_SIZE);
+	v4l2_ctrl_new_std(hdl, &tw5864_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_H264_MIN_QP, 0, 31, 1, QP_VALUE);
 	v4l2_ctrl_new_std_menu(hdl, &tw5864_ctrl_ops,
 			       V4L2_CID_DETECT_MD_MODE,
 			       V4L2_DETECT_MD_MODE_THRESHOLD_GRID, 0,
@@ -843,6 +858,9 @@ static int tw5864_video_input_init(struct tw5864_input *input, int video_nr)
 	}
 	input->vdev.ctrl_handler = hdl;
 	v4l2_ctrl_handler_setup(hdl);
+
+	input->qp = QP_VALUE;
+	input->gop = GOP_SIZE;
 
 	ret = video_register_device(&input->vdev, VFL_TYPE_GRABBER, video_nr);
 	if (ret)
@@ -923,7 +941,7 @@ void tw5864_prepare_frame_headers(struct tw5864_input *input)
 	 * If this is first frame, put SPS and PPS
 	 */
 	if (input->frame_seqno == 0)
-		tw5864_h264_put_stream_header(&dst, &dst_space, QP_VALUE,
+		tw5864_h264_put_stream_header(&dst, &dst_space, input->qp,
 					      input->width, input->height);
 
 	/* Put slice header */
