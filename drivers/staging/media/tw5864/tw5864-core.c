@@ -1,19 +1,8 @@
 /*
- *  tw5864-core.c
- *  Core functions for the Techwell 5864 driver
+ *  TW5864 driver - core functions
  *
- *  Much of this code is derived from the cx88 and sa7134 drivers, which
- *  were in turn derived from the bt87x driver.  The original work was by
- *  Gerd Knorr; more recently the code was enhanced by Mauro Carvalho Chehab,
- *  Hans Verkuil, Andy Walls and many others.  Their work is gratefully
- *  acknowledged.  Full credit goes to them - any problems within this code
- *  are mine.
- *
- *  Copyright (C) 2009  William M. Brack
- *
- *  Refactored and updated to the latest v4l core frameworks:
- *
- *  Copyright (C) 2014 Hans Verkuil <hverkuil@xs4all.nl>
+ *  Copyright (C) 2015 Bluecherry, LLC <maintainers@bluecherrydvr.com>
+ *  Copyright (C) 2015 Andrey Utkin <andrey.utkin@corp.bluecherry.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,8 +14,6 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  */
-
-#define DEBUG 1
 
 #include <linux/init.h>
 #include <linux/list.h>
@@ -48,9 +35,8 @@
 #include "tw5864.h"
 #include "tw5864-reg.h"
 
-#include "tables_upload.c"
-
-MODULE_DESCRIPTION("v4l2 driver module for tw5864 based video capture & encoding cards");
+MODULE_DESCRIPTION("V4L2 driver module for tw5864-based multimedia capture & encoding devices");
+MODULE_AUTHOR("Bluecherry Maintainers <maintainers@bluecherrydvr.com>");
 MODULE_AUTHOR("Andrey Utkin <andrey.utkin@corp.bluecherry.net>");
 MODULE_LICENSE("GPL");
 
@@ -116,13 +102,6 @@ u8 tw_indir_readb(struct tw5864_dev *dev, u16 addr)
 	return data & 0xff;
 }
 
-static void tw5864_interrupts_enable(struct tw5864_dev *dev)
-{
-	mutex_lock(&dev->lock);
-
-	mutex_unlock(&dev->lock);
-}
-
 void tw5864_irqmask_apply(struct tw5864_dev *dev)
 {
 	tw_writel(TW5864_INTR_ENABLE_L, dev->irqmask & 0xffff);
@@ -137,44 +116,13 @@ static void tw5864_interrupts_disable(struct tw5864_dev *dev)
 	mutex_unlock(&dev->lock);
 }
 
-#define SWAP32(x) \
-	((u32)( \
-		(((u32)(x) & (u32)0x000000ffUL) << 24) | \
-		(((u32)(x) & (u32)0x0000ff00UL) <<  8) | \
-		(((u32)(x) & (u32)0x00ff0000UL) >>  8) | \
-		(((u32)(x) & (u32)0xff000000UL) >> 24)))
-
-#define PLATFORM_ENDIAN_SAME 1
-static u32 crc_check_sum(u32 *data, int len)
-{
-	u32 val, count_len = len;
-
-	val = *data++;
-	while (((count_len >> 2) - 1) > 0) {
-		val ^= *data++;
-		count_len -= 4;
-	}
-#if defined(PLATFORM_ENDIAN_SAME)
-	val ^= SWAP32((len >> 2));
-#else
-	val ^= (len >> 2);
-#endif
-	return val;
-}
-
 static void tw5864_timer_isr(struct tw5864_dev *dev);
+static void tw5864_h264_isr(struct tw5864_dev *dev);
 
 static irqreturn_t tw5864_isr(int irq, void *dev_id)
 {
 	struct tw5864_dev *dev = dev_id;
 	u32 status;
-	u32 vlc_len;
-	u32 vlc_crc;
-	u32 vlc_reg;
-	u32 vlc_buf_reg;
-	int channel;
-	unsigned long flags;
-	struct tw5864_input *input = NULL;
 
 	status = tw_readl(TW5864_INTR_STATUS_L)
 	    | (tw_readl(TW5864_INTR_STATUS_H) << 16);
@@ -185,75 +133,9 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 	tw_writel(TW5864_INTR_CLR_H, 0xffff);
 
 	if (status & TW5864_INTR_VLC_DONE) {
-		int cur_frame_index = dev->h264_buf_w_index;
-		int next_frame_index =
-		    (dev->h264_buf_w_index + 1) % H264_BUF_CNT;
-		struct tw5864_h264_frame *cur_frame =
-		    &dev->h264_buf[cur_frame_index];
-		struct tw5864_h264_frame *next_frame =
-		    &dev->h264_buf[next_frame_index];
-
-		vlc_len = tw_readl(TW5864_VLC_LENGTH) << 2;
-		vlc_crc = tw_readl(TW5864_VLC_CRC_REG);
-		channel = tw_readl(TW5864_DSP) & TW5864_DSP_ENC_CHN;
-		vlc_reg = tw_readl(TW5864_VLC);
-		vlc_buf_reg = tw_readl(TW5864_VLC_BUF);
-
-		input = &dev->inputs[channel];
-
-		dma_sync_single_for_cpu(&dev->pci->dev, cur_frame->vlc.dma_addr,
-					H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
-		dma_sync_single_for_cpu(&dev->pci->dev, cur_frame->mv.dma_addr,
-					H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
-
-#ifdef DEBUG
-		if (vlc_crc !=
-		    crc_check_sum((u32 *)cur_frame->vlc.addr, vlc_len))
-			dev_err(&dev->pci->dev,
-				"CRC of encoded frame doesn't match!\n");
-#endif
-
-		if (next_frame_index != ACCESS_ONCE(dev->h264_buf_r_index)) {
-			cur_frame->vlc_len = vlc_len;
-			cur_frame->input = input;
-			cur_frame->timestamp =
-			    ktime_to_timeval(ktime_sub
-					     (ktime_get(), input->start_ktime));
-
-			/* dev->h264_buf_w_index = cur_frame_index; */
-			smp_store_release(&dev->h264_buf_w_index,
-					  next_frame_index);
-#if 0
-			dev_dbg(&dev->pci->dev,
-				"submitted h264_buf[%d], %p, input %p\n",
-				cur_frame_index, cur_frame, cur_frame->input);
-#endif
-			tasklet_schedule(&dev->tasklet);
-
-			cur_frame = next_frame;
-		} else {
-			dev_err(&dev->pci->dev,
-				"Skipped frame on input %d because all buffers busy\n",
-				channel);
-		}
-
-		input->frame_seqno++;
-
-		dma_sync_single_for_device(&dev->pci->dev,
-					   cur_frame->vlc.dma_addr,
-					   H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
-		dma_sync_single_for_device(&dev->pci->dev,
-					   cur_frame->mv.dma_addr,
-					   H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
-
-		tw_writel(TW5864_VLC_STREAM_BASE_ADDR, cur_frame->vlc.dma_addr);
-		tw_writel(TW5864_MV_STREAM_BASE_ADDR, cur_frame->mv.dma_addr);
-
+		tw5864_h264_isr(dev);
 		tw_writel(TW5864_VLC_DSP_INTR, 0x00000001);
 		tw_writel(TW5864_PCI_INTR_STATUS, TW5864_VLC_DONE_INTR);
-		spin_lock_irqsave(&dev->slock, flags);
-		dev->encoder_busy = 0;
-		spin_unlock_irqrestore(&dev->slock, flags);
 	}
 
 	if (status & TW5864_INTR_TIMER) {
@@ -267,6 +149,61 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 	}
 
 	return IRQ_HANDLED;
+}
+
+static void tw5864_h264_isr(struct tw5864_dev *dev)
+{
+	int channel = tw_readl(TW5864_DSP) & TW5864_DSP_ENC_CHN;
+	struct tw5864_input *input = &dev->inputs[channel];
+	int cur_frame_index, next_frame_index;
+	struct tw5864_h264_frame *cur_frame, *next_frame;
+	unsigned long flags;
+
+	spin_lock_irqsave(&dev->slock, flags);
+
+	cur_frame_index = dev->h264_buf_w_index;
+	next_frame_index = (cur_frame_index + 1) % H264_BUF_CNT;
+	cur_frame = &dev->h264_buf[cur_frame_index];
+	next_frame = &dev->h264_buf[next_frame_index];
+
+	dma_sync_single_for_cpu(&dev->pci->dev, cur_frame->vlc.dma_addr,
+				H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
+	dma_sync_single_for_cpu(&dev->pci->dev, cur_frame->mv.dma_addr,
+				H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
+
+	if (next_frame_index != dev->h264_buf_r_index) {
+		cur_frame->vlc_len = tw_readl(TW5864_VLC_LENGTH) << 2;
+		cur_frame->checksum = tw_readl(TW5864_VLC_CRC_REG);
+		cur_frame->input = input;
+		cur_frame->timestamp =
+		    ktime_to_timeval(ktime_sub
+				     (ktime_get(), input->start_ktime));
+
+		dev->h264_buf_w_index = next_frame_index;
+		tasklet_schedule(&dev->tasklet);
+
+		cur_frame = next_frame;
+	} else {
+		dev_err(&dev->pci->dev,
+			"Skipped frame on input %d because all buffers busy\n",
+			channel);
+	}
+
+	dev->encoder_busy = 0;
+
+	spin_unlock_irqrestore(&dev->slock, flags);
+
+	input->frame_seqno++;
+
+	dma_sync_single_for_device(&dev->pci->dev,
+				   cur_frame->vlc.dma_addr,
+				   H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
+	dma_sync_single_for_device(&dev->pci->dev,
+				   cur_frame->mv.dma_addr,
+				   H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
+
+	tw_writel(TW5864_VLC_STREAM_BASE_ADDR, cur_frame->vlc.dma_addr);
+	tw_writel(TW5864_MV_STREAM_BASE_ADDR, cur_frame->mv.dma_addr);
 }
 
 static void tw5864_timer_isr(struct tw5864_dev *dev)
@@ -440,10 +377,6 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 
 	pci_set_master(pci_dev);
 
-	/*
-	 * FIXME: What exactly for is this needed? Which mask(s) this driver
-	 * needs?
-	 */
 	if (!pci_dma_supported(pci_dev, DMA_BIT_MASK(32))) {
 		pr_info("%s: Oops: no 32bit PCI DMA ???\n", dev->name);
 		err = -EIO;
@@ -468,10 +401,6 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 
 	mutex_init(&dev->lock);
 	spin_lock_init(&dev->slock);
-	dev->encoder_busy = 0;
-
-	/* Enable interrupts */
-	tw5864_interrupts_enable(dev);
 
 	dev->debugfs_dir = debugfs_create_dir(dev->name, NULL);
 	err = tw5864_video_init(dev, video_nr);
@@ -488,98 +417,6 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 
 	debugfs_create_file("regs_dump", S_IRUGO, dev->debugfs_dir, dev,
 			    &debugfs_regs_dump_fops);
-
-	dev_info(&dev->pci->dev, "hi everybody, it's info\n");
-	dev_dbg(&dev->pci->dev, "hi everybody, it's debug\n");
-
-	WriteForwardQuantizationTable(dev);
-	WriteInverseQuantizationTable(dev);
-	WriteEncodeVLCLookupTable(dev);
-	pci_init_ad(dev);
-
-#if 1
-	/* Picture is distorted without this block */
-	/*use falling edge to sample ,54M to 108M */
-	tw_indir_writeb(dev, 0x041, 0x03);
-	tw_indir_writeb(dev, 0xefe, 0x00);
-
-	tw_indir_writeb(dev, 0xee6, 0x02);
-	tw_indir_writeb(dev, 0xee7, 0x02);
-	tw_indir_writeb(dev, 0xee8, 0x02);
-	tw_indir_writeb(dev, 0xeeb, 0x02);
-	tw_indir_writeb(dev, 0xeec, 0x02);
-	tw_indir_writeb(dev, 0xeed, 0x02);
-
-	/* vi reset */
-	tw_indir_writeb(dev, 0xef0, 0x00);
-	tw_indir_writeb(dev, 0xef0, 0xe0);
-	mdelay(10);
-	tw_writel(TW5864_FULL_HALF_MODE_SEL, 0);
-
-	tw_indir_writeb(dev, 0xefa, 0x44);
-	tw_indir_writeb(dev, 0xefb, 0x44);
-
-	tw_indir_writeb(dev, 0xefc, 0x00);
-	tw_indir_writeb(dev, 0xefd, 0xf0);
-#endif
-
-	dev->h264_buf_r_index = 0;
-	dev->h264_buf_w_index = 0;
-	tw_writel(TW5864_VLC_STREAM_BASE_ADDR,
-		  dev->h264_buf[dev->h264_buf_w_index].vlc.dma_addr);
-	tw_writel(TW5864_MV_STREAM_BASE_ADDR,
-		  dev->h264_buf[dev->h264_buf_w_index].mv.dma_addr);
-
-	for (int i = 0; i < TW5864_INPUTS; i++) {
-		tw_indir_writeb(dev, 0x00e + i * 0x010, 0x07);
-		/* to initiate auto format recognition */
-		tw_indir_writeb(dev, 0x00f + i * 0x010, 0xff);
-	}
-
-	tw_writel(TW5864_SEN_EN_CH, 0x000f);
-	tw_writel(TW5864_H264EN_CH_EN, 0x000f);
-
-	tw_writel(0x09200, 0x00000000);
-	tw_writel(0x09204, 0x00001111);
-	tw_writel(0x09208, 0x00002222);
-	tw_writel(0x0920c, 0x00003333);
-
-	/*
-	 * Quote from Intersil (manufacturer):
-	 * 0x0038 is managed by HW, and by default it won't pass the pointer set
-	 * at 0x0010. So if you don't do encoding, 0x0038 should stay at '3'
-	 * (with 4 frames in buffer). If you encode one frame and then move
-	 * 0x0010 to '1' for example, HW will take one more frame and set it to
-	 * buffer #0, and then you should see 0x0038 is set to '0'.  There is
-	 * only one HW encoder engine, so 4 channels cannot get encoded
-	 * simultaneously. But each channel does have its own buffer (for
-	 * original frames and reconstructed frames). So there is no problem to
-	 * manage encoding for 4 channels at same time and no need to force
-	 * I-frames in switching channels.
-	 * End of quote.
-	 *
-	 * From my evidence, default value of 0x0038 (TW5864_SENIF_ORG_FRM_PTR1)
-	 * for each channel is 0. By setting 0x0010 (TW5864_ENC_BUF_PTR_REC1) to
-	 * any other value makes 0x0010 and 0x0038 "roll" together continuously.
-	 */
-	tw_writel(TW5864_ENC_BUF_PTR_REC1, 0x00ff);
-	/*
-	 * Timer interval is 8 ms. TODO Select lower interval to avoid frame
-	 * losing on full load. What about on-demand change of interval?
-	 */
-	tw_writel(TW5864_PCI_INTTM_SCALE, 3);
-
-	tw_writel(TW5864_INTERLACING, TW5864_DI_EN);
-	tw_writel(TW5864_MASTER_ENB_REG, TW5864_PCI_VLC_INTR_ENB);
-	tw_writel(TW5864_PCI_INTR_CTL,
-		  TW5864_TIMER_INTR_ENB | TW5864_PCI_MAST_ENB |
-		  TW5864_MVD_VLC_MAST_ENB);
-	/*
-	 * TODO Enable timer irq on demand, don't use it at all when it is not
-	 * needed.
-	 */
-	dev->irqmask |= TW5864_INTR_VLC_DONE | TW5864_INTR_TIMER;
-	tw5864_irqmask_apply(dev);
 
 	return 0;
 
@@ -622,47 +459,6 @@ static void tw5864_finidev(struct pci_dev *pci_dev)
 	devm_kfree(&pci_dev->dev, dev);
 }
 
-#ifdef CONFIG_PM
-
-static int tw5864_suspend(struct pci_dev *pci_dev, pm_message_t state)
-{
-	struct v4l2_device *v4l2_dev = pci_get_drvdata(pci_dev);
-	struct tw5864_dev *dev = container_of(v4l2_dev,
-					      struct tw5864_dev, v4l2_dev);
-
-	tw5864_interrupts_disable(dev);
-
-	synchronize_irq(pci_dev->irq);
-
-	pci_save_state(pci_dev);
-	pci_set_power_state(pci_dev, pci_choose_state(pci_dev, state));
-	/* vb2_discard_done(&dev->vidq); */
-	/* TODO replace with a new tw5864_video_suspend(dev); */
-
-	return 0;
-}
-
-static int tw5864_resume(struct pci_dev *pci_dev)
-{
-	struct v4l2_device *v4l2_dev = pci_get_drvdata(pci_dev);
-	struct tw5864_dev *dev = container_of(v4l2_dev,
-					      struct tw5864_dev, v4l2_dev);
-
-	pci_set_power_state(pci_dev, PCI_D0);
-	pci_restore_state(pci_dev);
-
-	/* Do things that are done in tw5864_initdev,
-	 * except of initializing memory structures.
-	 */
-
-	msleep(100);
-
-	tw5864_interrupts_enable(dev);
-
-	return 0;
-}
-#endif
-
 /* ----------------------------------------------------------- */
 
 static struct pci_driver tw5864_pci_driver = {
@@ -670,10 +466,6 @@ static struct pci_driver tw5864_pci_driver = {
 	.id_table = tw5864_pci_tbl,
 	.probe = tw5864_initdev,
 	.remove = tw5864_finidev,
-#ifdef CONFIG_PM
-	.suspend = tw5864_suspend,
-	.resume = tw5864_resume
-#endif
 };
 
 module_pci_driver(tw5864_pci_driver);

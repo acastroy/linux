@@ -1,18 +1,8 @@
 /*
- *  tw5864 driver common header file
+ *  TW5864 driver  - common header file
  *
- *  Much of this code is derived from the cx88 and sa7134 drivers, which
- *  were in turn derived from the bt87x driver.  The original work was by
- *  Gerd Knorr; more recently the code was enhanced by Mauro Carvalho Chehab,
- *  Hans Verkuil, Andy Walls and many others.  Their work is gratefully
- *  acknowledged.  Full credit goes to them - any problems within this code
- *  are mine.
- *
- *  Copyright (C) 2009  William M. Brack
- *
- *  Refactored and updated to the latest v4l core frameworks:
- *
- *  Copyright (C) 2014 Hans Verkuil <hverkuil@xs4all.nl>
+ *  Copyright (C) 2015 Bluecherry, LLC <maintainers@bluecherrydvr.com>
+ *  Copyright (C) 2015 Andrey Utkin <andrey.utkin@corp.bluecherry.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -131,8 +121,7 @@ struct tw5864_fmt {
 	u32 twformat;
 };
 
-/* bad name, TODO improve */
-struct tw5864_recv_buf {
+struct tw5864_dma_buf {
 	void *addr;
 	dma_addr_t dma_addr;
 };
@@ -179,7 +168,7 @@ struct tw5864_input {
 	u32 reg_vlc;
 	u32 reg_dsp_codec;
 	u32 reg_dsp;
-	u32 reg_emu_en_various_etc;
+	u32 reg_emu;
 	u32 reg_dsp_qp;
 	u32 reg_dsp_ref_mvp_lambda;
 	u32 reg_dsp_i4x4_weight;
@@ -191,22 +180,19 @@ struct tw5864_input {
 
 	struct v4l2_ctrl *md_threshold_grid_ctrl;
 	u16 md_threshold_grid_values[12 * 16];
+	int qp;
+	int gop;
 };
 
 struct tw5864_h264_frame {
-	struct tw5864_recv_buf vlc;
-	struct tw5864_recv_buf mv;
+	struct tw5864_dma_buf vlc;
+	struct tw5864_dma_buf mv;
 
 	int vlc_len;
+	u32 checksum;
 	struct tw5864_input *input;
 
-	u8 h264_header[64];
-	size_t h264_header_len;
-	u8 h264_header_tail;
-	u8 h264_header_tail_bitmask;
-
 	struct timeval timestamp;
-	/* TODO use scatter-gather API somehow? */
 };
 
 /* global device status */
@@ -225,8 +211,6 @@ struct tw5864_dev {
 	int encoder_busy;
 	/* Input number to check next (in RR fashion) */
 	int next_i;
-
-	/* TODO audio stuff */
 
 	/* pci i/o */
 	char name[64];
@@ -266,7 +250,7 @@ void tw_indir_writeb(struct tw5864_dev *dev, u16 addr, u8 data);
 void tw5864_set_tvnorm_hw(struct tw5864_dev *dev);
 
 void tw5864_irqmask_apply(struct tw5864_dev *dev);
-void pci_init_ad(struct tw5864_dev *dev);
+void tw5864_init_ad(struct tw5864_dev *dev);
 int tw5864_video_init(struct tw5864_dev *dev, int *video_nr);
 void tw5864_video_fini(struct tw5864_dev *dev);
 void tw5864_prepare_frame_headers(struct tw5864_input *input);

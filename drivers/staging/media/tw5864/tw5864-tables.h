@@ -1,7 +1,24 @@
-#define QUANTIZATION_TABLE_LEN  (96)
-#define VLC_LOOKUP_TABLE_LEN    (1024)
+/*
+ *  TW5864 driver - precomputed tables
+ *
+ *  Copyright (C) 2015 Bluecherry, LLC <maintainers@bluecherrydvr.com>
+ *  Copyright (C) 2015 Andrey Utkin <andrey.utkin@corp.bluecherry.net>
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ */
 
-static const u32 ForwardQuantizationTable[QUANTIZATION_TABLE_LEN] = {
+#define QUANTIZATION_TABLE_LEN 96
+#define VLC_LOOKUP_TABLE_LEN 1024
+
+static const u32 forward_quantization_table[QUANTIZATION_TABLE_LEN] = {
 	0x3333, 0x1f82, 0x3333, 0x1F82, 0x1F82, 0x147B, 0x1F82, 0x147B, 0x3333,
 	0x1F82,
 	0x3333, 0x1F82, 0x1F82, 0x147B, 0x1F82, 0x147B, 0x2E8C, 0x1D42, 0x2E8C,
@@ -23,7 +40,7 @@ static const u32 ForwardQuantizationTable[QUANTIZATION_TABLE_LEN] = {
 	0x1C72, 0x11CF, 0x11CF, 0x0B4D, 0x11CF, 0x0B4D
 };
 
-static const u32 InverseQuantizationTable[QUANTIZATION_TABLE_LEN] = {
+static const u32 inverse_quantization_table[QUANTIZATION_TABLE_LEN] = {
 	0x800A, 0x800D, 0x800A, 0x800D, 0x800D, 0x8010, 0x800D, 0x8010, 0x800A,
 	0x800D,
 	0x800A, 0x800D, 0x800D, 0x8010, 0x800D, 0x8010, 0x800B, 0x800E, 0x800B,
@@ -218,35 +235,3 @@ static const u32 encoder_vlc_lookup_table[VLC_LOOKUP_TABLE_LEN] = {
 	0x000, 0x000,
 	0x000, 0x000, 0x000, 0x000
 };
-
-static void WriteEncodeVLCLookupTable(struct tw5864_dev *dev)
-{
-	int i;
-
-	tw_writel(TW5864_VLC_RD, 0x1);
-	for (i = 0; i < VLC_LOOKUP_TABLE_LEN; i++) {
-		tw_writel((TW5864_VLC_STREAM_MEM_START + (i << 2)),
-			  encoder_vlc_lookup_table[i]);
-	}
-	tw_writel(TW5864_VLC_RD, 0x0);
-}
-
-static void WriteForwardQuantizationTable(struct tw5864_dev *dev)
-{
-	int i;
-
-	for (i = 0; i < QUANTIZATION_TABLE_LEN; i++) {
-		tw_writel((TW5864_QUAN_TAB + (i << 2)),
-			  ForwardQuantizationTable[i]);
-	}
-}
-
-static void WriteInverseQuantizationTable(struct tw5864_dev *dev)
-{
-	int i;
-
-	for (i = 0; i < QUANTIZATION_TABLE_LEN; i++) {
-		tw_writel((TW5864_QUAN_TAB + (i << 2)),
-			  InverseQuantizationTable[i]);
-	}
-}
