@@ -140,12 +140,7 @@ static unsigned char audio_tbl_ntsc_tw2865_16KHz[] __used = {
 
 static int i2c_read(struct tw5864_dev *dev, u8 devid, u8 devfn, u8 *buf);
 
-/*
- * i2c_multi_read is unused now, but who knows, maybe it will be needed in
- * future
- */
-#if 0
-static int i2c_multi_read(struct tw5864_dev *dev, u8 devid, u8 devfn,
+static int __used i2c_multi_read(struct tw5864_dev *dev, u8 devid, u8 devfn,
 			      u8 *buf, u32 count)
 {
 	int i = 0;
@@ -173,7 +168,6 @@ static int i2c_multi_read(struct tw5864_dev *dev, u8 devid, u8 devfn,
 
 	return 0;
 }
-#endif
 
 static int i2c_multi_write(struct tw5864_dev *dev, u8 devid, u8 devfn, u8 *buf,
 			u32 count)
