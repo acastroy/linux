@@ -841,7 +841,7 @@ static int tw5864_video_input_init(struct tw5864_input *input, int video_nr)
 	v4l2_ctrl_new_std(hdl, &tw5864_ctrl_ops,
 			  V4L2_CID_MPEG_VIDEO_GOP_SIZE, 1, 255, 1, GOP_SIZE);
 	v4l2_ctrl_new_std(hdl, &tw5864_ctrl_ops,
-			  V4L2_CID_MPEG_VIDEO_H264_MIN_QP, 28, 63, 1, QP_VALUE);
+			  V4L2_CID_MPEG_VIDEO_H264_MIN_QP, 28, 51, 1, QP_VALUE);
 	v4l2_ctrl_new_std_menu(hdl, &tw5864_ctrl_ops,
 			       V4L2_CID_DETECT_MD_MODE,
 			       V4L2_DETECT_MD_MODE_THRESHOLD_GRID, 0,
