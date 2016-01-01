@@ -618,49 +618,6 @@ static void tw5864_finidev(struct pci_dev *pci_dev)
 	devm_kfree(&pci_dev->dev, dev);
 }
 
-#undef CONFIG_PM
-
-#ifdef CONFIG_PM
-
-static int tw5864_suspend(struct pci_dev *pci_dev, pm_message_t state)
-{
-	struct v4l2_device *v4l2_dev = pci_get_drvdata(pci_dev);
-	struct tw5864_dev *dev = container_of(v4l2_dev,
-					      struct tw5864_dev, v4l2_dev);
-
-	tw5864_interrupts_disable(dev);
-
-	synchronize_irq(pci_dev->irq);
-
-	pci_save_state(pci_dev);
-	pci_set_power_state(pci_dev, pci_choose_state(pci_dev, state));
-	/* vb2_discard_done(&dev->vidq); */
-	/* TODO replace with a new tw5864_video_suspend(dev); */
-
-	return 0;
-}
-
-static int tw5864_resume(struct pci_dev *pci_dev)
-{
-	struct v4l2_device *v4l2_dev = pci_get_drvdata(pci_dev);
-	struct tw5864_dev *dev = container_of(v4l2_dev,
-					      struct tw5864_dev, v4l2_dev);
-
-	pci_set_power_state(pci_dev, PCI_D0);
-	pci_restore_state(pci_dev);
-
-	/* Do things that are done in tw5864_initdev,
-	 * except of initializing memory structures.
-	 */
-
-	msleep(100);
-
-	tw5864_interrupts_enable(dev);
-
-	return 0;
-}
-#endif
-
 /* ----------------------------------------------------------- */
 
 static struct pci_driver tw5864_pci_driver = {
@@ -668,10 +625,6 @@ static struct pci_driver tw5864_pci_driver = {
 	.id_table = tw5864_pci_tbl,
 	.probe = tw5864_initdev,
 	.remove = tw5864_finidev,
-#ifdef CONFIG_PM
-	.suspend = tw5864_suspend,
-	.resume = tw5864_resume
-#endif
 };
 
 module_pci_driver(tw5864_pci_driver);
