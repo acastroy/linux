@@ -132,7 +132,7 @@ struct tw5864_fmt {
 };
 
 /* bad name, TODO improve */
-struct tw5864_recv_buf {
+struct tw5864_dma_buf {
 	void *addr;
 	dma_addr_t dma_addr;
 };
@@ -194,8 +194,8 @@ struct tw5864_input {
 };
 
 struct tw5864_h264_frame {
-	struct tw5864_recv_buf vlc;
-	struct tw5864_recv_buf mv;
+	struct tw5864_dma_buf vlc;
+	struct tw5864_dma_buf mv;
 
 	int vlc_len;
 	struct tw5864_input *input;
