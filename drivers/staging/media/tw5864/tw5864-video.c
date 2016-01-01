@@ -678,7 +678,14 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 	return 0;
 
 dma_alloc_fail:
-	; /* TODO Free allocated */
+	for (i = 0; i < H264_BUF_CNT; i++) {
+		dma_free_coherent(&dev->pci->dev, H264_VLC_BUF_SIZE,
+				  dev->h264_buf[i].vlc.addr,
+				  dev->h264_buf[i].vlc.dma_addr);
+		dma_free_coherent(&dev->pci->dev, H264_MV_BUF_SIZE,
+				  dev->h264_buf[i].mv.addr,
+				  dev->h264_buf[i].mv.dma_addr);
+	}
 
 	i = TW5864_INPUTS;
 
