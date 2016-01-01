@@ -952,15 +952,14 @@ void tw5864_prepare_frame_headers(struct tw5864_input *input)
  */
 static unsigned int tw5864_md_metric_from_mvd(u32 mvd)
 {
-#if 0
-	unsigned int reserved = mvd >> 31;
-	unsigned int mb_type = (mvd >> 28) & 0x7;
+	unsigned int __used reserved = mvd >> 31;
+	unsigned int __used mb_type = (mvd >> 28) & 0x7;
 	/*
 	 * non_zero_members: number of non-zero residuals in each macro block
 	 * after quantization
 	 */
-	unsigned int non_zero_members = (mvd >> 20) & 0xff;
-#endif
+	unsigned int __used non_zero_members = (mvd >> 20) & 0xff;
+
 	unsigned int mv_y = (mvd >> 10) & 0x3ff;
 	unsigned int mv_x = mvd & 0x3ff;
 
