@@ -654,7 +654,7 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 	}
 
 	tw5864_tables_upload(dev);
-	pci_init_ad(dev);
+	tw5864_init_ad(dev);
 
 	/* Picture is distorted without this block */
 	/*use falling edge to sample ,54M to 108M */
