@@ -358,30 +358,24 @@ static int tw5864_s_ctrl(struct v4l2_ctrl *ctrl)
 				TW5864_INDIR_VIN_A_BRIGHT(input->input_number),
 				(u8)ctrl->val);
 		break;
-#if 0
 	case V4L2_CID_HUE:
-		tw_writeb(TW5864_HUE, ctrl->val);
+		tw_indir_writeb(dev,
+				TW5864_INDIR_VIN_7_HUE(input->input_number),
+				(u8)ctrl->val);
 		break;
 	case V4L2_CID_CONTRAST:
-		tw_writeb(TW5864_CONTRAST, ctrl->val);
+		tw_indir_writeb(dev,
+				TW5864_INDIR_VIN_9_CNTRST(input->input_number),
+				(u8)ctrl->val);
 		break;
 	case V4L2_CID_SATURATION:
-		tw_writeb(TW5864_SAT_U, ctrl->val);
-		tw_writeb(TW5864_SAT_V, ctrl->val);
+		tw_indir_writeb(dev,
+				TW5864_INDIR_VIN_B_SAT_U(input->input_number),
+				(u8)ctrl->val);
+		tw_indir_writeb(dev,
+				TW5864_INDIR_VIN_C_SAT_V(input->input_number),
+				(u8)ctrl->val);
 		break;
-	case V4L2_CID_COLOR_KILLER:
-		if (ctrl->val)
-			tw_andorb(TW5864_MISC2, 0xe0, 0xe0);
-		else
-			tw_andorb(TW5864_MISC2, 0xe0, 0x00);
-		break;
-	case V4L2_CID_CHROMA_AGC:
-		if (ctrl->val)
-			tw_andorb(TW5864_LOOP, 0x30, 0x20);
-		else
-			tw_andorb(TW5864_LOOP, 0x30, 0x00);
-		break;
-#endif
 	case V4L2_CID_MPEG_VIDEO_GOP_SIZE:
 		input->gop = ctrl->val;
 		return 0;
