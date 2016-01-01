@@ -829,10 +829,6 @@ static int tw5864_video_input_init(struct tw5864_input *input, int video_nr)
 	/* NTSC only */
 	v4l2_ctrl_new_std(hdl, &tw5864_ctrl_ops, V4L2_CID_HUE, -128, 127, 1, 0);
 	v4l2_ctrl_new_std(hdl, &tw5864_ctrl_ops,
-			  V4L2_CID_COLOR_KILLER, 0, 1, 1, 0);
-	v4l2_ctrl_new_std(hdl, &tw5864_ctrl_ops,
-			  V4L2_CID_CHROMA_AGC, 0, 1, 1, 1);
-	v4l2_ctrl_new_std(hdl, &tw5864_ctrl_ops,
 			  V4L2_CID_MPEG_VIDEO_GOP_SIZE, 1, 255, 1, GOP_SIZE);
 	v4l2_ctrl_new_std(hdl, &tw5864_ctrl_ops,
 			  V4L2_CID_MPEG_VIDEO_H264_MIN_QP, 28, 51, 1, QP_VALUE);
