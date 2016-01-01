@@ -888,14 +888,13 @@ static unsigned int tw5864_md_metric_from_mvd(u32 mvd)
 static int tw5864_is_motion_triggered(struct tw5864_h264_frame *frame)
 {
 	struct tw5864_input *input = frame->input;
-	struct tw5864_dev *dev = input->root;
 	u32 *mv = (u32 *)frame->mv.addr;
 	int i;
 	int detected = 0;
 	unsigned int md_cells = MD_CELLS_HOR * MD_CELLS_VERT;
 
-	/* Stats */
 #ifdef DEBUG
+	/* Stats */
 	unsigned int max = 0;
 	unsigned int min = UINT_MAX;
 	unsigned int sum = 0;
@@ -923,7 +922,7 @@ static int tw5864_is_motion_triggered(struct tw5864_h264_frame *frame)
 #endif
 	}
 #ifdef DEBUG
-	dev_dbg(&dev->pci->dev,
+	dev_dbg(&input->root->pci->dev,
 		"input %d, frame md stats: min %u, max %u, avg %u, cells above threshold: %u\n",
 		input->input_number, min, max, sum / md_cells,
 		cnt_above_thresh);

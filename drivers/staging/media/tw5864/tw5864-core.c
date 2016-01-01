@@ -135,6 +135,7 @@ static void tw5864_interrupts_disable(struct tw5864_dev *dev)
 	mutex_unlock(&dev->lock);
 }
 
+#ifdef DEBUG
 #define SWAP32(x) \
 	((u32)( \
 		(((u32)(x) & (u32)0x000000ffUL) << 24) | \
@@ -159,6 +160,7 @@ static u32 crc_check_sum(u32 *data, int len)
 #endif
 	return val;
 }
+#endif
 
 static void tw5864_timer_isr(struct tw5864_dev *dev);
 
