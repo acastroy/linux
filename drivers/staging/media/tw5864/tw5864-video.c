@@ -140,10 +140,6 @@ static int tw5864_enable_input(struct tw5864_input *input)
 
 	input->reg_interlacing = 0x4;
 
-	/* TODO FIXME Take some mutex guarding channels enabling stuff since we
-	 * edit values, release when we're done with it.
-	 */
-
 	switch (input->resolution) {
 	case D1:
 		frame_width_bus_value = 0x2cf;
