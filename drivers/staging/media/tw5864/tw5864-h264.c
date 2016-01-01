@@ -66,8 +66,7 @@ static int tw5864_h264_gen_slice_head(u8 *buf, size_t size,
 {
 	struct bs bs, *s;
 	int is_i_frame = frame_seqno_in_gop == 0;
-	/* why multiplied by two? TODO try without multiplication */
-	int i_poc_lsb = (frame_seqno_in_gop << 1);
+	int i_poc_lsb = frame_seqno_in_gop;
 
 	s = &bs;
 	bs_init(s, buf, size);

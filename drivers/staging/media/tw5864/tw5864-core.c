@@ -440,10 +440,6 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 
 	pci_set_master(pci_dev);
 
-	/*
-	 * FIXME: What exactly for is this needed? Which mask(s) this driver
-	 * needs?
-	 */
 	if (!pci_dma_supported(pci_dev, DMA_BIT_MASK(32))) {
 		pr_info("%s: Oops: no 32bit PCI DMA ???\n", dev->name);
 		err = -EIO;
@@ -563,10 +559,6 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	 * any other value makes 0x0010 and 0x0038 "roll" together continuously.
 	 */
 	tw_writel(TW5864_ENC_BUF_PTR_REC1, 0x00ff);
-	/*
-	 * Timer interval is 8 ms. TODO Select lower interval to avoid frame
-	 * losing on full load. What about on-demand change of interval?
-	 */
 	tw_writel(TW5864_PCI_INTTM_SCALE, 3);
 
 	tw_writel(TW5864_INTERLACING, TW5864_DI_EN);
@@ -574,10 +566,6 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	tw_writel(TW5864_PCI_INTR_CTL,
 		  TW5864_TIMER_INTR_ENB | TW5864_PCI_MAST_ENB |
 		  TW5864_MVD_VLC_MAST_ENB);
-	/*
-	 * TODO Enable timer irq on demand, don't use it at all when it is not
-	 * needed.
-	 */
 	dev->irqmask |= TW5864_INTR_VLC_DONE | TW5864_INTR_TIMER;
 	tw5864_irqmask_apply(dev);
 
