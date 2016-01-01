@@ -1,19 +1,8 @@
 /*
- *  tw5864-core.c
- *  Core functions for the Techwell 5864 driver
+ *  TW5864 driver - core functions
  *
- *  Much of this code is derived from the cx88 and sa7134 drivers, which
- *  were in turn derived from the bt87x driver.  The original work was by
- *  Gerd Knorr; more recently the code was enhanced by Mauro Carvalho Chehab,
- *  Hans Verkuil, Andy Walls and many others.  Their work is gratefully
- *  acknowledged.  Full credit goes to them - any problems within this code
- *  are mine.
- *
- *  Copyright (C) 2009  William M. Brack
- *
- *  Refactored and updated to the latest v4l core frameworks:
- *
- *  Copyright (C) 2014 Hans Verkuil <hverkuil@xs4all.nl>
+ *  Copyright (C) 2015 Bluecherry, LLC <maintainers@bluecherrydvr.com>
+ *  Copyright (C) 2015 Andrey Utkin <andrey.utkin@corp.bluecherry.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -46,7 +35,8 @@
 #include "tw5864.h"
 #include "tw5864-reg.h"
 
-MODULE_DESCRIPTION("v4l2 driver module for tw5864 based video capture & encoding cards");
+MODULE_DESCRIPTION("V4L2 driver module for tw5864-based multimedia capture & encoding devices");
+MODULE_AUTHOR("Bluecherry Maintainers <maintainers@bluecherrydvr.com>");
 MODULE_AUTHOR("Andrey Utkin <andrey.utkin@corp.bluecherry.net>");
 MODULE_LICENSE("GPL");
 

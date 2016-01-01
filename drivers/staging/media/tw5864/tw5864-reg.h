@@ -1,6 +1,7 @@
 /*
- *  tw5864-reg.h - TW5864xx register offsets
+ *  TW5864 driver - registers description
  *
+ *  Copyright (C) 2015 Bluecherry, LLC <maintainers@bluecherrydvr.com>
  *  Copyright (C) 2015 Andrey Utkin <andrey.utkin@corp.bluecherry.net>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -12,7 +13,7 @@
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
-*/
+ */
 
 #ifndef _TW5864_REG_H_
 #define _TW5864_REG_H_

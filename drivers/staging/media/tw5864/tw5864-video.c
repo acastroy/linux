@@ -1,18 +1,8 @@
 /*
- *  tw5864 functions to handle video data
+ *  TW5864 driver - video encoding functions
  *
- *  Much of this code is derived from the cx88 and sa7134 drivers, which
- *  were in turn derived from the bt87x driver.  The original work was by
- *  Gerd Knorr; more recently the code was enhanced by Mauro Carvalho Chehab,
- *  Hans Verkuil, Andy Walls and many others.  Their work is gratefully
- *  acknowledged.  Full credit goes to them - any problems within this code
- *  are mine.
- *
- *  Copyright (C) 2009  William M. Brack
- *
- *  Refactored and updated to the latest v4l core frameworks:
- *
- *  Copyright (C) 2014 Hans Verkuil <hverkuil@xs4all.nl>
+ *  Copyright (C) 2015 Bluecherry, LLC <maintainers@bluecherrydvr.com>
+ *  Copyright (C) 2015 Andrey Utkin <andrey.utkin@corp.bluecherry.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
