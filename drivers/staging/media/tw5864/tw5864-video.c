@@ -33,7 +33,7 @@
 #include "tw5864.h"
 #include "tw5864-reg.h"
 
-#include "tables_upload.c"
+#include "tw5864-tables.h"
 
 static void tw5864_handle_frame_task(unsigned long data);
 static void tw5864_handle_frame(struct tw5864_h264_frame *frame);
@@ -1250,4 +1250,26 @@ enum tw5864_vid_std tw5864_from_v4l2_std(v4l2_std_id v4l2_std)
 		return STD_SECAM;
 	WARN_ON_ONCE(1);
 	return STD_AUTO;
+}
+
+static void tw5864_tables_upload(struct tw5864_dev *dev)
+{
+	int i;
+
+	tw_writel(TW5864_VLC_RD, 0x1);
+	for (i = 0; i < VLC_LOOKUP_TABLE_LEN; i++) {
+		tw_writel((TW5864_VLC_STREAM_MEM_START + (i << 2)),
+			  encoder_vlc_lookup_table[i]);
+	}
+	tw_writel(TW5864_VLC_RD, 0x0);
+
+	for (i = 0; i < QUANTIZATION_TABLE_LEN; i++) {
+		tw_writel((TW5864_QUAN_TAB + (i << 2)),
+			  forward_quantization_table[i]);
+	}
+
+	for (i = 0; i < QUANTIZATION_TABLE_LEN; i++) {
+		tw_writel((TW5864_QUAN_TAB + (i << 2)),
+			  inverse_quantization_table[i]);
+	}
 }
