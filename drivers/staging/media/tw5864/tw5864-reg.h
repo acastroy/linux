@@ -21,8 +21,6 @@
 
 /* According to TW5864_datasheet_0.6d.pdf, tw5864b1-ds.pdf */
 
-/* TODO Unify alignment */
-
 /* Register Description - Direct Map Space */
 /* 0x0000 ~ 0x1FFC - H264 Register Map */
 /* [15:0] The Version register for H264 core (Read Only) */
