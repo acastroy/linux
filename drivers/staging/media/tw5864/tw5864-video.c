@@ -25,6 +25,8 @@
 
 #include "tw5864-tables.h"
 
+#define DEBUG
+
 static void tw5864_handle_frame_task(unsigned long data);
 static void tw5864_handle_frame(struct tw5864_h264_frame *frame);
 
@@ -1088,6 +1090,21 @@ static void tw5864_handle_frame_task(unsigned long data)
 	}
 }
 
+#ifdef DEBUG
+static u32 checksum(u32 *data, int len)
+{
+	u32 val, count_len = len;
+
+	val = *data++;
+	while (((count_len >> 2) - 1) > 0) {
+		val ^= *data++;
+		count_len -= 4;
+	}
+	val ^= htonl((len >> 2));
+	return val;
+}
+#endif
+
 static void tw5864_handle_frame(struct tw5864_h264_frame *frame)
 {
 	struct tw5864_input *input = frame->input;
@@ -1097,6 +1114,12 @@ static void tw5864_handle_frame(struct tw5864_h264_frame *frame)
 	unsigned long dst_size;
 	unsigned long dst_space;
 	int skip_bytes = 3;
+
+#ifdef DEBUG
+	if (frame->checksum != checksum((u32 *)frame->vlc.addr, frame_len))
+		dev_err(&dev->pci->dev,
+			"Checksum of encoded frame doesn't match!\n");
+#endif
 
 #if 0
 	dev_dbg(&dev->pci->dev, "%s: %d %s frame_len = %d\n", __FILE__,

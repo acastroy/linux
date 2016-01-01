@@ -187,6 +187,7 @@ struct tw5864_h264_frame {
 	struct tw5864_dma_buf mv;
 
 	int vlc_len;
+	u32 checksum;
 	struct tw5864_input *input;
 
 	struct timeval timestamp;

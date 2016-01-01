@@ -116,30 +116,12 @@ static void tw5864_interrupts_disable(struct tw5864_dev *dev)
 	mutex_unlock(&dev->lock);
 }
 
-#define DEBUG
-#ifdef DEBUG
-static u32 checksum(u32 *data, int len)
-{
-	u32 val, count_len = len;
-
-	val = *data++;
-	while (((count_len >> 2) - 1) > 0) {
-		val ^= *data++;
-		count_len -= 4;
-	}
-	val ^= htonl((len >> 2));
-	return val;
-}
-#endif
-
 static void tw5864_timer_isr(struct tw5864_dev *dev);
 
 static irqreturn_t tw5864_isr(int irq, void *dev_id)
 {
 	struct tw5864_dev *dev = dev_id;
 	u32 status;
-	u32 vlc_len;
-	u32 vlc_crc;
 	u32 vlc_reg;
 	u32 vlc_buf_reg;
 	int channel;
@@ -163,8 +145,6 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		struct tw5864_h264_frame *next_frame =
 		    &dev->h264_buf[next_frame_index];
 
-		vlc_len = tw_readl(TW5864_VLC_LENGTH) << 2;
-		vlc_crc = tw_readl(TW5864_VLC_CRC_REG);
 		channel = tw_readl(TW5864_DSP) & TW5864_DSP_ENC_CHN;
 		vlc_reg = tw_readl(TW5864_VLC);
 		vlc_buf_reg = tw_readl(TW5864_VLC_BUF);
@@ -176,15 +156,9 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 		dma_sync_single_for_cpu(&dev->pci->dev, cur_frame->mv.dma_addr,
 					H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
 
-#ifdef DEBUG
-		if (vlc_crc !=
-		    checksum((u32 *)cur_frame->vlc.addr, vlc_len))
-			dev_err(&dev->pci->dev,
-				"CRC of encoded frame doesn't match!\n");
-#endif
-
 		if (next_frame_index != ACCESS_ONCE(dev->h264_buf_r_index)) {
-			cur_frame->vlc_len = vlc_len;
+			cur_frame->vlc_len = tw_readl(TW5864_VLC_LENGTH) << 2;
+			cur_frame->checksum = tw_readl(TW5864_VLC_CRC_REG);
 			cur_frame->input = input;
 			cur_frame->timestamp =
 			    ktime_to_timeval(ktime_sub
