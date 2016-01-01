@@ -714,7 +714,6 @@ static int tw5864_video_input_init(struct tw5864_input *input, int video_nr)
 		goto vb2_q_init_fail;
 
 	input->vdev = tw5864_video_template;
-	/* TODO Set tvnorms to actual recognized format instead of wildcard? */
 	input->vdev.v4l2_dev = &input->root->v4l2_dev;
 	input->vdev.lock = &input->lock;
 	input->vdev.queue = &input->vidq;
