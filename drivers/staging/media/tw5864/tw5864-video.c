@@ -350,15 +350,15 @@ static int tw5864_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct tw5864_input *input =
 	    container_of(ctrl->handler, struct tw5864_input, hdl);
-#if 0
 	struct tw5864_dev *dev = input->root;
-#endif
 
 	switch (ctrl->id) {
-#if 0
 	case V4L2_CID_BRIGHTNESS:
-		tw_writeb(TW5864_BRIGHT, ctrl->val);
+		tw_indir_writeb(dev,
+				TW5864_INDIR_VIN_A_BRIGHT(input->input_number),
+				(u8)ctrl->val);
 		break;
+#if 0
 	case V4L2_CID_HUE:
 		tw_writeb(TW5864_HUE, ctrl->val);
 		break;
@@ -827,7 +827,7 @@ static int tw5864_video_input_init(struct tw5864_input *input, int video_nr)
 
 	v4l2_ctrl_handler_init(hdl, 6);
 	v4l2_ctrl_new_std(hdl, &tw5864_ctrl_ops,
-			  V4L2_CID_BRIGHTNESS, -128, 127, 1, 20);
+			  V4L2_CID_BRIGHTNESS, -128, 127, 1, 0);
 	v4l2_ctrl_new_std(hdl, &tw5864_ctrl_ops,
 			  V4L2_CID_CONTRAST, 0, 255, 1, 100);
 	v4l2_ctrl_new_std(hdl, &tw5864_ctrl_ops,
