@@ -1,5 +1,5 @@
 #include "tw5864.h"
-#include "bs.h"
+#include "tw5864-bs.h"
 
 static uint8_t marker[] = { 0x00, 0x00, 0x00, 0x01 };
 
