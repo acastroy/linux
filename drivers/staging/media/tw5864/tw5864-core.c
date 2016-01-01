@@ -117,16 +117,12 @@ static void tw5864_interrupts_disable(struct tw5864_dev *dev)
 }
 
 static void tw5864_timer_isr(struct tw5864_dev *dev);
+static void tw5864_h264_isr(struct tw5864_dev *dev);
 
 static irqreturn_t tw5864_isr(int irq, void *dev_id)
 {
 	struct tw5864_dev *dev = dev_id;
 	u32 status;
-	u32 vlc_reg;
-	u32 vlc_buf_reg;
-	int channel;
-	unsigned long flags;
-	struct tw5864_input *input = NULL;
 
 	status = tw_readl(TW5864_INTR_STATUS_L)
 	    | (tw_readl(TW5864_INTR_STATUS_H) << 16);
@@ -137,67 +133,9 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 	tw_writel(TW5864_INTR_CLR_H, 0xffff);
 
 	if (status & TW5864_INTR_VLC_DONE) {
-		int cur_frame_index = dev->h264_buf_w_index;
-		int next_frame_index =
-		    (dev->h264_buf_w_index + 1) % H264_BUF_CNT;
-		struct tw5864_h264_frame *cur_frame =
-		    &dev->h264_buf[cur_frame_index];
-		struct tw5864_h264_frame *next_frame =
-		    &dev->h264_buf[next_frame_index];
-
-		channel = tw_readl(TW5864_DSP) & TW5864_DSP_ENC_CHN;
-		vlc_reg = tw_readl(TW5864_VLC);
-		vlc_buf_reg = tw_readl(TW5864_VLC_BUF);
-
-		input = &dev->inputs[channel];
-
-		dma_sync_single_for_cpu(&dev->pci->dev, cur_frame->vlc.dma_addr,
-					H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
-		dma_sync_single_for_cpu(&dev->pci->dev, cur_frame->mv.dma_addr,
-					H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
-
-		if (next_frame_index != ACCESS_ONCE(dev->h264_buf_r_index)) {
-			cur_frame->vlc_len = tw_readl(TW5864_VLC_LENGTH) << 2;
-			cur_frame->checksum = tw_readl(TW5864_VLC_CRC_REG);
-			cur_frame->input = input;
-			cur_frame->timestamp =
-			    ktime_to_timeval(ktime_sub
-					     (ktime_get(), input->start_ktime));
-
-			/* dev->h264_buf_w_index = cur_frame_index; */
-			smp_store_release(&dev->h264_buf_w_index,
-					  next_frame_index);
-#if 0
-			dev_dbg(&dev->pci->dev,
-				"submitted h264_buf[%d], %p, input %p\n",
-				cur_frame_index, cur_frame, cur_frame->input);
-#endif
-			tasklet_schedule(&dev->tasklet);
-
-			cur_frame = next_frame;
-		} else {
-			dev_err(&dev->pci->dev,
-				"Skipped frame on input %d because all buffers busy\n",
-				channel);
-		}
-
-		input->frame_seqno++;
-
-		dma_sync_single_for_device(&dev->pci->dev,
-					   cur_frame->vlc.dma_addr,
-					   H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
-		dma_sync_single_for_device(&dev->pci->dev,
-					   cur_frame->mv.dma_addr,
-					   H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
-
-		tw_writel(TW5864_VLC_STREAM_BASE_ADDR, cur_frame->vlc.dma_addr);
-		tw_writel(TW5864_MV_STREAM_BASE_ADDR, cur_frame->mv.dma_addr);
-
+		tw5864_h264_isr(dev);
 		tw_writel(TW5864_VLC_DSP_INTR, 0x00000001);
 		tw_writel(TW5864_PCI_INTR_STATUS, TW5864_VLC_DONE_INTR);
-		spin_lock_irqsave(&dev->slock, flags);
-		dev->encoder_busy = 0;
-		spin_unlock_irqrestore(&dev->slock, flags);
 	}
 
 	if (status & TW5864_INTR_TIMER) {
@@ -211,6 +149,66 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 	}
 
 	return IRQ_HANDLED;
+}
+
+static void tw5864_h264_isr(struct tw5864_dev *dev)
+{
+	int channel = tw_readl(TW5864_DSP) & TW5864_DSP_ENC_CHN;
+	struct tw5864_input *input = &dev->inputs[channel];
+	int cur_frame_index, next_frame_index;
+	struct tw5864_h264_frame *cur_frame, *next_frame;
+	unsigned long flags;
+
+	spin_lock_irqsave(&dev->slock, flags);
+
+	cur_frame_index = dev->h264_buf_w_index;
+	next_frame_index = (cur_frame_index + 1) % H264_BUF_CNT;
+	cur_frame = &dev->h264_buf[cur_frame_index];
+	next_frame = &dev->h264_buf[next_frame_index];
+
+	dma_sync_single_for_cpu(&dev->pci->dev, cur_frame->vlc.dma_addr,
+				H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
+	dma_sync_single_for_cpu(&dev->pci->dev, cur_frame->mv.dma_addr,
+				H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
+
+	if (next_frame_index != dev->h264_buf_r_index) {
+		cur_frame->vlc_len = tw_readl(TW5864_VLC_LENGTH) << 2;
+		cur_frame->checksum = tw_readl(TW5864_VLC_CRC_REG);
+		cur_frame->input = input;
+		cur_frame->timestamp =
+		    ktime_to_timeval(ktime_sub
+				     (ktime_get(), input->start_ktime));
+
+		dev->h264_buf_w_index = next_frame_index;
+#if 0
+		dev_dbg(&dev->pci->dev,
+			"submitted h264_buf[%d], %p, input %p\n",
+			cur_frame_index, cur_frame, cur_frame->input);
+#endif
+		tasklet_schedule(&dev->tasklet);
+
+		cur_frame = next_frame;
+	} else {
+		dev_err(&dev->pci->dev,
+			"Skipped frame on input %d because all buffers busy\n",
+			channel);
+	}
+
+	dev->encoder_busy = 0;
+
+	spin_unlock_irqrestore(&dev->slock, flags);
+
+	input->frame_seqno++;
+
+	dma_sync_single_for_device(&dev->pci->dev,
+				   cur_frame->vlc.dma_addr,
+				   H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
+	dma_sync_single_for_device(&dev->pci->dev,
+				   cur_frame->mv.dma_addr,
+				   H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
+
+	tw_writel(TW5864_VLC_STREAM_BASE_ADDR, cur_frame->vlc.dma_addr);
+	tw_writel(TW5864_MV_STREAM_BASE_ADDR, cur_frame->mv.dma_addr);
 }
 
 static void tw5864_timer_isr(struct tw5864_dev *dev)
