@@ -91,6 +91,15 @@ static int tw5864_enable_input(struct tw5864_input *input)
 	int input_number = input->input_number;
 	unsigned long flags;
 	int ret;
+	int d1_width = 720;
+	int d1_height;
+	int frame_width_bus_value = 0;
+	int frame_height_bus_value = 0;
+	int reg_frame_bus = 0x1c;
+	int fmt_reg_value = 0;
+	int downscale_enabled = 0;
+	u32 unary_framerate = 0xffff;
+
 
 	dev_dbg(&dev->pci->dev, "Enabling channel %d\n", input_number);
 
@@ -116,17 +125,10 @@ static int tw5864_enable_input(struct tw5864_input *input)
 
 	input->resolution = D1;
 
-	int d1_width = 720;
-	int d1_height = (input->std == STD_NTSC) ? 480 : 576;
+	d1_height = (input->std == STD_NTSC) ? 480 : 576;
 
 	input->width = d1_width;
 	input->height = d1_height;
-
-	int frame_width_bus_value = 0;
-	int frame_height_bus_value = 0;
-	int reg_frame_bus = 0x1c;
-	int fmt_reg_value = 0;
-	int downscale_enabled = 0;
 
 	input->reg_interlacing = 0x4;
 
@@ -217,7 +219,6 @@ static int tw5864_enable_input(struct tw5864_input *input)
 	 * For 8 FPS - 0x9999 (binary 0101 0101 0101 0101).
 	 * Et cetera.
 	 */
-	u32 unary_framerate = 0xffff;
 
 	tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(input_number, 0),
 		  unary_framerate);
@@ -251,6 +252,7 @@ static int tw5864_enable_input(struct tw5864_input *input)
 void tw5864_request_encoded_frame(struct tw5864_input *input)
 {
 	struct tw5864_dev *dev = input->root;
+	u32 enc_buf_id_new;
 
 	tw_setl(TW5864_DSP_CODEC, TW5864_CIF_MAP_MD | TW5864_HD1_MAP_MD);
 	tw_writel(TW5864_EMU, input->reg_emu);
@@ -279,9 +281,9 @@ void tw5864_request_encoded_frame(struct tw5864_input *input)
 					TW5864_VLC_BIT_ALIGN_SHIFT) |
 		  input->reg_dsp_qp);
 
-	u32 enc_buf_id_new = tw_mask_shift_readl(TW5864_ENC_BUF_PTR_REC1, 0x3,
-						 2 * input->input_number);
 
+	enc_buf_id_new = tw_mask_shift_readl(TW5864_ENC_BUF_PTR_REC1, 0x3,
+						 2 * input->input_number);
 	tw_writel(TW5864_DSP_ENC_ORG_PTR_REG,
 		  ((enc_buf_id_new + 1) % 4) << TW5864_DSP_ENC_ORG_PTR_SHIFT);
 	tw_writel(TW5864_DSP_ENC_REC,
@@ -701,7 +703,7 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 	tw_writel(TW5864_MV_STREAM_BASE_ADDR,
 		  dev->h264_buf[dev->h264_buf_w_index].mv.dma_addr);
 
-	for (int i = 0; i < TW5864_INPUTS; i++) {
+	for (i = 0; i < TW5864_INPUTS; i++) {
 		tw_indir_writeb(dev, 0x00e + i * 0x010, 0x07);
 		/* to initiate auto format recognition */
 		tw_indir_writeb(dev, 0x00f + i * 0x010, 0xff);
@@ -1116,6 +1118,11 @@ static void tw5864_handle_frame(struct tw5864_h264_frame *frame)
 	unsigned long dst_size;
 	unsigned long dst_space;
 	int skip_bytes = 3;
+	u8 *dst = input->buf_cur_ptr;
+	u8 tail_mask, vlc_mask = 0;
+	int i;
+	u8 vlc_first_byte = ((u8 *)(frame->vlc.addr + skip_bytes))[0];
+
 
 #ifdef DEBUG
 	if (frame->checksum != checksum((u32 *)frame->vlc.addr, frame_len))
@@ -1147,7 +1154,6 @@ static void tw5864_handle_frame(struct tw5864_h264_frame *frame)
 		return;
 	}
 
-	u8 *dst = input->buf_cur_ptr;
 
 	dst_size = vb2_plane_size(&vb->vb, 0);
 
@@ -1160,14 +1166,10 @@ static void tw5864_handle_frame(struct tw5864_h264_frame *frame)
 		frame_len = dst_space;
 	}
 
-	u8 tail_mask = 0xff, vlc_mask = 0;
-	int i;
 
 	for (i = 0; i < 8 - input->tail_nb_bits; i++)
 		vlc_mask |= 1 << i;
 	tail_mask = (~vlc_mask) & 0xff;
-
-	u8 vlc_first_byte = ((u8 *)(frame->vlc.addr + skip_bytes))[0];
 
 	dst[0] = (input->tail & tail_mask) | (vlc_first_byte & vlc_mask);
 	skip_bytes++;
