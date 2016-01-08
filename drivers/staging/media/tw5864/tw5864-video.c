@@ -255,8 +255,8 @@ void tw5864_request_encoded_frame(struct tw5864_input *input)
 	tw_writel(TW5864_DSP_QP, input->reg_dsp_qp);
 	tw_writel(TW5864_DSP_REF_MVP_LAMBDA, input->reg_dsp_ref_mvp_lambda);
 	tw_writel(TW5864_DSP_I4x4_WEIGHT, input->reg_dsp_i4x4_weight);
-	/* 16x16 & 4x4 */
-	tw_writel(TW5864_DSP_INTRA_MODE, 0x00000070);
+	/* 16x16 */
+	tw_writel(TW5864_DSP_INTRA_MODE, 0x00000060);
 
 	if (input->frame_seqno % input->gop == 0) {
 		/* Produce I-frame */
