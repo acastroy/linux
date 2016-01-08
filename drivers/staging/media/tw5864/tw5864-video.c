@@ -255,17 +255,25 @@ void tw5864_request_encoded_frame(struct tw5864_input *input)
 	tw_writel(TW5864_DSP_QP, input->reg_dsp_qp);
 	tw_writel(TW5864_DSP_REF_MVP_LAMBDA, input->reg_dsp_ref_mvp_lambda);
 	tw_writel(TW5864_DSP_I4x4_WEIGHT, input->reg_dsp_i4x4_weight);
+	/* 16x16 & 4x4 */
 	tw_writel(TW5864_DSP_INTRA_MODE, 0x00000070);
 
 	if (input->frame_seqno % input->gop == 0) {
 		/* Produce I-frame */
-		tw_writel(TW5864_MOTION_SEARCH_ETC, 0x00000008);
+		tw_writel(TW5864_MOTION_SEARCH_ETC, TW5864_INTRA_EN);
 		input->h264_frame_seqno_in_gop = 0;
 		input->h264_idr_pic_id++;
 		input->h264_idr_pic_id &= TW5864_DSP_REF_FRM;
 	} else {
 		/* Produce P-frame */
-		tw_writel(TW5864_MOTION_SEARCH_ETC, 0x000000BF);
+		tw_writel(TW5864_MOTION_SEARCH_ETC,
+				TW5864_INTRA_EN
+				| TW5864_ME_EN
+				| TW5864_HPEL_EN
+				| TW5864_QPEL_EN
+				| TW5864_SKIP_EN
+				| BIT(5) /* SRCH_OPT default */
+				);
 		input->h264_frame_seqno_in_gop++;
 	}
 	tw5864_prepare_frame_headers(input);
