@@ -201,7 +201,7 @@ struct tw5864_dev {
 	spinlock_t slock;
 	struct v4l2_device v4l2_dev;
 	struct tw5864_input inputs[TW5864_INPUTS];
-#define H264_BUF_CNT 16
+#define H264_BUF_CNT 64
 	struct tw5864_h264_frame h264_buf[H264_BUF_CNT];
 	int h264_buf_r_index;
 	int h264_buf_w_index;
