@@ -182,6 +182,13 @@ struct tw5864_input {
 	u16 md_threshold_grid_values[12 * 16];
 	int qp;
 	int gop;
+
+	/*
+	 * In (1/MAX_FPS) units.
+	 * For max FPS (default), set to 1.
+	 * For 1 FPS, set to e.g. 32.
+	 * */
+	int frame_interval;
 };
 
 struct tw5864_h264_frame {
