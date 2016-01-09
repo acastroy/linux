@@ -98,7 +98,8 @@ static int tw5864_enable_input(struct tw5864_input *input)
 	int reg_frame_bus = 0x1c;
 	int fmt_reg_value = 0;
 	int downscale_enabled = 0;
-	u32 unary_framerate = 0xffff;
+	/* 16 FPS, TODO try max */
+	u32 unary_framerate = 0x55555555;
 
 
 	dev_dbg(&dev->pci->dev, "Enabling channel %d\n", input_number);
@@ -212,18 +213,32 @@ static int tw5864_enable_input(struct tw5864_input *input)
 	 * frame is discarded.
 	 * So unary representation would work, but more or less equal gaps
 	 * between the frames should be preserved.
-	 * So for 30 (24) FPS it can be set to 0xffff.
-	 * For 1 FPS - 0x0001.
-	 * For 2 FPS - 0x0101.
-	 * For 4 FPS - 0x1111.
-	 * For 8 FPS - 0x9999 (binary 0101 0101 0101 0101).
+	 * So for 30 (24) FPS it can be set to 0xffffffff.
+	 * For 1 FPS - 0x00000001
+	 * 00000000 00000000 00000000 00000001
+	 *
+	 * For 2 FPS - 0x00010001.
+	 * 00000000 00000001 00000000 00000001
+	 *
+	 * For 4 FPS - 0x01010101.
+	 * 00000001 00000001 00000001 00000001
+	 *
+	 * For 8 FPS - 0x11111111.
+	 * 00010001 00010001 00010001 00010001
+	 *
+	 * For 16 FPS - 0x55555555.
+	 * 01010101 01010101 01010101 01010101
+	 *
+	 * For 32 FPS (not reached - capped by 24/30 limit) - 0xffffffff.
+	 * 11111111 11111111 11111111 11111111
+	 *
 	 * Et cetera.
 	 */
 
 	tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(input_number, 0),
-		  unary_framerate);
+		  unary_framerate >> 16);
 	tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(input_number, 0),
-		  unary_framerate);
+		  unary_framerate & 0xffff);
 
 	if (downscale_enabled)
 		tw_setl(TW5864_H264EN_CH_DNS, 1 << input_number);
