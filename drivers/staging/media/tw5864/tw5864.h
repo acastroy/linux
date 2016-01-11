@@ -174,8 +174,6 @@ struct tw5864_input {
 	u32 reg_dsp_i4x4_weight;
 	u32 buf_id;
 
-	ktime_t start_ktime;
-
 	struct tw5864_buf *vb;
 
 	struct v4l2_ctrl *md_threshold_grid_ctrl;

@@ -104,7 +104,6 @@ static int tw5864_enable_input(struct tw5864_input *input)
 
 	dev_dbg(&dev->pci->dev, "Enabling channel %d\n", input_number);
 
-	input->start_ktime = ktime_get();
 	ret = tw5864_input_std_get(input, &input->std);
 	if (ret)
 		return ret;
