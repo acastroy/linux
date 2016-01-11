@@ -170,7 +170,7 @@ static void tw5864_h264_isr(struct tw5864_dev *dev)
 		cur_frame->vlc_len = tw_readl(TW5864_VLC_LENGTH) << 2;
 		cur_frame->checksum = tw_readl(TW5864_VLC_CRC_REG);
 		cur_frame->input = input;
-		cur_frame->timestamp = ktime_get_ns();
+		v4l2_get_timestamp(&cur_frame->timestamp);
 
 		dev->h264_buf_w_index = next_frame_index;
 		tasklet_schedule(&dev->tasklet);
