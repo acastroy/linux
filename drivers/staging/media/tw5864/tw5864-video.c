@@ -1084,9 +1084,11 @@ static void tw5864_handle_frame_task(unsigned long data)
 {
 	struct tw5864_dev *dev = (struct tw5864_dev *)data;
 	unsigned long flags;
+	int batch_size = H264_BUF_CNT;
 
 	spin_lock_irqsave(&dev->slock, flags);
-	while (dev->h264_buf_r_index != dev->h264_buf_w_index) {
+	while (dev->h264_buf_r_index != dev->h264_buf_w_index
+	       && batch_size--) {
 		spin_unlock_irqrestore(&dev->slock, flags);
 		tw5864_handle_frame(&dev->h264_buf[dev->h264_buf_r_index]);
 		spin_lock_irqsave(&dev->slock, flags);
