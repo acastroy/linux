@@ -234,7 +234,7 @@ static int tw5864_enable_input(struct tw5864_input *input)
 			     (input_number < 2
 			      ? TW5864_H264EN_RATE_MAX_LINE_REG1
 			      : TW5864_H264EN_RATE_MAX_LINE_REG2),
-			     0x1f, 5 * input_number,
+			     0x1f, 5 * (input_number % 2),
 			     input->std == STD_NTSC ? 29 : 24);
 
 	tw_mask_shift_writel((input_number < 2)
