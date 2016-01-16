@@ -98,7 +98,6 @@ static int tw5864_enable_input(struct tw5864_input *input)
 	int reg_frame_bus = 0x1c;
 	int fmt_reg_value = 0;
 	int downscale_enabled = 0;
-	u32 unary_framerate = 0xffffffff;
 
 
 	dev_dbg(&dev->pci->dev, "Enabling channel %d\n", input_number);
@@ -204,38 +203,7 @@ static int tw5864_enable_input(struct tw5864_input *input)
 	tw_writel(TW5864_FRAME_HEIGHT_BUS_B(input_number),
 		  (frame_height_bus_value + 1) / 2 - 1);
 
-	/*
-	 * This register value seems to follow such approach: In each second
-	 * interval, when processing Nth frame, it checks Nth bit of register
-	 * value and, if the bit is 1, it processes the frame, otherwise the
-	 * frame is discarded.
-	 * So unary representation would work, but more or less equal gaps
-	 * between the frames should be preserved.
-	 * For 1 FPS - 0x00000001
-	 * 00000000 00000000 00000000 00000001
-	 *
-	 * For 2 FPS - 0x00010001.
-	 * 00000000 00000001 00000000 00000001
-	 *
-	 * For 4 FPS - 0x01010101.
-	 * 00000001 00000001 00000001 00000001
-	 *
-	 * For 8 FPS - 0x11111111.
-	 * 00010001 00010001 00010001 00010001
-	 *
-	 * For 16 FPS - 0x55555555.
-	 * 01010101 01010101 01010101 01010101
-	 *
-	 * For 32 FPS (not reached - capped by 25/30 limit) - 0xffffffff.
-	 * 11111111 11111111 11111111 11111111
-	 *
-	 * Et cetera.
-	 */
-
-	tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(input_number, 0),
-		  unary_framerate >> 16);
-	tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(input_number, 0),
-		  unary_framerate & 0xffff);
+	tw5864_frame_interval_set(input);
 
 	if (downscale_enabled)
 		tw_setl(TW5864_H264EN_CH_DNS, 1 << input_number);
@@ -590,6 +558,103 @@ static int tw5864_subscribe_event(struct v4l2_fh *fh,
 	return -EINVAL;
 }
 
+static void tw5864_frame_interval_set(struct tw5864_input *input)
+{
+	/*
+	 * This register value seems to follow such approach: In each second
+	 * interval, when processing Nth frame, it checks Nth bit of register
+	 * value and, if the bit is 1, it processes the frame, otherwise the
+	 * frame is discarded.
+	 * So unary representation would work, but more or less equal gaps
+	 * between the frames should be preserved.
+	 * For 1 FPS - 0x00000001
+	 * 00000000 00000000 00000000 00000001
+	 *
+	 * For 2 FPS - 0x00010001.
+	 * 00000000 00000001 00000000 00000001
+	 *
+	 * For 4 FPS - 0x01010101.
+	 * 00000001 00000001 00000001 00000001
+	 *
+	 * For 8 FPS - 0x11111111.
+	 * 00010001 00010001 00010001 00010001
+	 *
+	 * For 16 FPS - 0x55555555.
+	 * 01010101 01010101 01010101 01010101
+	 *
+	 * For 32 FPS (not reached - capped by 25/30 limit) - 0xffffffff.
+	 * 11111111 11111111 11111111 11111111
+	 *
+	 * Et cetera.
+	 */
+	u32 unary_framerate = 0;
+	int shift = 0;
+
+	for (shift = 0; shift <= 32; shift += input->frame_interval)
+		unary_framerate |= 0x00000001;
+
+	tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(input->input_number, 0),
+		  unary_framerate >> 16);
+	tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(input->input_number, 0),
+		  unary_framerate & 0xffff);
+}
+
+static int tw5864_enum_frameintervals(struct file *file, void *priv,
+				      struct v4l2_frmivalenum *fintv)
+{
+	struct tw5864_input *input = video_drvdata(file);
+	struct tw5864_dev *dev = input->root;
+
+	if (fintv->pixel_format != V4L2_PIX_FMT_H264)
+		return -EINVAL;
+	if (fintv->index)
+		return -EINVAL;
+
+	fintv->type = V4L2_FRMIVAL_TYPE_DISCRETE;
+
+	fintv->discrete.numerator = 1;
+	/* TODO Base on current std */
+	fintv->discrete.denominator = 32;
+
+	return 0;
+}
+
+static int tw5864_g_parm(struct file *file, void *priv,
+			 struct v4l2_streamparm *sp)
+{
+	struct tw5864_input *input = video_drvdata(file);
+	struct tw5864_dev *dev = input->root;
+	struct v4l2_captureparm *cp = &sp->parm.capture;
+
+	cp->capability = V4L2_CAP_TIMEPERFRAME;
+	cp->timeperframe.numerator = input->frame_interval;
+	/* TODO Base on current std */
+	cp->timeperframe.denominator = 32;
+#if 0
+	cp->capturemode = 0;
+	/* XXX: Shouldn't we be able to get/set this from videobuf? */
+	cp->readbuffers = 2;
+#endif
+
+	return 0;
+}
+
+static int tw5864_s_parm(struct file *file, void *priv,
+			 struct v4l2_streamparm *sp)
+{
+	struct tw5864_input *input = video_drvdata(file);
+	struct tw5864_dev *dev = input->root;
+	struct v4l2_fract *t = &sp->parm.capture.timeperframe;
+
+	/* Assume same denominator, for simplicity of code */
+	if (t->denominator != 32)
+		return -EINVAL;
+	input->frame_interval = t->numerator;
+	tw5864_frame_interval_set(input);
+	return tw5864_g_parm(file, priv, sp);
+}
+
+
 static const struct v4l2_ctrl_ops tw5864_ctrl_ops = {
 	.s_ctrl = tw5864_s_ctrl,
 };
@@ -625,6 +690,9 @@ static const struct v4l2_ioctl_ops video_ioctl_ops = {
 	.vidioc_log_status = v4l2_ctrl_log_status,
 	.vidioc_subscribe_event = tw5864_subscribe_event,
 	.vidioc_unsubscribe_event = v4l2_event_unsubscribe,
+	.vidioc_enum_frameintervals = tw5864_enum_frameintervals,
+	.vidioc_s_parm = tw5864_s_parm,
+	.vidioc_g_parm = tw5864_g_parm,
 };
 
 static struct video_device tw5864_video_template = {
@@ -870,6 +938,7 @@ static int tw5864_video_input_init(struct tw5864_input *input, int video_nr)
 
 	input->qp = QP_VALUE;
 	input->gop = GOP_SIZE;
+	input->frame_interval = 1;
 
 	ret = video_register_device(&input->vdev, VFL_TYPE_GRABBER, video_nr);
 	if (ret)
