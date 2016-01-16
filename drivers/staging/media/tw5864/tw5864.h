@@ -187,7 +187,7 @@ struct tw5864_input {
 	 * In (1/MAX_FPS) units.
 	 * For max FPS (default), set to 1.
 	 * For 1 FPS, set to e.g. 32.
-	 * */
+	 */
 	int frame_interval;
 };
 
