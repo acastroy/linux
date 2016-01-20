@@ -110,10 +110,12 @@ void tw5864_irqmask_apply(struct tw5864_dev *dev)
 
 static void tw5864_interrupts_disable(struct tw5864_dev *dev)
 {
-	mutex_lock(&dev->lock);
+	unsigned long flags;
+
+	spin_lock_irqsave(&dev->slock, flags);
 	dev->irqmask = 0;
 	tw5864_irqmask_apply(dev);
-	mutex_unlock(&dev->lock);
+	spin_unlock_irqrestore(&dev->slock, flags);
 }
 
 static void tw5864_timer_isr(struct tw5864_dev *dev);
@@ -242,9 +244,9 @@ static void tw5864_timer_isr(struct tw5864_dev *dev)
 		input->buf_id = raw_buf_id;
 		spin_unlock_irqrestore(&input->slock, flags);
 
-		spin_lock(&dev->slock);
+		spin_lock_irqsave(&dev->slock, flags);
 		dev->encoder_busy = 1;
-		spin_unlock(&dev->slock);
+		spin_unlock_irqrestore(&dev->slock, flags);
 		tw5864_request_encoded_frame(input);
 		break;
 next:
