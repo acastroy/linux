@@ -330,6 +330,7 @@ static int tw5864_s_ctrl(struct v4l2_ctrl *ctrl)
 	struct tw5864_input *input =
 		container_of(ctrl->handler, struct tw5864_input, hdl);
 	struct tw5864_dev *dev = input->root;
+	unsigned long flags;
 
 	switch (ctrl->id) {
 	case V4L2_CID_BRIGHTNESS:
@@ -359,12 +360,12 @@ static int tw5864_s_ctrl(struct v4l2_ctrl *ctrl)
 		input->gop = ctrl->val;
 		return 0;
 	case V4L2_CID_MPEG_VIDEO_H264_MIN_QP:
-		spin_lock(&input->slock);
+		spin_lock_irqsave(&input->slock, flags);
 		input->qp = ctrl->val;
 		input->reg_dsp_qp = input->qp;
 		input->reg_dsp_ref_mvp_lambda = lambda_lookup_table[input->qp];
 		input->reg_dsp_i4x4_weight = intra4x4_lambda3[input->qp];
-		spin_unlock(&input->slock);
+		spin_unlock_irqrestore(&input->slock, flags);
 		return 0;
 	case V4L2_CID_DETECT_MD_GLOBAL_THRESHOLD:
 		memset(input->md_threshold_grid_values, ctrl->val,
@@ -977,20 +978,21 @@ void tw5864_prepare_frame_headers(struct tw5864_input *input)
 	u8 *dst;
 	unsigned long dst_size;
 	size_t dst_space;
+	unsigned long flags;
 
 	u8 *sl_hdr;
 	unsigned long space_before_sl_hdr;
 
 	if (!vb) {
-		spin_lock(&input->slock);
+		spin_lock_irqsave(&input->slock, flags);
 		if (list_empty(&input->active)) {
-			spin_unlock(&input->slock);
+			spin_unlock_irqrestore(&input->slock, flags);
 			input->vb = NULL;
 			return;
 		}
 		vb = list_first_entry(&input->active, struct tw5864_buf, list);
 		list_del(&vb->list);
-		spin_unlock(&input->slock);
+		spin_unlock_irqrestore(&input->slock, flags);
 	}
 
 	dst = vb2_plane_vaddr(&vb->vb.vb2_buf, 0);
@@ -1189,6 +1191,7 @@ static void tw5864_handle_frame(struct tw5864_h264_frame *frame)
 	u8 tail_mask, vlc_mask = 0;
 	int i;
 	u8 vlc_first_byte = ((u8 *)(frame->vlc.addr + skip_bytes))[0];
+	unsigned long flags;
 
 #ifdef DEBUG
 	if (frame->checksum != checksum((u32 *)frame->vlc.addr, frame_len))
@@ -1196,10 +1199,10 @@ static void tw5864_handle_frame(struct tw5864_h264_frame *frame)
 			"Checksum of encoded frame doesn't match!\n");
 #endif
 
-	spin_lock(&input->slock);
+	spin_lock_irqsave(&input->slock, flags);
 	vb = input->vb;
 	input->vb = NULL;
-	spin_unlock(&input->slock);
+	spin_unlock_irqrestore(&input->slock, flags);
 
 	if (!vb) { /* Gone because of disabling */
 		dev_dbg(&dev->pci->dev, "vb is empty, dropping frame\n");
