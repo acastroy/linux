@@ -505,9 +505,6 @@ static int tw5864_s_std(struct file *file, void *priv, v4l2_std_id id)
 	if (ret)
 		return ret;
 
-	if (vb2_is_busy(&input->vidq))
-		return -EBUSY;
-
 	/* Allow only if matches with currently detected */
 	if (id != tw5864_get_v4l2_std(std))
 		return -EINVAL;
@@ -650,6 +647,8 @@ static int tw5864_g_parm(struct file *file, void *priv,
 
 	ret = tw5864_frameinterval_get(input, &cp->timeperframe);
 	cp->timeperframe.numerator *= input->frame_interval;
+	cp->capturemode = 0;
+	cp->readbuffers = 2;
 
 	return ret;
 }
@@ -659,9 +658,25 @@ static int tw5864_s_parm(struct file *file, void *priv,
 {
 	struct tw5864_input *input = video_drvdata(file);
 	struct v4l2_fract *t = &sp->parm.capture.timeperframe;
+	struct v4l2_fract time_base;
+	int ret;
 
-	t->numerator = t->numerator * 32 / t->denominator;
-	t->denominator = 32;
+	ret = tw5864_frameinterval_get(input, &time_base);
+	if (ret)
+		return ret;
+
+	if (!t->numerator || !t->denominator) {
+		dev_err(&input->root->pci->dev,
+			"weird timeperframe %u/%u, using current %u/%u\n",
+			t->numerator, t->denominator,
+			input->frame_interval, time_base.denominator);
+		t->numerator = input->frame_interval;
+		t->denominator = time_base.denominator;
+	} else if (t->denominator != time_base.denominator) {
+		t->numerator = t->numerator * time_base.denominator /
+			t->denominator;
+		t->denominator = time_base.denominator;
+	}
 
 	input->frame_interval = t->numerator;
 	tw5864_frame_interval_set(input);
@@ -690,6 +705,7 @@ static const struct v4l2_ioctl_ops video_ioctl_ops = {
 	.vidioc_querybuf = vb2_ioctl_querybuf,
 	.vidioc_qbuf = vb2_ioctl_qbuf,
 	.vidioc_dqbuf = vb2_ioctl_dqbuf,
+	.vidioc_expbuf = vb2_ioctl_expbuf,
 	.vidioc_s_std = tw5864_s_std,
 	.vidioc_g_std = tw5864_g_std,
 	.vidioc_enum_input = tw5864_enum_input,
@@ -896,7 +912,7 @@ static int tw5864_video_input_init(struct tw5864_input *input, int video_nr)
 	INIT_LIST_HEAD(&input->active);
 	input->vidq.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	input->vidq.timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
-	input->vidq.io_modes = VB2_MMAP | VB2_USERPTR | VB2_READ | VB2_DMABUF;
+	input->vidq.io_modes = VB2_MMAP | VB2_READ | VB2_DMABUF;
 	input->vidq.ops = &tw5864_video_qops;
 	input->vidq.mem_ops = &vb2_dma_contig_memops;
 	input->vidq.drv_priv = input;
