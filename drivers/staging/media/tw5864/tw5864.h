@@ -32,6 +32,8 @@
 
 #include "tw5864-reg.h"
 
+#define PCI_DEVICE_ID_TECHWELL_5864 0x5864
+
 #define TW5864_NORMS ( \
 		       V4L2_STD_NTSC  | V4L2_STD_PAL    | V4L2_STD_SECAM | \
 		       V4L2_STD_PAL_M | V4L2_STD_PAL_Nc | V4L2_STD_PAL_60)
