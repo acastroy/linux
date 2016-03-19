@@ -534,7 +534,6 @@ static int tw5864_enum_fmt_vid_cap(struct file *file, void *priv,
 		return -EINVAL;
 
 	f->pixelformat = V4L2_PIX_FMT_H264;
-	strcpy(f->description, "H.264");
 
 	return 0;
 }
