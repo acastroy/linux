@@ -1102,7 +1102,7 @@ void tw5864_prepare_frame_headers(struct tw5864_input *input)
 	 * Generate H264 headers:
 	 * If this is first frame, put SPS and PPS
 	 */
-	if (input->frame_seqno == 0)
+	if (input->h264_frame_seqno_in_gop == 0)
 		tw5864_h264_put_stream_header(&dst, &dst_space, input->qp,
 					      input->width, input->height);
 
