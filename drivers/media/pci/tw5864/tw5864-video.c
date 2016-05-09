@@ -938,7 +938,7 @@ fini_video_inputs:
 	tasklet_kill(&dev->tasklet);
 
 free_dma:
-	for (i = 0; i < H264_BUF_CNT; i++) {
+	for (i = 0; i < H264_BUF_CNT; i++)
 		dma_free_coherent(&dev->pci->dev, H264_VLC_BUF_SIZE,
 				  dev->h264_buf[i].vlc.addr,
 				  dev->h264_buf[i].vlc.dma_addr);
