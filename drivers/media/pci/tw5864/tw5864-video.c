@@ -1370,10 +1370,8 @@ static void tw5864_handle_frame(struct tw5864_h264_frame *frame)
 		struct v4l2_event ev = {
 			.type = V4L2_EVENT_MOTION_DET,
 			.u.motion_det = {
-				.flags =
-					V4L2_EVENT_MD_FL_HAVE_FRAME_SEQ,
-				.frame_sequence =
-					v4l2_buf->sequence,
+				.flags = V4L2_EVENT_MD_FL_HAVE_FRAME_SEQ,
+				.frame_sequence = v4l2_buf->sequence,
 			},
 		};
 
