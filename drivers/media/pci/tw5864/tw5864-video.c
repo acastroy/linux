@@ -808,7 +808,7 @@ static void tw5864_tables_upload(struct tw5864_dev *dev);
 int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 {
 	int i;
-	int ret = -1;
+	int ret;
 	int last_input_nr_registered = -1;
 
 	for (i = 0; i < H264_BUF_CNT; i++) {
