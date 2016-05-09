@@ -115,7 +115,7 @@ static int tw5864_h264_gen_slice_head(u8 *buf, size_t size,
 	bs_write_se(s, 0 /* i_qp_delta */);
 
 	if (s->bits_left != 8) {
-		*tail = ((s->p[0]) << s->bits_left);
+		*tail = ((s->ptr[0]) << s->bits_left);
 		*tail_nb_bits = 8 - s->bits_left;
 	} else {
 		*tail = 0;
