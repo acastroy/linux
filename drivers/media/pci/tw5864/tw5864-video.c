@@ -1155,14 +1155,6 @@ static int tw5864_is_motion_triggered(struct tw5864_h264_frame *frame)
 	int detected = 0;
 	unsigned int md_cells = MD_CELLS_HOR * MD_CELLS_VERT;
 
-#ifdef DEBUG
-	/* Stats */
-	unsigned int max = 0;
-	unsigned int min = UINT_MAX;
-	unsigned int sum = 0;
-	unsigned int cnt_above_thresh = 0;
-#endif
-
 	for (i = 0; i < md_cells; i++) {
 		const u16 thresh = input->md_threshold_grid_values[i];
 		const unsigned int metric = tw5864_md_metric_from_mvd(mv[i]);
@@ -1170,77 +1162,11 @@ static int tw5864_is_motion_triggered(struct tw5864_h264_frame *frame)
 		if (metric > thresh)
 			detected = 1;
 
-#ifdef DEBUG
-		if (metric > thresh)
-			cnt_above_thresh++;
-		if (metric > max)
-			max = metric;
-		if (metric < min)
-			min = metric;
-		sum += metric;
-#else
 		if (detected)
 			break;
-#endif
 	}
-#ifdef DEBUG
-	dev_dbg(&input->root->pci->dev,
-		"input %d, frame md stats: min %u, max %u, avg %u, cells above threshold: %u\n",
-		input->input_number, min, max, sum / md_cells,
-		cnt_above_thresh);
-#endif
 	return detected;
 }
-
-#ifdef MD_DUMP
-static void tw5864_md_dump(struct tw5864_input *input)
-{
-	struct tw5864_dev *dev = input->root;
-	u32 *mv = (u32 *)dev->h264_mv_buf[dev->h264_buf_index].addr;
-	int offset = 0;
-	int i;
-
-	if (input->h264_frame_seqno_in_gop) {
-		offset = 0;
-		for (i = 0; i < MD_CELLS_VERT; i++) {
-			dev_dbg(&dev->pci->dev,
-				"MVD [%02d]: %08x %08x %08x %08x   %08x %08x %08x %08x   %08x %08x %08x %08x   %08x %08x %08x %08x\n",
-				i, mv[offset + 0], mv[offset + 1],
-				mv[offset + 2], mv[offset + 3], mv[offset + 4],
-				mv[offset + 5], mv[offset + 6], mv[offset + 7],
-				mv[offset + 8], mv[offset + 9], mv[offset + 10],
-				mv[offset + 11], mv[offset + 12],
-				mv[offset + 13], mv[offset + 14],
-				mv[offset + 15]
-			       );
-			offset += MD_CELLS_HOR;
-		}
-		offset = 0;
-		for (i = 0; i < MD_CELLS_VERT; i++) {
-			dev_dbg(&dev->pci->dev,
-				"MD heur [%02d]: % 2x % 2x % 2x % 2x   % 2x % 2x % 2x % 2x   % 2x % 2x % 2x % 2x   % 2x % 2x % 2x % 2x\n",
-				i, tw5864_md_metric_from_mvd(mv[offset + 0]),
-				tw5864_md_metric_from_mvd(mv[offset + 1]),
-				tw5864_md_metric_from_mvd(mv[offset + 2]),
-				tw5864_md_metric_from_mvd(mv[offset + 3]),
-				tw5864_md_metric_from_mvd(mv[offset + 4]),
-				tw5864_md_metric_from_mvd(mv[offset + 5]),
-				tw5864_md_metric_from_mvd(mv[offset + 6]),
-				tw5864_md_metric_from_mvd(mv[offset + 7]),
-				tw5864_md_metric_from_mvd(mv[offset + 8]),
-				tw5864_md_metric_from_mvd(mv[offset + 9]),
-				tw5864_md_metric_from_mvd(mv[offset + 10]),
-				tw5864_md_metric_from_mvd(mv[offset + 11]),
-				tw5864_md_metric_from_mvd(mv[offset + 12]),
-				tw5864_md_metric_from_mvd(mv[offset + 13]),
-				tw5864_md_metric_from_mvd(mv[offset + 14]),
-				tw5864_md_metric_from_mvd(mv[offset + 15])
-			       );
-			offset += MD_CELLS_HOR;
-		}
-	}
-}
-#endif
 
 static void tw5864_handle_frame_task(unsigned long data)
 {
@@ -1379,10 +1305,6 @@ static void tw5864_handle_frame(struct tw5864_h264_frame *frame)
 	}
 
 	vb2_buffer_done(&vb->vb.vb2_buf, VB2_BUF_STATE_DONE);
-
-#ifdef MD_DUMP
-	tw5864_md_dump(input);
-#endif
 }
 
 v4l2_std_id tw5864_get_v4l2_std(enum tw5864_vid_std std)
