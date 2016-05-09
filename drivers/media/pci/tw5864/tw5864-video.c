@@ -266,8 +266,8 @@ void tw5864_request_encoded_frame(struct tw5864_input *input)
 	}
 	tw5864_prepare_frame_headers(input);
 	tw_writel(TW5864_VLC,
-		  TW5864_VLC_PCI_SEL | ((input->tail_nb_bits + 24) <<
-					TW5864_VLC_BIT_ALIGN_SHIFT) |
+		  TW5864_VLC_PCI_SEL |
+		  ((input->tail_nb_bits + 24) << TW5864_VLC_BIT_ALIGN_SHIFT) |
 		  input->reg_dsp_qp);
 
 	enc_buf_id_new = tw_mask_shift_readl(TW5864_ENC_BUF_PTR_REC1, 0x3,
