@@ -972,7 +972,7 @@ static int tw5864_video_input_init(struct tw5864_input *input, int video_nr)
 	input->vidq.min_buffers_needed = 12;
 	ret = vb2_queue_init(&input->vidq);
 	if (ret)
-		goto vb2_q_init_fail;
+		goto free_mutex;
 
 	input->vdev = tw5864_video_template;
 	input->vdev.v4l2_dev = &input->root->v4l2_dev;
@@ -984,7 +984,7 @@ static int tw5864_video_input_init(struct tw5864_input *input, int video_nr)
 	input->alloc_ctx = vb2_dma_contig_init_ctx(&input->root->pci->dev);
 	if (IS_ERR(input->alloc_ctx)) {
 		ret = PTR_ERR(input->alloc_ctx);
-		goto vb2_dma_contig_init_ctx_fail;
+		goto free_vb2_queue;
 	}
 
 	v4l2_ctrl_handler_init(hdl, 6);
@@ -1012,7 +1012,7 @@ static int tw5864_video_input_init(struct tw5864_input *input, int video_nr)
 		v4l2_ctrl_new_custom(hdl, &tw5864_md_thresholds, NULL);
 	if (hdl->error) {
 		ret = hdl->error;
-		goto v4l2_ctrl_fail;
+		goto free_v4l2_hdl;
 	}
 	input->vdev.ctrl_handler = hdl;
 	v4l2_ctrl_handler_setup(hdl);
@@ -1023,19 +1023,19 @@ static int tw5864_video_input_init(struct tw5864_input *input, int video_nr)
 
 	ret = video_register_device(&input->vdev, VFL_TYPE_GRABBER, video_nr);
 	if (ret)
-		goto v4l2_ctrl_fail;
+		goto free_v4l2_hdl;
 
 	dev_info(&input->root->pci->dev, "Registered video device %s\n",
 		 video_device_node_name(&input->vdev));
 
 	return 0;
 
-v4l2_ctrl_fail:
+free_v4l2_hdl:
 	v4l2_ctrl_handler_free(hdl);
 	vb2_dma_contig_cleanup_ctx(input->alloc_ctx);
-vb2_dma_contig_init_ctx_fail:
+free_vb2_queue:
 	vb2_queue_release(&input->vidq);
-vb2_q_init_fail:
+free_mutex:
 	mutex_destroy(&input->lock);
 
 	return ret;
