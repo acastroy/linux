@@ -1076,7 +1076,6 @@ void tw5864_prepare_frame_headers(struct tw5864_input *input)
 	unsigned long dst_size;
 	size_t dst_space;
 	unsigned long flags;
-
 	u8 *sl_hdr;
 	unsigned long space_before_sl_hdr;
 
