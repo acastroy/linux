@@ -77,7 +77,7 @@ static int tw5864_input_std_get(struct tw5864_input *input,
 
 	if (std == STD_INVALID) {
 		dev_err(&dev->pci->dev, "No valid video format detected\n");
-		return -1;
+		return -EPERM;
 	}
 
 	*std_arg = std;
