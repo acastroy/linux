@@ -213,8 +213,7 @@ static int tw5864_enable_input(struct tw5864_input *input)
 	tw_mask_shift_writel(TW5864_H264EN_CH_FMT_REG1, 0x3, 2 * input_number,
 			     fmt_reg_value);
 
-	tw_mask_shift_writel(
-			     (input_number < 2
+	tw_mask_shift_writel((input_number < 2
 			      ? TW5864_H264EN_RATE_MAX_LINE_REG1
 			      : TW5864_H264EN_RATE_MAX_LINE_REG2),
 			     0x1f, 5 * (input_number % 2),
