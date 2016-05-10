@@ -92,6 +92,8 @@ static u8 tbl_tw2864_other[] = {
 	0x9f, 0x00,
 	0xb1, 0x2a,
 	0x9e, 0x7a,
+	0xcf, 0x83,
+	0xe0, 0x00,
 };
 
 static u8 tbl_tw2865_other1[] = {
@@ -254,8 +256,6 @@ static void init_tw2864(struct tw5864_dev *dev, int index)
 
 	i2c_wscatter(dev, devid, tbl_tw2864_other,
 		     sizeof(tbl_tw2864_other) / 2);
-	i2c_write(dev, devid, 0xcf, 0x83);
-	i2c_write(dev, devid, 0xe0, 0x00);
 
 	tw28xx_clkp_delay(dev, devid, clkp_delay_check_chan);
 }
