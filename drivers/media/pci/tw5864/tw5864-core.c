@@ -58,42 +58,37 @@ void tw_indir_writeb(struct tw5864_dev *dev, u16 addr, u8 data)
 {
 	int retries = 30000;
 
-	addr <<= 2;
-
-	while ((tw_readl(TW5864_IND_CTL) >> 31) && (retries--))
+	while (tw_readl(TW5864_IND_CTL) & BIT(31) && --retries)
 		;
 	if (!retries)
 		dev_err(&dev->pci->dev,
 			"tw_indir_writel() retries exhausted before writing\n");
 
 	tw_writel(TW5864_IND_DATA, data);
-	tw_writel(TW5864_IND_CTL, addr | TW5864_RW | TW5864_ENABLE);
+	tw_writel(TW5864_IND_CTL, addr << 2 | TW5864_RW | TW5864_ENABLE);
 }
 
 u8 tw_indir_readb(struct tw5864_dev *dev, u16 addr)
 {
 	int retries = 30000;
-	u32 data = 0;
+	u32 data;
 
-	addr <<= 2;
-
-	while ((tw_readl(TW5864_IND_CTL) >> 31) && (retries--))
+	while (tw_readl(TW5864_IND_CTL) & BIT(31) && --retries)
 		;
 	if (!retries)
 		dev_err(&dev->pci->dev,
 			"tw_indir_readl() retries exhausted before reading\n");
 
-	tw_writel(TW5864_IND_CTL, addr | TW5864_ENABLE);
+	tw_writel(TW5864_IND_CTL, addr << 2 | TW5864_ENABLE);
 
 	retries = 30000;
-	while ((tw_readl(TW5864_IND_CTL) >> 31) && (retries--))
+	while (tw_readl(TW5864_IND_CTL) & BIT(31) && --retries)
 		;
 	if (!retries)
 		dev_err(&dev->pci->dev,
 			"tw_indir_readl() retries exhausted at reading\n");
 
-	data = tw_readl(TW5864_IND_DATA);
-	return data & 0xff;
+	return (u8) tw_readl(TW5864_IND_DATA);
 }
 
 void tw5864_irqmask_apply(struct tw5864_dev *dev)
@@ -120,8 +115,8 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 	struct tw5864_dev *dev = dev_id;
 	u32 status;
 
-	status = tw_readl(TW5864_INTR_STATUS_L)
-		| (tw_readl(TW5864_INTR_STATUS_H) << 16);
+	status = tw_readl(TW5864_INTR_STATUS_L) |
+		tw_readl(TW5864_INTR_STATUS_H) << 16;
 	if (!status)
 		return IRQ_NONE;
 
@@ -257,7 +252,6 @@ static void tw5864_timer_isr(struct tw5864_dev *dev)
 		break;
 next:
 		spin_unlock_irqrestore(&input->slock, flags);
-		continue;
 	}
 }
 
@@ -275,68 +269,67 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 
 	err = v4l2_device_register(&pci_dev->dev, &dev->v4l2_dev);
 	if (err)
-		goto v4l2_reg_fail;
+		return err;
 
 	/* pci init */
 	dev->pci = pci_dev;
-	if (pci_enable_device(pci_dev)) {
-		err = -EIO;
-		goto pci_enable_fail;
+	err = pci_enable_device(pci_dev);
+	if (err) {
+		dev_err(&dev->pci->dev, "pci_enable_device() failed\n");
+		goto unreg_v4l2;
 	}
 
 	pci_set_master(pci_dev);
 
 	err = pci_set_dma_mask(pci_dev, DMA_BIT_MASK(32));
 	if (err) {
-		dev_err(&dev->pci->dev, "32bit PCI DMA is not supported\n");
-		goto req_mem_fail;
+		dev_err(&dev->pci->dev, "32 bit PCI DMA is not supported\n");
+		goto disable_pci;
 	}
 
 	/* get mmio */
 	if (!request_mem_region(pci_resource_start(pci_dev, 0),
 				pci_resource_len(pci_dev, 0), dev->name)) {
 		err = -EBUSY;
-		dev_err(&dev->pci->dev, "can't get MMIO memory @ 0x%llx\n",
+		dev_err(&dev->pci->dev, "Cannot get MMIO memory @ 0x%llx\n",
 			(unsigned long long)pci_resource_start(pci_dev, 0));
-		goto req_mem_fail;
+		goto disable_pci;
 	}
 	dev->mmio = ioremap_nocache(pci_resource_start(pci_dev, 0),
 				    pci_resource_len(pci_dev, 0));
 	if (!dev->mmio) {
 		err = -EIO;
 		dev_err(&dev->pci->dev, "can't ioremap() MMIO memory\n");
-		goto ioremap_fail;
+		goto release_mmio;
 	}
 
 	spin_lock_init(&dev->slock);
 
 	err = tw5864_video_init(dev, video_nr);
 	if (err)
-		goto video_init_fail;
+		goto unmap_mmio;
 
 	/* get irq */
 	err = devm_request_irq(&pci_dev->dev, pci_dev->irq, tw5864_isr,
 			       IRQF_SHARED, "tw5864", dev);
 	if (err < 0) {
 		dev_err(&dev->pci->dev, "can't get IRQ %d\n", pci_dev->irq);
-		goto irq_req_fail;
+		goto fini_video;
 	}
 
 	return 0;
 
-irq_req_fail:
+fini_video:
 	tw5864_video_fini(dev);
-video_init_fail:
+unmap_mmio:
 	iounmap(dev->mmio);
-ioremap_fail:
+release_mmio:
 	release_mem_region(pci_resource_start(pci_dev, 0),
 			   pci_resource_len(pci_dev, 0));
-req_mem_fail:
+disable_pci:
 	pci_disable_device(pci_dev);
-pci_enable_fail:
+unreg_v4l2:
 	v4l2_device_unregister(&dev->v4l2_dev);
-v4l2_reg_fail:
-	devm_kfree(&pci_dev->dev, dev);
 	return err;
 }
 
