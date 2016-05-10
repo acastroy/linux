@@ -243,43 +243,6 @@ static int i2c_wscatter(struct tw5864_dev *dev, u8 devid, u8 *buf, u32 count)
 	return 0;
 }
 
-static void init_tw2864(struct tw5864_dev *dev, int index)
-{
-	u8 devid = 0x52 + index * 2;
-	int clkp_delay_check_chan = (index + 1) * 4;
-	u32 ch;
-
-	for (ch = 0; ch < 4; ch++)
-		i2c_multi_write(dev, devid, ch * 0x10, tbl_pal_tw2864_common,
-				sizeof(tbl_pal_tw2864_common));
-
-	i2c_wscatter(dev, devid, tbl_tw2864_other,
-		     sizeof(tbl_tw2864_other) / 2);
-
-	tw28xx_clkp_delay(dev, devid, clkp_delay_check_chan);
-}
-
-static void init_tw2865(struct tw5864_dev *dev, u8 devid)
-{
-	u32 ch;
-
-	for (ch = 0; ch < 4; ch++)
-		i2c_multi_write(dev, devid, ch * 0x10, tbl_pal_tw2865_common,
-				sizeof(tbl_pal_tw2865_common));
-
-	i2c_wscatter(dev, devid, tbl_tw2865_other1,
-		     sizeof(tbl_tw2865_other1) / 2);
-	i2c_multi_write(dev, devid, 0xd0, audio_tw2865_common,
-			sizeof(audio_tw2865_common));
-	i2c_wscatter(dev, devid, tbl_tw2865_other2,
-		     sizeof(tbl_tw2865_other2) / 2);
-	i2c_multi_write(dev, devid, 0xf0, audio_tbl_pal_tw2865_8KHz,
-			sizeof(audio_tbl_pal_tw2865_8KHz));
-	i2c_wscatter(dev, devid, tbl_tw2865_other3,
-		     sizeof(tbl_tw2865_other3) / 2);
-	i2c_write(dev, devid, 0xe0, 0x10);
-}
-
 static int tw28xx_clkp_delay(struct tw5864_dev *dev, u8 devid, u32 base_ch)
 {
 	int delay;
@@ -308,14 +271,65 @@ static int tw28xx_clkp_delay(struct tw5864_dev *dev, u8 devid, u32 base_ch)
 	return 0;
 }
 
-void tw5864_init_ad(struct tw5864_dev *dev)
+static int init_tw2864(struct tw5864_dev *dev, int index)
+{
+	u8 devid = 0x52 + index * 2;
+	int clkp_delay_check_chan = (index + 1) * 4;
+	u32 ch;
+	int ret = 0;
+
+	for (ch = 0; ch < 4; ch++)
+		ret |= i2c_multi_write(dev, devid, ch * 0x10,
+				      tbl_pal_tw2864_common,
+				      sizeof(tbl_pal_tw2864_common));
+
+	ret |= i2c_wscatter(dev, devid, tbl_tw2864_other,
+		     sizeof(tbl_tw2864_other) / 2);
+
+	if (ret)
+		return ret;
+
+	return tw28xx_clkp_delay(dev, devid, clkp_delay_check_chan);
+}
+
+static int init_tw2865(struct tw5864_dev *dev, u8 devid)
+{
+	u32 ch;
+	int ret = 0;
+
+	for (ch = 0; ch < 4; ch++) {
+		ret |= i2c_multi_write(dev, devid, ch * 0x10,
+				      tbl_pal_tw2865_common,
+				      sizeof(tbl_pal_tw2865_common));
+	}
+
+	ret |= i2c_wscatter(dev, devid, tbl_tw2865_other1,
+		     sizeof(tbl_tw2865_other1) / 2);
+	ret |= i2c_multi_write(dev, devid, 0xd0, audio_tw2865_common,
+			sizeof(audio_tw2865_common));
+	ret |= i2c_wscatter(dev, devid, tbl_tw2865_other2,
+		     sizeof(tbl_tw2865_other2) / 2);
+	ret |= i2c_multi_write(dev, devid, 0xf0, audio_tbl_pal_tw2865_8KHz,
+			sizeof(audio_tbl_pal_tw2865_8KHz));
+	ret |= i2c_wscatter(dev, devid, tbl_tw2865_other3,
+		     sizeof(tbl_tw2865_other3) / 2);
+	ret |= i2c_write(dev, devid, 0xe0, 0x10);
+
+	return ret;
+}
+
+int tw5864_init_ad(struct tw5864_dev *dev)
 {
 	int i;
+	int ret;
 
 	tw_writel(TW5864_IIC_ENB, 1);
 	tw_writel(TW5864_I2C_PHASE_CFG, 1);
 
-	for (i = 0; i < 3; i++)
-		init_tw2864(dev, i);
-	init_tw2865(dev, 0x50);
+	for (i = 0; i < 3; i++) {
+		ret = init_tw2864(dev, i);
+		if (ret)
+			return ret;
+	}
+	return init_tw2865(dev, 0x50);
 }
