@@ -20,33 +20,33 @@
 static u8 marker[] = { 0x00, 0x00, 0x00, 0x01 };
 
 /* log2 of max GOP size, taken 8 as V4L2-advertised max GOP size is 255 */
-#define i_log2_max_frame_num 8
-#define i_log2_max_poc_lsb i_log2_max_frame_num
+#define LOG2_MAX_FRAME_NUM 8
+#define LOG2_MAX_POC_LSB LOG2_MAX_FRAME_NUM
 
 static int tw5864_h264_gen_sps_rbsp(u8 *buf, size_t size, int width, int height)
 {
 	struct bs bs, *s;
-	const int i_mb_width = width / 16;
-	const int i_mb_height = height / 16;
+	const int mb_width = width / 16;
+	const int mb_height = height / 16;
 
 	s = &bs;
 	bs_init(s, buf, size);
 	bs_write(s, 8, 0x42 /* profile == 66, baseline */);
-	bs_write(s, 1, 1); // constraint_set0_flag
-	bs_write(s, 1, 1); // constraint_set1_flag
+	bs_write(s, 1, 1); /* constraint_set0_flag */
+	bs_write(s, 1, 1); /* constraint_set1_flag */
 	bs_write(s, 6, 0);
 	bs_write(s, 8, 0x1E /* level */);
 	bs_write_ue(s, 0 /* SPS id */);
-	bs_write_ue(s, i_log2_max_frame_num - 4);
-	bs_write_ue(s, 0 /* i_poc_type */);
-	bs_write_ue(s, i_log2_max_poc_lsb - 4);
+	bs_write_ue(s, LOG2_MAX_FRAME_NUM - 4);
+	bs_write_ue(s, 0 /* POC type */);
+	bs_write_ue(s, LOG2_MAX_POC_LSB - 4);
 
-	bs_write_ue(s, 1 /* i_num_ref_frames */);
-	bs_write(s, 1, 0 /* b_gaps_in_frame_num_value_allowed */);
-	bs_write_ue(s, i_mb_width - 1);
-	bs_write_ue(s, i_mb_height - 1);
-	bs_write(s, 1, 1 /* b_frame_mbs_only */);
-	bs_write(s, 1, 0 /* b_direct8x8_inference */);
+	bs_write_ue(s, 1 /* num_ref_frames */);
+	bs_write(s, 1, 0 /* gaps_in_frame_num_value_allowed_flag */);
+	bs_write_ue(s, mb_width - 1);
+	bs_write_ue(s, mb_height - 1);
+	bs_write(s, 1, 1 /* frame_mbs_only_flag */);
+	bs_write(s, 1, 0 /* direct_8x8_inference_flag */);
 	bs_write(s, 1, 0);
 	bs_write(s, 1, 0);
 	bs_rbsp_trailing(s);
@@ -59,21 +59,21 @@ static int tw5864_h264_gen_pps_rbsp(u8 *buf, size_t size, int qp)
 
 	s = &bs;
 	bs_init(s, buf, size);
-	bs_write_ue(s, 0 /* PPS id */);
-	bs_write_ue(s, 0 /* SPS id */);
-	bs_write(s, 1, 0 /* b_cabac */);
-	bs_write(s, 1, 0 /* b_pic_order */);
-	bs_write_ue(s, (1 /* i_num_slice_groups */) - 1);
-	bs_write_ue(s, (1 /* i_num_ref_idx_l0_active */) - 1);
-	bs_write_ue(s, (1 /* i_num_ref_idx_l1_active */) - 1);
-	bs_write(s, 1, 0 /* b_weighted_pred */);
-	bs_write(s, 2, 0 /* b_weighted_bipred */);
-	bs_write_se(s, qp - 26);
-	bs_write_se(s, qp - 26);
-	bs_write_se(s, 0 /* i_chroma_qp_index_offset */);
-	bs_write(s, 1, 0 /* b_deblocking_filter_control */);
-	bs_write(s, 1, 0 /* b_constrained_intra_pred */);
-	bs_write(s, 1, 0 /* b_redundant_pic_cnt */);
+	bs_write_ue(s, 0 /* pic_parameter_set_id */);
+	bs_write_ue(s, 0 /* seq_parameter_set_id */);
+	bs_write(s, 1, 0 /* entropy_coding_mode_flag */);
+	bs_write(s, 1, 0 /* pic_order_present_flag */);
+	bs_write_ue(s, 0 /* num_slice_groups_minus1 */);
+	bs_write_ue(s, 0 /* i_num_ref_idx_l0_active_minus1 */);
+	bs_write_ue(s, 0 /* i_num_ref_idx_l1_active_minus1 */);
+	bs_write(s, 1, 0 /* weighted_pred_flag */);
+	bs_write(s, 2, 0 /* weighted_bipred_idc */);
+	bs_write_se(s, qp - 26 /* pic_init_qp_minus26 */);
+	bs_write_se(s, qp - 26 /* pic_init_qs_minus26 */);
+	bs_write_se(s, 0 /* chroma_qp_index_offset */);
+	bs_write(s, 1, 0 /* deblocking_filter_control_present_flag */);
+	bs_write(s, 1, 0 /* constrained_intra_pred_flag */);
+	bs_write(s, 1, 0 /* redundant_pic_cnt_present_flag */);
 	bs_rbsp_trailing(s);
 	return bs_len(s);
 }
@@ -92,11 +92,11 @@ static int tw5864_h264_gen_slice_head(u8 *buf, size_t size,
 	bs_write_ue(s, 0 /* i_first_mb */);
 	bs_write_ue(s, is_i_frame ? 2 : 5 /* slice type - I or P */);
 	bs_write_ue(s, 0 /* PPS id */);
-	bs_write(s, i_log2_max_frame_num, frame_seqno_in_gop);
+	bs_write(s, LOG2_MAX_FRAME_NUM, frame_seqno_in_gop);
 	if (is_i_frame)
 		bs_write_ue(s, idr_pic_id);
 
-	bs_write(s, i_log2_max_poc_lsb, i_poc_lsb);
+	bs_write(s, LOG2_MAX_POC_LSB, i_poc_lsb);
 
 	if (!is_i_frame)
 		bs_write1(s, 0 /*b_num_ref_idx_override */);
