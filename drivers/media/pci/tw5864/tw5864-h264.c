@@ -131,7 +131,6 @@ void tw5864_h264_put_stream_header(u8 **buf, size_t *space_left, int qp,
 	int nal_len;
 
 	/* SPS */
-	WARN_ON_ONCE(*space_left < 4);
 	memcpy(*buf, marker, sizeof(marker));
 	*buf += 4;
 	*space_left -= 4;
@@ -145,7 +144,6 @@ void tw5864_h264_put_stream_header(u8 **buf, size_t *space_left, int qp,
 	*space_left -= nal_len;
 
 	/* PPS */
-	WARN_ON_ONCE(*space_left < 4);
 	memcpy(*buf, marker, sizeof(marker));
 	*buf += 4;
 	*space_left -= 4;
@@ -166,7 +164,6 @@ void tw5864_h264_put_slice_header(u8 **buf, size_t *space_left,
 {
 	int nal_len;
 
-	WARN_ON_ONCE(*space_left < 4);
 	memcpy(*buf, marker, sizeof(marker));
 	*buf += 4;
 	*space_left -= 4;

@@ -1095,6 +1095,16 @@ void tw5864_prepare_frame_headers(struct tw5864_input *input)
 	dst_space = dst_size;
 
 	/*
+	 * Low-level bitstream writing functions don't have a fine way to say
+	 * correctly that supplied buffer is too small. So we just check there
+	 * and warn, and don't care at lower level.
+	 * Currently all headers take below 32 bytes.
+	 * The buffer is supposed to have plenty of free space at this point,
+	 * anyway.
+	 */
+	WARN_ON_ONCE(dst_space < 128);
+
+	/*
 	 * Generate H264 headers:
 	 * If this is first frame, put SPS and PPS
 	 */
