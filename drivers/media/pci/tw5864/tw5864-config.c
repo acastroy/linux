@@ -17,7 +17,7 @@
 #include "tw5864.h"
 #include "tw5864-reg.h"
 
-#define TW5864_IIC_TIMEOUT  (30000)
+#define TW5864_IIC_RETRIES  30000
 
 static unsigned char tbl_pal_tw2864_common[] __used = {
 	0x00, 0x00, 0x64, 0x11,
@@ -137,222 +137,155 @@ static unsigned char audio_tbl_ntsc_tw2865_16KHz[] __used = {
 	0x07, 0x6B, 0x13, 0xEF, 0x0A, 0x01
 };
 
-static int i2c_read(struct tw5864_dev *dev, u8 devid, u8 devfn, u8 *buf);
-
-static int __used i2c_multi_read(struct tw5864_dev *dev, u8 devid, u8 devfn,
-				 u8 *buf, u32 count)
+static int i2c_read(struct tw5864_dev *dev, u8 devid, u8 addr, u8 *buf)
 {
-	int i = 0;
-	u32 val = 0;
-	int timeout = TW5864_IIC_TIMEOUT;
+	u32 val = (1 << 24) | ((devid | 0x01) << 16) | (addr << 8);
+	int retries = TW5864_IIC_RETRIES;
 	unsigned long flags;
 
+	/* TODO What for local_irq_save()? */
 	local_irq_save(flags);
-	for (i = 0; i < count; i++) {
-		val = (1 << 24) | ((devid | 0x01) << 16) | ((devfn + i) << 8);
-
-		tw_writel(TW5864_IIC, val);
-
-		do {
-			val = tw_readl(TW5864_IIC) & (0x01000000);
-		} while ((!val) && (--timeout));
-		if (!timeout) {
-			local_irq_restore(flags);
-			dev_err(&dev->pci->dev, "dev 0x%x, fn 0x%x\n", devid,
-				devfn);
-			return -ETIMEDOUT;
-		}
-		buf[i] = (u8)tw_readl(TW5864_IIC);
-	}
+	tw_writel(TW5864_IIC, val);
+	do {
+		val = tw_readl(TW5864_IIC) & 0x01000000;
+	} while (!val && --retries);
 	local_irq_restore(flags);
 
+	if (!retries) {
+		dev_err(&dev->pci->dev,
+			"i2c_read() out of attempts on dev 0x%x, fn 0x%x\n",
+			devid, addr);
+		return -ETIMEDOUT;
+	}
+
+	*buf = (u8)val;
 	return 0;
 }
 
-static int i2c_multi_write(struct tw5864_dev *dev, u8 devid, u8 devfn, u8 *buf,
+static int i2c_write(struct tw5864_dev *dev, u8 devid, u8 addr, u8 buf)
+{
+	u32 val = 1 << 24 | (devid & 0xfe << 16) | (addr << 8) | buf;
+	int retries = TW5864_IIC_RETRIES;
+	unsigned long flags;
+
+	local_irq_save(flags);
+	tw_writel(TW5864_IIC, val);
+	do {
+		val = tw_readl(TW5864_IIC) & (0x01000000);
+	} while ((!val) && (--retries));
+	local_irq_restore(flags);
+
+	if (!retries) {
+		dev_err(&dev->pci->dev,
+			"i2c_write() out of attempts on dev 0x%x, fn 0x%x\n",
+			devid, addr);
+		return -ETIMEDOUT;
+	}
+	return 0;
+}
+
+static int i2c_multi_write(struct tw5864_dev *dev, u8 devid, u8 addr, u8 *buf,
 			   u32 count)
 {
-	int i = 0;
-	u32 val = 0;
-	int timeout = TW5864_IIC_TIMEOUT;
-	unsigned long flags;
+	int i;
+	int ret;
 
-	local_irq_save(flags);
 	for (i = 0; i < count; i++) {
-		val = (1 << 24) | ((devid & 0xfe) << 16) | ((devfn + i) << 8) |
-			buf[i];
-		tw_writel(TW5864_IIC, val);
-		do {
-			val = tw_readl(TW5864_IIC) & (0x01000000);
-		} while ((!val) && (--timeout));
-		if (!timeout) {
-			local_irq_restore(flags);
-			dev_err(&dev->pci->dev, "dev 0x%x, fn 0x%x, 0x%x\n",
-				devid, devfn, buf[i]);
-			return -ETIMEDOUT;
-		}
+		ret = i2c_write(dev, devid, addr + i, buf[i]);
+		if (ret)
+			return ret;
 	}
-	local_irq_restore(flags);
-
-	return 0;
-}
-
-static int i2c_read(struct tw5864_dev *dev, u8 devid, u8 devfn, u8 *buf)
-{
-	u32 val = 0;
-	int timeout = TW5864_IIC_TIMEOUT;
-	unsigned long flags;
-
-	local_irq_save(flags);
-	val = (1 << 24) | ((devid | 0x01) << 16) | (devfn << 8);
-
-	tw_writel(TW5864_IIC, val);
-	do {
-		val = tw_readl(TW5864_IIC) & (0x01000000);
-	} while ((!val) && (--timeout));
-	if (!timeout) {
-		local_irq_restore(flags);
-		dev_err(&dev->pci->dev, "dev 0x%x, fn 0x%x\n", devid, devfn);
-		return -ETIMEDOUT;
-	}
-
-	*buf = (u8)tw_readl(TW5864_IIC);
-	local_irq_restore(flags);
-
-	return 0;
-}
-
-static int i2c_write(struct tw5864_dev *dev, u8 devid, u8 devfn, u8 buf)
-{
-	u32 val = 0;
-	int timeout = TW5864_IIC_TIMEOUT;
-	unsigned long flags;
-
-	local_irq_save(flags);
-	val = (1 << 24) + ((devid & 0xfe) << 16) + (devfn << 8) + buf;
-	tw_writel(TW5864_IIC, val);
-	do {
-		val = tw_readl(TW5864_IIC) & (0x01000000);
-	} while ((!val) && (--timeout));
-	local_irq_restore(flags);
-	if (!timeout) {
-		dev_err(&dev->pci->dev, "dev 0x%x, fn 0x%x, 0x%x\n", devid,
-			devfn, buf);
-		return -ETIMEDOUT;
-	}
-
 	return 0;
 }
 
 static int i2c_wscatter(struct tw5864_dev *dev, u8 devid, u8 *buf, u32 count)
 {
-	int i = 0;
-	u32 val = 0;
-	int timeout = TW5864_IIC_TIMEOUT;
-	unsigned long flags;
+	int i;
+	u32 ret;
 
-	local_irq_save(flags);
 	for (i = 0; i < count; i++) {
-		val = (1 << 24) + ((devid & 0xfe) << 16) + (buf[i * 2 + 0] << 8)
-			+ buf[i * 2 + 1];
-		tw_writel(TW5864_IIC, val);
-		do {
-			val = tw_readl(TW5864_IIC) & (0x01000000);
-		} while ((!val) && (--timeout));
-		if (!timeout) {
-			local_irq_restore(flags);
-			dev_err(&dev->pci->dev, "dev 0x%x, fn 0x%x, 0x%x\n",
-				devid, buf[i * 2], buf[i * 2 + 1]);
-			return -ETIMEDOUT;
-		}
+		ret = i2c_write(dev, devid, buf[2 * i], buf[2 * i + 1]);
+		if (ret)
+			return ret;
 	}
-	local_irq_restore(flags);
-
 	return 0;
 }
 
-static void init_tw2864(struct tw5864_dev *dev, u8 iic)
+static void init_tw2864(struct tw5864_dev *dev, int index)
+{
+	u8 devid = 0x52 + index * 2;
+	int clkp_delay_check_chan = (index + 1) * 4;
+	u32 ch;
+
+	for (ch = 0; ch < 4; ch++)
+		i2c_multi_write(dev, devid, ch * 0x10, tbl_pal_tw2864_common,
+				sizeof(tbl_pal_tw2864_common));
+
+	i2c_wscatter(dev, devid, tbl_tw2864_other,
+		     sizeof(tbl_tw2864_other) / 2);
+	i2c_write(dev, devid, 0xcf, 0x83);
+	i2c_write(dev, devid, 0xe0, 0x00);
+
+	tw28xx_clkp_delay(dev, devid, clkp_delay_check_chan);
+}
+
+static void init_tw2865(struct tw5864_dev *dev, u8 devid)
 {
 	u32 ch;
 
 	for (ch = 0; ch < 4; ch++)
-		i2c_multi_write(dev, iic, ch * 0x10, tbl_pal_tw2864_common, 16);
+		i2c_multi_write(dev, devid, ch * 0x10, tbl_pal_tw2865_common,
+				sizeof(tbl_pal_tw2865_common));
 
-	i2c_wscatter(dev, iic, tbl_tw2864_other, 23);
-	i2c_write(dev, iic, 0xcf, 0x83);
-	i2c_write(dev, iic, 0xe0, 0x00);
+	i2c_wscatter(dev, devid, tbl_tw2865_other1,
+		     sizeof(tbl_tw2865_other1) / 2);
+	i2c_multi_write(dev, devid, 0xd0, audio_tw2865_common,
+			sizeof(audio_tw2865_common));
+	i2c_wscatter(dev, devid, tbl_tw2865_other2,
+		     sizeof(tbl_tw2865_other2) / 2);
+	i2c_multi_write(dev, devid, 0xf0, audio_tbl_pal_tw2865_8KHz,
+			sizeof(audio_tbl_pal_tw2865_8KHz));
+	i2c_wscatter(dev, devid, tbl_tw2865_other3,
+		     sizeof(tbl_tw2865_other3) / 2);
+	i2c_write(dev, devid, 0xe0, 0x10);
 }
 
-static __used void init_tw2865(struct tw5864_dev *dev, u8 iic)
+static int tw28xx_clkp_delay(struct tw5864_dev *dev, u8 devid, u32 base_ch)
 {
-	u32 ch;
+	int delay;
+	u8 flags;
 
-	for (ch = 0; ch < 4; ch++)
-		i2c_multi_write(dev, iic, ch * 0x10, tbl_pal_tw2865_common, 16);
-
-	i2c_wscatter(dev, iic, tbl_tw2865_other1,
-		     sizeof(tbl_tw2865_other1) >> 1);
-	i2c_multi_write(dev, iic, 0xd0, audio_tw2865_common, 20);
-	i2c_wscatter(dev, iic, tbl_tw2865_other2, 6);
-	i2c_multi_write(dev, iic, 0xf0, audio_tbl_pal_tw2865_8KHz, 6);
-	i2c_wscatter(dev, iic, tbl_tw2865_other3, 3);
-	i2c_write(dev, iic, 0xe0, 0x10);
-}
-
-#define ISIL_PHY_VD_CHAN_NUMBER   (16)
-
-/*auto detect CLKP_DEL delay*/
-static int tw28xx_clkp_delay(struct tw5864_dev *dev, u8 devid, u32 base_ch,
-			     u32 limit)
-{
-	if (dev && (base_ch < ISIL_PHY_VD_CHAN_NUMBER) &&
-	    (limit <= (ISIL_PHY_VD_CHAN_NUMBER >> 2))) {
-		int delay;
-		u8 flags = 0;
-
-		delay = -1;
-		i2c_read(dev, devid, 0x9f, &flags);
-		while ((++delay) < 0x10) {
-			i2c_write(dev, devid, 0x9f, delay);
-			/* only bus0 can detect colume and line */
-			tw_writel(TW5864_H264EN_BUS0_MAP, base_ch);
-			/* clear error flags */
-			tw_writel(TW5864_UNDEFINED_ERROR_FLAGS_0x9218, 0x1);
-			mdelay(100);
-			if (tw_readl(TW5864_UNDEFINED_ERROR_FLAGS_0x9218))
-				continue;
-			dev_dbg(&dev->pci->dev, "auto detect CLKP_DEL = %02x\n",
-				delay);
+	i2c_read(dev, devid, 0x9f, &flags);
+	for (delay = 0; delay < 16; delay++) {
+		i2c_write(dev, devid, 0x9f, delay);
+		tw_writel(TW5864_H264EN_BUS0_MAP, base_ch);
+		/* clear error flags */
+		tw_writel(TW5864_UNDEFINED_ERROR_FLAGS_0x9218, 0x1);
+		mdelay(100);
+		if (tw_readl(TW5864_UNDEFINED_ERROR_FLAGS_0x9218) == 0)
 			break;
-		}
-		if (delay >= 0x10) {
-			dev_err(&dev->pci->dev,
-				"can't find suitable clkp_del for devid 0x%02x\n",
-				devid);
-			i2c_write(dev, devid, 0x9f, flags);
+	}
+	i2c_write(dev, devid, 0x9f, flags);
 
-			return -EFAULT;
-		}
-		return 0;
+	if (delay >= 16) {
+		dev_err(&dev->pci->dev,
+			"Cannot find suitable clkp_del for devid 0x%02x\n",
+			devid);
+		return -EFAULT;
 	}
 
-	return 1;
+	dev_dbg(&dev->pci->dev, "Auto detect CLKP_DEL = %02x\n", delay);
+	return 0;
 }
 
 void tw5864_init_ad(struct tw5864_dev *dev)
 {
-	unsigned int val;
+	int i;
 
-	val = tw_readl(TW5864_IIC_ENB);
-	val |= 0x01;
-	tw_writel(TW5864_IIC_ENB, val);
-	tw_writel(TW5864_I2C_PHASE_CFG, 0x01);
+	tw_writel(TW5864_IIC_ENB, 1);
+	tw_writel(TW5864_I2C_PHASE_CFG, 1);
 
-	init_tw2864(dev, 0x52);
-	tw28xx_clkp_delay(dev, 0x52, 4, 4);
-	init_tw2864(dev, 0x54);
-	tw28xx_clkp_delay(dev, 0x54, 8, 4);
-	init_tw2864(dev, 0x56);
-	tw28xx_clkp_delay(dev, 0x56, 12, 4);
+	for (i = 0; i < 3; i++)
+		init_tw2864(dev, i);
 	init_tw2865(dev, 0x50);
 }
