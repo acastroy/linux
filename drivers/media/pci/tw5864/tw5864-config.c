@@ -172,15 +172,14 @@ static u8 tbl_tw2865_other3[] = {
 
 static int i2c_read(struct tw5864_dev *dev, u8 devid, u8 addr, u8 *buf)
 {
-	u32 val = (1 << 24) | ((devid | 0x01) << 16) | (addr << 8);
+	u32 val = BIT(24) | ((devid | 0x01) << 16) | (addr << 8);
 	int retries = TW5864_IIC_RETRIES;
 	unsigned long flags;
 
-	/* TODO What for local_irq_save()? */
 	local_irq_save(flags);
 	tw_writel(TW5864_IIC, val);
 	do {
-		val = tw_readl(TW5864_IIC) & 0x01000000;
+		val = tw_readl(TW5864_IIC) & BIT(24);
 	} while (!val && --retries);
 	local_irq_restore(flags);
 
@@ -191,20 +190,20 @@ static int i2c_read(struct tw5864_dev *dev, u8 devid, u8 addr, u8 *buf)
 		return -ETIMEDOUT;
 	}
 
-	*buf = (u8)val;
+	*buf = (u8) val;
 	return 0;
 }
 
 static int i2c_write(struct tw5864_dev *dev, u8 devid, u8 addr, u8 buf)
 {
-	u32 val = 1 << 24 | (devid & 0xfe << 16) | (addr << 8) | buf;
+	u32 val = BIT(24) | (devid & 0xfe << 16) | (addr << 8) | buf;
 	int retries = TW5864_IIC_RETRIES;
 	unsigned long flags;
 
 	local_irq_save(flags);
 	tw_writel(TW5864_IIC, val);
 	do {
-		val = tw_readl(TW5864_IIC) & (0x01000000);
+		val = tw_readl(TW5864_IIC) & BIT(24);
 	} while ((!val) && (--retries));
 	local_irq_restore(flags);
 
