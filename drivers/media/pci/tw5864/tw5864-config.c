@@ -244,7 +244,7 @@ static int i2c_wscatter(struct tw5864_dev *dev, u8 devid, u8 *buf, u32 count)
 static int tw28xx_clkp_delay(struct tw5864_dev *dev, u8 devid, u32 base_ch)
 {
 	int delay;
-	u8 flags;
+	u8 flags = 0;
 
 	i2c_read(dev, devid, 0x9f, &flags);
 	for (delay = 0; delay < 16; delay++) {
