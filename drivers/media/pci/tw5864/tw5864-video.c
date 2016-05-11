@@ -808,6 +808,7 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 {
 	int i;
 	int ret;
+	int last_dma_allocated = -1;
 	int last_input_nr_registered = -1;
 
 	for (i = 0; i < H264_BUF_CNT; i++) {
@@ -815,15 +816,24 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 			dma_alloc_coherent(&dev->pci->dev, H264_VLC_BUF_SIZE,
 					   &dev->h264_buf[i].vlc.dma_addr,
 					   GFP_KERNEL | GFP_DMA32);
-		dev->h264_buf[i].mv.addr =
-			dma_alloc_coherent(&dev->pci->dev, H264_MV_BUF_SIZE,
-					   &dev->h264_buf[i].mv.dma_addr,
-					   GFP_KERNEL | GFP_DMA32);
-		if (!dev->h264_buf[i].vlc.addr || !dev->h264_buf[i].mv.addr) {
+		if (!dev->h264_buf[i].vlc.addr) {
 			dev_err(&dev->pci->dev, "dma alloc fail\n");
 			ret = -ENOMEM;
 			goto free_dma;
 		}
+		dev->h264_buf[i].mv.addr =
+			dma_alloc_coherent(&dev->pci->dev, H264_MV_BUF_SIZE,
+					   &dev->h264_buf[i].mv.dma_addr,
+					   GFP_KERNEL | GFP_DMA32);
+		if (!dev->h264_buf[i].mv.addr) {
+			dev_err(&dev->pci->dev, "dma alloc fail\n");
+			ret = -ENOMEM;
+			dma_free_coherent(&dev->pci->dev, H264_VLC_BUF_SIZE,
+					  dev->h264_buf[i].vlc.addr,
+					  dev->h264_buf[i].vlc.dma_addr);
+			goto free_dma;
+		}
+		last_dma_allocated = i;
 	}
 
 	tw5864_tables_upload(dev);
@@ -938,7 +948,7 @@ fini_video_inputs:
 	tasklet_kill(&dev->tasklet);
 
 free_dma:
-	for (i = 0; i < H264_BUF_CNT; i++)
+	for (i = 0; i < last_dma_allocated; i++)
 		dma_free_coherent(&dev->pci->dev, H264_VLC_BUF_SIZE,
 				  dev->h264_buf[i].vlc.addr,
 				  dev->h264_buf[i].vlc.dma_addr);

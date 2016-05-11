@@ -71,7 +71,6 @@ void tw_indir_writeb(struct tw5864_dev *dev, u16 addr, u8 data)
 u8 tw_indir_readb(struct tw5864_dev *dev, u16 addr)
 {
 	int retries = 30000;
-	u32 data;
 
 	while (tw_readl(TW5864_IND_CTL) & BIT(31) && --retries)
 		;

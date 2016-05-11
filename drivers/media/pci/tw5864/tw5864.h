@@ -242,7 +242,7 @@ void tw_indir_writeb(struct tw5864_dev *dev, u16 addr, u8 data);
 void tw5864_set_tvnorm_hw(struct tw5864_dev *dev);
 
 void tw5864_irqmask_apply(struct tw5864_dev *dev);
-void tw5864_init_ad(struct tw5864_dev *dev);
+int tw5864_init_ad(struct tw5864_dev *dev);
 int tw5864_video_init(struct tw5864_dev *dev, int *video_nr);
 void tw5864_video_fini(struct tw5864_dev *dev);
 void tw5864_prepare_frame_headers(struct tw5864_input *input);
