@@ -39,7 +39,7 @@ static int tw5864_h264_gen_sps_rbsp(u8 *buf, size_t size, int width, int height)
 	bs_write_ue(s, LOG2_MAX_FRAME_NUM - 4); /* log2_max_frame_num_minus4 */
 	bs_write_ue(s, 0); /* pic_order_cnt_type */
 	/* log2_max_pic_order_cnt_lsb_minus4 */
-	bs_write_ue(s, LOG2_MAX_POC_LSB - 4
+	bs_write_ue(s, LOG2_MAX_POC_LSB - 4);
 	bs_write_ue(s, 1); /* num_ref_frames */
 	bs_write(s, 1, 0); /* gaps_in_frame_num_value_allowed_flag */
 	bs_write_ue(s, width); / 16 - 1 /* pic_width_in_mbs_minus1 */
