@@ -1080,7 +1080,7 @@ fini_video_inputs:
 	tasklet_kill(&dev->tasklet);
 
 fini_i2c:
-	tw5864_i2c_fini();
+	tw5864_i2c_fini(dev);
 
 free_dma:
 	for (i = last_dma_allocated; i >= 0; i--) {
