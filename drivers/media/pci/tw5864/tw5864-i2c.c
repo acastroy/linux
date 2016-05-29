@@ -45,15 +45,15 @@ static const struct i2c_algorithm tw5864_i2c_algo = {
 {
 	int retries = TW5864_IIC_RETRIES;
 
-	dev_info(&dev->pci->dev, "internal i2c write: devid %hhx, addr %hhx, val %hhx\n",
-		 devid, addr, buf);
+	//dev_info(&dev->pci->dev, "internal i2c write: devid %hhx, addr %hhx, val %hhx\n",
+	//	 devid, addr, buf);
 
 	tw_writel(TW5864_IIC, BIT(24) | (devid & 0xfe) << 16 | addr << 8 | buf);
 	while (!(tw_readl(TW5864_IIC) & BIT(24)) && --retries)
 		;
 
-	dev_info(&dev->pci->dev, "internal i2c write result: devid %hhx, addr %hhx, retries left: %d, val %hhx\n",
-		 devid, addr, retries, buf);
+	//dev_info(&dev->pci->dev, "internal i2c write result: devid %hhx, addr %hhx, retries left: %d, val %hhx\n",
+	//	 devid, addr, retries, buf);
 
 	if (!retries) {
 		dev_err(&dev->pci->dev,
@@ -147,8 +147,8 @@ int tw5864_i2c_write(struct tw5864_dev *dev, u8 i2c_index, u8 offset, u8 data)
 	WARN_ON(client->adapter->algo_data != &dev->i2c[i2c_index]);
 	WARN_ON(client->adapter->dev.parent != &dev->pci->dev);
 
-	dev_info(&dev->pci->dev, "internal i2c write: i2c_index %hhu, offset %hhx, data %hhx\n",
-		 i2c_index, offset, data);
+	//dev_info(&dev->pci->dev, "internal i2c write: i2c_index %hhu, offset %hhx, data %hhx\n",
+	//	 i2c_index, offset, data);
 
 	return i2c_smbus_write_byte_data(client, offset, data);
 }
