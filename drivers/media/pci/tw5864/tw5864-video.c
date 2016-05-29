@@ -716,7 +716,7 @@ static void tw5864_frame_interval_set(struct tw5864_input *input)
 	u32 unary_framerate = 0;
 	int shift = 0;
 
-	for (shift = 0; shift <= 32; shift += input->frame_interval)
+	for (shift = 0; shift < 32; shift += input->frame_interval)
 		unary_framerate |= 0x00000001 << shift;
 
 	tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(input->nr, 0),
