@@ -21,7 +21,175 @@
 
 #include "tw5864.h"
 #include "tw5864-reg.h"
-#include "tw5864-tables.h"
+
+#define QUANTIZATION_TABLE_LEN 96
+#define VLC_LOOKUP_TABLE_LEN 1024
+
+static const u16 forward_quantization_table[QUANTIZATION_TABLE_LEN] = {
+	0x3333, 0x1f82, 0x3333, 0x1f82, 0x1f82, 0x147b, 0x1f82, 0x147b,
+	0x3333, 0x1f82, 0x3333, 0x1f82, 0x1f82, 0x147b, 0x1f82, 0x147b,
+	0x2e8c, 0x1d42, 0x2e8c, 0x1d42, 0x1d42, 0x1234, 0x1d42, 0x1234,
+	0x2e8c, 0x1d42, 0x2e8c, 0x1d42, 0x1d42, 0x1234, 0x1d42, 0x1234,
+	0x2762, 0x199a, 0x2762, 0x199a, 0x199a, 0x1062, 0x199a, 0x1062,
+	0x2762, 0x199a, 0x2762, 0x199a, 0x199a, 0x1062, 0x199a, 0x1062,
+	0x2492, 0x16c1, 0x2492, 0x16c1, 0x16c1, 0x0e3f, 0x16c1, 0x0e3f,
+	0x2492, 0x16c1, 0x2492, 0x16c1, 0x16c1, 0x0e3f, 0x16c1, 0x0e3f,
+	0x2000, 0x147b, 0x2000, 0x147b, 0x147b, 0x0d1b, 0x147b, 0x0d1b,
+	0x2000, 0x147b, 0x2000, 0x147b, 0x147b, 0x0d1b, 0x147b, 0x0d1b,
+	0x1c72, 0x11cf, 0x1c72, 0x11cf, 0x11cf, 0x0b4d, 0x11cf, 0x0b4d,
+	0x1c72, 0x11cf, 0x1c72, 0x11cf, 0x11cf, 0x0b4d, 0x11cf, 0x0b4d
+};
+
+static const u16 inverse_quantization_table[QUANTIZATION_TABLE_LEN] = {
+	0x800a, 0x800d, 0x800a, 0x800d, 0x800d, 0x8010, 0x800d, 0x8010,
+	0x800a, 0x800d, 0x800a, 0x800d, 0x800d, 0x8010, 0x800d, 0x8010,
+	0x800b, 0x800e, 0x800b, 0x800e, 0x800e, 0x8012, 0x800e, 0x8012,
+	0x800b, 0x800e, 0x800b, 0x800e, 0x800e, 0x8012, 0x800e, 0x8012,
+	0x800d, 0x8010, 0x800d, 0x8010, 0x8010, 0x8014, 0x8010, 0x8014,
+	0x800d, 0x8010, 0x800d, 0x8010, 0x8010, 0x8014, 0x8010, 0x8014,
+	0x800e, 0x8012, 0x800e, 0x8012, 0x8012, 0x8017, 0x8012, 0x8017,
+	0x800e, 0x8012, 0x800e, 0x8012, 0x8012, 0x8017, 0x8012, 0x8017,
+	0x8010, 0x8014, 0x8010, 0x8014, 0x8014, 0x8019, 0x8014, 0x8019,
+	0x8010, 0x8014, 0x8010, 0x8014, 0x8014, 0x8019, 0x8014, 0x8019,
+	0x8012, 0x8017, 0x8012, 0x8017, 0x8017, 0x801d, 0x8017, 0x801d,
+	0x8012, 0x8017, 0x8012, 0x8017, 0x8017, 0x801d, 0x8017, 0x801d
+};
+
+static const u16 encoder_vlc_lookup_table[VLC_LOOKUP_TABLE_LEN] = {
+	0x011, 0x000, 0x000, 0x000, 0x065, 0x021, 0x000, 0x000, 0x087, 0x064,
+	0x031, 0x000, 0x097, 0x086, 0x075, 0x053, 0x0a7, 0x096, 0x085, 0x063,
+	0x0b7, 0x0a6, 0x095, 0x074, 0x0df, 0x0b6, 0x0a5, 0x084, 0x0db, 0x0de,
+	0x0b5, 0x094, 0x0d8, 0x0da, 0x0dd, 0x0a4, 0x0ef, 0x0ee, 0x0d9, 0x0b4,
+	0x0eb, 0x0ea, 0x0ed, 0x0dc, 0x0ff, 0x0fe, 0x0e9, 0x0ec, 0x0fb, 0x0fa,
+	0x0fd, 0x0e8, 0x10f, 0x0f1, 0x0f9, 0x0fc, 0x10b, 0x10e, 0x10d, 0x0f8,
+	0x107, 0x10a, 0x109, 0x10c, 0x104, 0x106, 0x105, 0x108, 0x023, 0x000,
+	0x000, 0x000, 0x06b, 0x022, 0x000, 0x000, 0x067, 0x057, 0x033, 0x000,
+	0x077, 0x06a, 0x069, 0x045, 0x087, 0x066, 0x065, 0x044, 0x084, 0x076,
+	0x075, 0x056, 0x097, 0x086, 0x085, 0x068, 0x0bf, 0x096, 0x095, 0x064,
+	0x0bb, 0x0be, 0x0bd, 0x074, 0x0cf, 0x0ba, 0x0b9, 0x094, 0x0cb, 0x0ce,
+	0x0cd, 0x0bc, 0x0c8, 0x0ca, 0x0c9, 0x0b8, 0x0df, 0x0de, 0x0dd, 0x0cc,
+	0x0db, 0x0da, 0x0d9, 0x0dc, 0x0d7, 0x0eb, 0x0d6, 0x0d8, 0x0e9, 0x0e8,
+	0x0ea, 0x0d1, 0x0e7, 0x0e6, 0x0e5, 0x0e4, 0x04f, 0x000, 0x000, 0x000,
+	0x06f, 0x04e, 0x000, 0x000, 0x06b, 0x05f, 0x04d, 0x000, 0x068, 0x05c,
+	0x05e, 0x04c, 0x07f, 0x05a, 0x05b, 0x04b, 0x07b, 0x058, 0x059, 0x04a,
+	0x079, 0x06e, 0x06d, 0x049, 0x078, 0x06a, 0x069, 0x048, 0x08f, 0x07e,
+	0x07d, 0x05d, 0x08b, 0x08e, 0x07a, 0x06c, 0x09f, 0x08a, 0x08d, 0x07c,
+	0x09b, 0x09e, 0x089, 0x08c, 0x098, 0x09a, 0x09d, 0x088, 0x0ad, 0x097,
+	0x099, 0x09c, 0x0a9, 0x0ac, 0x0ab, 0x0aa, 0x0a5, 0x0a8, 0x0a7, 0x0a6,
+	0x0a1, 0x0a4, 0x0a3, 0x0a2, 0x021, 0x000, 0x000, 0x000, 0x067, 0x011,
+	0x000, 0x000, 0x064, 0x066, 0x031, 0x000, 0x063, 0x073, 0x072, 0x065,
+	0x062, 0x083, 0x082, 0x070, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x011, 0x010,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x011, 0x021, 0x020, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x023, 0x022, 0x021, 0x020, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x023, 0x022, 0x021, 0x031,
+	0x030, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x023, 0x022, 0x033, 0x032, 0x031, 0x030, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x023, 0x030,
+	0x031, 0x033, 0x032, 0x035, 0x034, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x037, 0x036, 0x035, 0x034, 0x033, 0x032,
+	0x031, 0x041, 0x051, 0x061, 0x071, 0x081, 0x091, 0x0a1, 0x0b1, 0x000,
+	0x002, 0x000, 0x0e4, 0x011, 0x0f4, 0x002, 0x024, 0x003, 0x005, 0x012,
+	0x034, 0x013, 0x065, 0x024, 0x013, 0x063, 0x015, 0x022, 0x075, 0x034,
+	0x044, 0x023, 0x023, 0x073, 0x054, 0x033, 0x033, 0x004, 0x043, 0x014,
+	0x011, 0x043, 0x014, 0x001, 0x025, 0x015, 0x035, 0x025, 0x064, 0x055,
+	0x045, 0x035, 0x074, 0x065, 0x085, 0x0d5, 0x012, 0x095, 0x055, 0x045,
+	0x095, 0x0e5, 0x084, 0x075, 0x022, 0x0a5, 0x094, 0x085, 0x032, 0x0b5,
+	0x003, 0x0c5, 0x001, 0x044, 0x0a5, 0x032, 0x0b5, 0x094, 0x0c5, 0x0a4,
+	0x0a4, 0x054, 0x0d5, 0x0b4, 0x0b4, 0x064, 0x0f5, 0x0f5, 0x053, 0x0d4,
+	0x0e5, 0x0c4, 0x105, 0x105, 0x0c4, 0x074, 0x063, 0x0e4, 0x0d4, 0x084,
+	0x073, 0x0f4, 0x004, 0x005, 0x000, 0x053, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x011, 0x021, 0x031, 0x030, 0x011, 0x021, 0x020, 0x000,
+	0x011, 0x010, 0x000, 0x000, 0x011, 0x033, 0x032, 0x043, 0x042, 0x053,
+	0x052, 0x063, 0x062, 0x073, 0x072, 0x083, 0x082, 0x093, 0x092, 0x091,
+	0x037, 0x036, 0x035, 0x034, 0x033, 0x045, 0x044, 0x043, 0x042, 0x053,
+	0x052, 0x063, 0x062, 0x061, 0x060, 0x000, 0x045, 0x037, 0x036, 0x035,
+	0x044, 0x043, 0x034, 0x033, 0x042, 0x053, 0x052, 0x061, 0x051, 0x060,
+	0x000, 0x000, 0x053, 0x037, 0x045, 0x044, 0x036, 0x035, 0x034, 0x043,
+	0x033, 0x042, 0x052, 0x051, 0x050, 0x000, 0x000, 0x000, 0x045, 0x044,
+	0x043, 0x037, 0x036, 0x035, 0x034, 0x033, 0x042, 0x051, 0x041, 0x050,
+	0x000, 0x000, 0x000, 0x000, 0x061, 0x051, 0x037, 0x036, 0x035, 0x034,
+	0x033, 0x032, 0x041, 0x031, 0x060, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x061, 0x051, 0x035, 0x034, 0x033, 0x023, 0x032, 0x041, 0x031, 0x060,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x061, 0x041, 0x051, 0x033,
+	0x023, 0x022, 0x032, 0x031, 0x060, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x061, 0x060, 0x041, 0x023, 0x022, 0x031, 0x021, 0x051,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x051, 0x050,
+	0x031, 0x023, 0x022, 0x021, 0x041, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x040, 0x041, 0x031, 0x032, 0x011, 0x033,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x040, 0x041, 0x021, 0x011, 0x031, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x030, 0x031, 0x011, 0x021,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x020, 0x021, 0x011, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x010, 0x011,
+	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
+	0x000, 0x000, 0x000, 0x000
+};
+
+static const unsigned int lambda_lookup_table[] = {
+	0x0020, 0x0020, 0x0020, 0x0020,
+	0x0020, 0x0020, 0x0020, 0x0020,
+	0x0020, 0x0020, 0x0020, 0x0020,
+	0x0020, 0x0020, 0x0020, 0x0020,
+	0x0040, 0x0040, 0x0040, 0x0040,
+	0x0060, 0x0060, 0x0060, 0x0080,
+	0x0080, 0x0080, 0x00a0, 0x00c0,
+	0x00c0, 0x00e0, 0x0100, 0x0120,
+	0x0140, 0x0160, 0x01a0, 0x01c0,
+	0x0200, 0x0240, 0x0280, 0x02e0,
+	0x0320, 0x03a0, 0x0400, 0x0480,
+	0x0500, 0x05a0, 0x0660, 0x0720,
+	0x0800, 0x0900, 0x0a20, 0x0b60
+};
+
+static const unsigned int intra4x4_lambda3[] = {
+	1, 1, 1, 1, 1, 1, 1, 1,
+	1, 1, 1, 1, 1, 1, 1, 1,
+	2, 2, 2, 2, 3, 3, 3, 4,
+	4, 4, 5, 6, 6, 7, 8, 9,
+	10, 11, 13, 14, 16, 18, 20, 23,
+	25, 29, 32, 36, 40, 45, 51, 57,
+	64, 72, 81, 91
+};
+
+
+static v4l2_std_id tw5864_get_v4l2_std(enum tw5864_vid_std std);
+static enum tw5864_vid_std tw5864_from_v4l2_std(v4l2_std_id v4l2_std);
 
 static void tw5864_handle_frame_task(unsigned long data);
 static void tw5864_handle_frame(struct tw5864_h264_frame *frame);
@@ -65,11 +233,10 @@ static int tw5864_input_std_get(struct tw5864_input *input,
 {
 	struct tw5864_dev *dev = input->root;
 	enum tw5864_vid_std std;
-	u8 indir_0x00e = tw_indir_readb(dev,
-					0x00e + input->input_number * 0x010);
-	std = (indir_0x00e & 0x70) >> 4;
+	u8 std_reg = tw_indir_readb(TW5864_INDIR_VIN_E(input->nr));
+	std = (std_reg & 0x70) >> 4;
 
-	if (indir_0x00e & 0x80) {
+	if (std_reg & 0x80) {
 		dev_err(&dev->pci->dev,
 			"Video format detection is in progress, please wait\n");
 		return -EAGAIN;
@@ -87,7 +254,7 @@ static int tw5864_input_std_get(struct tw5864_input *input,
 static int tw5864_enable_input(struct tw5864_input *input)
 {
 	struct tw5864_dev *dev = input->root;
-	int input_number = input->input_number;
+	int nr = input->nr;
 	unsigned long flags;
 	int ret;
 	int d1_width = 720;
@@ -98,7 +265,7 @@ static int tw5864_enable_input(struct tw5864_input *input)
 	int fmt_reg_value = 0;
 	int downscale_enabled = 0;
 
-	dev_dbg(&dev->pci->dev, "Enabling channel %d\n", input_number);
+	dev_dbg(&dev->pci->dev, "Enabling channel %d\n", nr);
 
 	ret = tw5864_input_std_get(input, &input->std);
 	if (ret)
@@ -114,7 +281,7 @@ static int tw5864_enable_input(struct tw5864_input *input)
 	input->reg_dsp_i4x4_weight = intra4x4_lambda3[input->qp];
 	input->reg_emu = TW5864_EMU_EN_LPF | TW5864_EMU_EN_BHOST
 		| TW5864_EMU_EN_SEN | TW5864_EMU_EN_ME | TW5864_EMU_EN_DDR;
-	input->reg_dsp = input_number /* channel id */
+	input->reg_dsp = nr /* channel id */
 		| TW5864_DSP_CHROM_SW
 		| ((0xa << 8) & TW5864_DSP_MB_DELAY)
 		;
@@ -139,7 +306,7 @@ static int tw5864_enable_input(struct tw5864_input *input)
 		input->reg_emu |= TW5864_DSP_FRAME_TYPE_D1;
 		input->reg_interlacing = TW5864_DI_EN | TW5864_DSP_INTER_ST;
 
-		tw_setl(TW5864_FULL_HALF_FLAG, 1 << input_number);
+		tw_setl(TW5864_FULL_HALF_FLAG, 1 << nr);
 		break;
 	case HD1:
 		input->height /= 2;
@@ -152,7 +319,7 @@ static int tw5864_enable_input(struct tw5864_input *input)
 		input->reg_dsp_codec |= TW5864_HD1_MAP_MD;
 		input->reg_emu |= TW5864_DSP_FRAME_TYPE_D1;
 
-		tw_clearl(TW5864_FULL_HALF_FLAG, 1 << input_number);
+		tw_clearl(TW5864_FULL_HALF_FLAG, 1 << nr);
 
 		break;
 	case CIF:
@@ -165,7 +332,7 @@ static int tw5864_enable_input(struct tw5864_input *input)
 		downscale_enabled = 1;
 		input->reg_dsp_codec |= TW5864_CIF_MAP_MD;
 
-		tw_clearl(TW5864_FULL_HALF_FLAG, 1 << input_number);
+		tw_clearl(TW5864_FULL_HALF_FLAG, 1 << nr);
 		break;
 	case QCIF:
 		input->height /= 4;
@@ -177,50 +344,46 @@ static int tw5864_enable_input(struct tw5864_input *input)
 		downscale_enabled = 1;
 		input->reg_dsp_codec |= TW5864_CIF_MAP_MD;
 
-		tw_clearl(TW5864_FULL_HALF_FLAG, 1 << input_number);
+		tw_clearl(TW5864_FULL_HALF_FLAG, 1 << nr);
 		break;
 	}
 
 	/* analog input width / 4 */
-	tw_indir_writeb(dev, TW5864_INDIR_IN_PIC_WIDTH(input_number),
-			d1_width / 4);
-	tw_indir_writeb(dev, TW5864_INDIR_IN_PIC_HEIGHT(input_number),
-			d1_height / 4);
+	tw_indir_writeb(TW5864_INDIR_IN_PIC_WIDTH(nr), d1_width / 4);
+	tw_indir_writeb(TW5864_INDIR_IN_PIC_HEIGHT(nr), d1_height / 4);
 
 	/* output width / 4 */
-	tw_indir_writeb(dev, TW5864_INDIR_OUT_PIC_WIDTH(input_number),
-			input->width / 4);
-	tw_indir_writeb(dev, TW5864_INDIR_OUT_PIC_HEIGHT(input_number),
-			input->height / 4);
+	tw_indir_writeb(TW5864_INDIR_OUT_PIC_WIDTH(nr), input->width / 4);
+	tw_indir_writeb(TW5864_INDIR_OUT_PIC_HEIGHT(nr), input->height / 4);
 
 	tw_writel(TW5864_DSP_PIC_MAX_MB,
 		  ((input->width / 16) << 8) | (input->height / 16));
 
-	tw_writel(TW5864_FRAME_WIDTH_BUS_A(input_number),
+	tw_writel(TW5864_FRAME_WIDTH_BUS_A(nr),
 		  frame_width_bus_value);
-	tw_writel(TW5864_FRAME_WIDTH_BUS_B(input_number),
+	tw_writel(TW5864_FRAME_WIDTH_BUS_B(nr),
 		  frame_width_bus_value);
-	tw_writel(TW5864_FRAME_HEIGHT_BUS_A(input_number),
+	tw_writel(TW5864_FRAME_HEIGHT_BUS_A(nr),
 		  frame_height_bus_value);
-	tw_writel(TW5864_FRAME_HEIGHT_BUS_B(input_number),
+	tw_writel(TW5864_FRAME_HEIGHT_BUS_B(nr),
 		  (frame_height_bus_value + 1) / 2 - 1);
 
 	tw5864_frame_interval_set(input);
 
 	if (downscale_enabled)
-		tw_setl(TW5864_H264EN_CH_DNS, 1 << input_number);
+		tw_setl(TW5864_H264EN_CH_DNS, 1 << nr);
 
-	tw_mask_shift_writel(TW5864_H264EN_CH_FMT_REG1, 0x3, 2 * input_number,
+	tw_mask_shift_writel(TW5864_H264EN_CH_FMT_REG1, 0x3, 2 * nr,
 			     fmt_reg_value);
 
-	tw_mask_shift_writel((input_number < 2
+	tw_mask_shift_writel((nr < 2
 			      ? TW5864_H264EN_RATE_MAX_LINE_REG1
 			      : TW5864_H264EN_RATE_MAX_LINE_REG2),
-			     0x1f, 5 * (input_number % 2),
+			     0x1f, 5 * (nr % 2),
 			     input->std == STD_NTSC ? 29 : 24);
 
-	tw_mask_shift_writel((input_number < 2) ? TW5864_FRAME_BUS1 :
-			     TW5864_FRAME_BUS2, 0xff, (input_number % 2) * 8,
+	tw_mask_shift_writel((nr < 2) ? TW5864_FRAME_BUS1 :
+			     TW5864_FRAME_BUS2, 0xff, (nr % 2) * 8,
 			     reg_frame_bus);
 
 	spin_lock_irqsave(&dev->slock, flags);
@@ -270,7 +433,7 @@ void tw5864_request_encoded_frame(struct tw5864_input *input)
 		  input->reg_dsp_qp);
 
 	enc_buf_id_new = tw_mask_shift_readl(TW5864_ENC_BUF_PTR_REC1, 0x3,
-					     2 * input->input_number);
+					     2 * input->nr);
 	tw_writel(TW5864_DSP_ENC_ORG_PTR_REG,
 		  ((enc_buf_id_new + 1) % 4) << TW5864_DSP_ENC_ORG_PTR_SHIFT);
 	tw_writel(TW5864_DSP_ENC_REC,
@@ -285,7 +448,7 @@ static int tw5864_disable_input(struct tw5864_input *input)
 	struct tw5864_dev *dev = input->root;
 	unsigned long flags;
 
-	dev_dbg(&dev->pci->dev, "Disabling channel %d\n", input->input_number);
+	dev_dbg(&dev->pci->dev, "Disabling channel %d\n", input->nr);
 
 	spin_lock_irqsave(&dev->slock, flags);
 	input->enabled = 0;
@@ -297,8 +460,7 @@ static int tw5864_start_streaming(struct vb2_queue *q, unsigned int count)
 {
 	struct tw5864_input *input = vb2_get_drv_priv(q);
 
-	tw5864_enable_input(input);
-	return 0;
+	return tw5864_enable_input(input);
 }
 
 static void tw5864_stop_streaming(struct vb2_queue *q)
@@ -341,26 +503,21 @@ static int tw5864_s_ctrl(struct v4l2_ctrl *ctrl)
 
 	switch (ctrl->id) {
 	case V4L2_CID_BRIGHTNESS:
-		tw_indir_writeb(dev,
-				TW5864_INDIR_VIN_A_BRIGHT(input->input_number),
+		tw_indir_writeb(TW5864_INDIR_VIN_A_BRIGHT(input->nr),
 				(u8)ctrl->val);
 		break;
 	case V4L2_CID_HUE:
-		tw_indir_writeb(dev,
-				TW5864_INDIR_VIN_7_HUE(input->input_number),
+		tw_indir_writeb(TW5864_INDIR_VIN_7_HUE(input->nr),
 				(u8)ctrl->val);
 		break;
 	case V4L2_CID_CONTRAST:
-		tw_indir_writeb(dev,
-				TW5864_INDIR_VIN_9_CNTRST(input->input_number),
+		tw_indir_writeb(TW5864_INDIR_VIN_9_CNTRST(input->nr),
 				(u8)ctrl->val);
 		break;
 	case V4L2_CID_SATURATION:
-		tw_indir_writeb(dev,
-				TW5864_INDIR_VIN_B_SAT_U(input->input_number),
+		tw_indir_writeb(TW5864_INDIR_VIN_B_SAT_U(input->nr),
 				(u8)ctrl->val);
-		tw_indir_writeb(dev,
-				TW5864_INDIR_VIN_C_SAT_V(input->input_number),
+		tw_indir_writeb(TW5864_INDIR_VIN_C_SAT_V(input->nr),
 				(u8)ctrl->val);
 		break;
 	case V4L2_CID_MPEG_VIDEO_GOP_SIZE:
@@ -390,19 +547,13 @@ static int tw5864_s_ctrl(struct v4l2_ctrl *ctrl)
 	return 0;
 }
 
-static int tw5864_g_fmt_vid_cap(struct file *file, void *priv,
+static int tw5864_fmt_vid_cap(struct file *file, void *priv,
 				struct v4l2_format *f)
 {
 	struct tw5864_input *input = video_drvdata(file);
-	enum tw5864_vid_std std;
-	int ret;
-
-	ret = tw5864_input_std_get(input, &std);
-	if (ret)
-		return ret;
 
 	f->fmt.pix.width = 720;
-	switch (std) {
+	switch (input->std) {
 	default:
 		WARN_ON_ONCE(1);
 	case STD_NTSC:
@@ -417,19 +568,17 @@ static int tw5864_g_fmt_vid_cap(struct file *file, void *priv,
 	f->fmt.pix.pixelformat = V4L2_PIX_FMT_H264;
 	f->fmt.pix.sizeimage = H264_VLC_BUF_SIZE;
 	f->fmt.pix.colorspace = V4L2_COLORSPACE_SMPTE170M;
-	f->fmt.pix.priv = 0;
 	return 0;
 }
 
 static int tw5864_enum_input(struct file *file, void *priv,
 			     struct v4l2_input *i)
 {
-	struct tw5864_input *dev = video_drvdata(file);
+	struct tw5864_input *input = video_drvdata(file);
+	struct tw5864_dev *dev = input->root;
 
-	u8 indir_0x000 = tw_indir_readb(dev->root,
-			TW5864_INDIR_VIN_0(dev->input_number));
-	u8 indir_0x00d = tw_indir_readb(dev->root,
-			TW5864_INDIR_VIN_D(dev->input_number));
+	u8 indir_0x000 = tw_indir_readb(TW5864_INDIR_VIN_0(input->nr));
+	u8 indir_0x00d = tw_indir_readb(TW5864_INDIR_VIN_D(input->nr));
 	u8 v1 = indir_0x000;
 	u8 v2 = indir_0x00d;
 
@@ -437,7 +586,7 @@ static int tw5864_enum_input(struct file *file, void *priv,
 		return -EINVAL;
 
 	i->type = V4L2_INPUT_TYPE_CAMERA;
-	snprintf(i->name, sizeof(i->name), "Encoder %d", dev->input_number);
+	snprintf(i->name, sizeof(i->name), "Encoder %d", input->nr);
 	i->std = TW5864_NORMS;
 	if (v1 & (1 << 7))
 		i->status |= V4L2_IN_ST_NO_SYNC;
@@ -469,12 +618,12 @@ static int tw5864_s_input(struct file *file, void *priv, unsigned int i)
 static int tw5864_querycap(struct file *file, void *priv,
 			   struct v4l2_capability *cap)
 {
-	struct tw5864_input *dev = video_drvdata(file);
+	struct tw5864_input *input = video_drvdata(file);
 
 	strcpy(cap->driver, "tw5864");
 	snprintf(cap->card, sizeof(cap->card), "TW5864 Encoder %d",
-		 dev->input_number);
-	sprintf(cap->bus_info, "PCI:%s", pci_name(dev->root->pci));
+		 input->nr);
+	sprintf(cap->bus_info, "PCI:%s", pci_name(input->root->pci));
 	cap->device_caps = V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_READWRITE |
 		V4L2_CAP_STREAMING;
 
@@ -482,47 +631,36 @@ static int tw5864_querycap(struct file *file, void *priv,
 	return 0;
 }
 
-static int tw5864_g_std(struct file *file, void *priv, v4l2_std_id *id)
+static int tw5864_querystd(struct file *file, void *priv, v4l2_std_id *std)
 {
 	struct tw5864_input *input = video_drvdata(file);
-	enum tw5864_vid_std std;
+	enum tw5864_vid_std tw_std;
 	int ret;
 
-	ret = tw5864_input_std_get(input, &std);
+	ret = tw5864_input_std_get(input, &tw_std);
 	if (ret)
 		return ret;
-
-	*id = tw5864_get_v4l2_std(std);
-	return 0;
-}
-
-static int tw5864_s_std(struct file *file, void *priv, v4l2_std_id id)
-{
-	struct tw5864_input *input = video_drvdata(file);
-	enum tw5864_vid_std std;
-	int ret;
-
-	ret = tw5864_input_std_get(input, &std);
-	if (ret)
-		return ret;
-
-	/* Allow only if matches with currently detected */
-	if (id != tw5864_get_v4l2_std(std))
-		return -EINVAL;
+	*std = tw5864_get_v4l2_std(tw_std);
 
 	return 0;
 }
 
-static int tw5864_try_fmt_vid_cap(struct file *file, void *priv,
-				  struct v4l2_format *f)
+static int tw5864_g_std(struct file *file, void *priv, v4l2_std_id *std)
 {
-	return tw5864_g_fmt_vid_cap(file, priv, f);
+	struct tw5864_input *input = video_drvdata(file);
+	*std = input->v4l2_std;
+	return 0;
 }
 
-static int tw5864_s_fmt_vid_cap(struct file *file, void *priv,
-				struct v4l2_format *f)
+static int tw5864_s_std(struct file *file, void *priv, v4l2_std_id std)
 {
-	return tw5864_try_fmt_vid_cap(file, priv, f);
+	struct tw5864_input *input = video_drvdata(file);
+	struct tw5864_dev *dev = input->root;
+
+	input->v4l2_std = std;
+	input->std = tw5864_from_v4l2_std(std);
+	tw_indir_writeb(TW5864_INDIR_VIN_E(input->nr), input->std);
+	return 0;
 }
 
 static int tw5864_enum_fmt_vid_cap(struct file *file, void *priv,
@@ -584,12 +722,12 @@ static void tw5864_frame_interval_set(struct tw5864_input *input)
 	u32 unary_framerate = 0;
 	int shift = 0;
 
-	for (shift = 0; shift <= 32; shift += input->frame_interval)
+	for (shift = 0; shift < 32; shift += input->frame_interval)
 		unary_framerate |= 0x00000001 << shift;
 
-	tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(input->input_number, 0),
+	tw_writel(TW5864_H264EN_RATE_CNTL_LO_WORD(input->nr, 0),
 		  unary_framerate >> 16);
-	tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(input->input_number, 0),
+	tw_writel(TW5864_H264EN_RATE_CNTL_HI_WORD(input->nr, 0),
 		  unary_framerate & 0xffff);
 }
 
@@ -607,11 +745,13 @@ static int tw5864_frameinterval_get(struct tw5864_input *input,
 
 	switch (std) {
 	case STD_NTSC:
-	case STD_SECAM:
-		frameinterval->denominator = 25;
+		/* TODO FIXME Hans: This should be: numerator = 1001,
+		 * denominator = 30000 (29.97 Hz) */
+		frameinterval->denominator = 30;
 		break;
 	case STD_PAL:
-		frameinterval->denominator = 30;
+	case STD_SECAM:
+		frameinterval->denominator = 25;
 		break;
 	default:
 		WARN(1, "tw5864_frameinterval_get requested for unknown std %d\n",
@@ -630,6 +770,8 @@ static int tw5864_enum_frameintervals(struct file *file, void *priv,
 	if (fintv->pixel_format != V4L2_PIX_FMT_H264)
 		return -EINVAL;
 	if (fintv->index)
+		return -EINVAL;
+	if (fintv->width != input->width || fintv->height != input->height)
 		return -EINVAL;
 
 	fintv->type = V4L2_FRMIVAL_TYPE_DISCRETE;
@@ -667,10 +809,6 @@ static int tw5864_s_parm(struct file *file, void *priv,
 		return ret;
 
 	if (!t->numerator || !t->denominator) {
-		dev_err(&input->root->pci->dev,
-			"weird timeperframe %u/%u, using current %u/%u\n",
-			t->numerator, t->denominator,
-			input->frame_interval, time_base.denominator);
 		t->numerator = input->frame_interval;
 		t->denominator = time_base.denominator;
 	} else if (t->denominator != time_base.denominator) {
@@ -709,16 +847,16 @@ static int tw5864_g_reg(struct file *file, void *fh,
 	struct tw5864_dev *dev = input->root;
 
 	if (reg->reg < INDIR_SPACE_MAP_SHIFT) {
-		if (reg->reg > 0x87FFF)
+		if (reg->reg > 0x87fff)
 			return -EINVAL;
 		reg->size = 4;
 		reg->val = tw_readl(reg->reg);
 	} else {
 		__u64 indir_addr = reg->reg - INDIR_SPACE_MAP_SHIFT;
-		if (indir_addr > 0xEFE)
+		if (indir_addr > 0xefe)
 			return -EINVAL;
 		reg->size = 1;
-		reg->val = tw_indir_readb(dev, reg->reg);
+		reg->val = tw_indir_readb(reg->reg);
 	}
 	return 0;
 }
@@ -730,14 +868,14 @@ static int tw5864_s_reg(struct file *file, void *fh,
 	struct tw5864_dev *dev = input->root;
 
 	if (reg->reg < INDIR_SPACE_MAP_SHIFT) {
-		if (reg->reg > 0x87FFF)
+		if (reg->reg > 0x87fff)
 			return -EINVAL;
 		tw_writel(reg->reg, reg->val);
 	} else {
 		__u64 indir_addr = reg->reg - INDIR_SPACE_MAP_SHIFT;
-		if (indir_addr > 0xEFE)
+		if (indir_addr > 0xefe)
 			return -EINVAL;
-		tw_indir_writeb(dev, reg->reg, reg->val);
+		tw_indir_writeb(reg->reg, reg->val);
 	}
 	return 0;
 }
@@ -752,6 +890,7 @@ static const struct v4l2_ioctl_ops video_ioctl_ops = {
 	.vidioc_qbuf = vb2_ioctl_qbuf,
 	.vidioc_dqbuf = vb2_ioctl_dqbuf,
 	.vidioc_expbuf = vb2_ioctl_expbuf,
+	.vidioc_querystd = tw5864_querystd,
 	.vidioc_s_std = tw5864_s_std,
 	.vidioc_g_std = tw5864_g_std,
 	.vidioc_enum_input = tw5864_enum_input,
@@ -759,9 +898,9 @@ static const struct v4l2_ioctl_ops video_ioctl_ops = {
 	.vidioc_s_input = tw5864_s_input,
 	.vidioc_streamon = vb2_ioctl_streamon,
 	.vidioc_streamoff = vb2_ioctl_streamoff,
-	.vidioc_try_fmt_vid_cap = tw5864_try_fmt_vid_cap,
-	.vidioc_s_fmt_vid_cap = tw5864_s_fmt_vid_cap,
-	.vidioc_g_fmt_vid_cap = tw5864_g_fmt_vid_cap,
+	.vidioc_try_fmt_vid_cap = tw5864_fmt_vid_cap,
+	.vidioc_s_fmt_vid_cap = tw5864_fmt_vid_cap,
+	.vidioc_g_fmt_vid_cap = tw5864_fmt_vid_cap,
 	.vidioc_log_status = v4l2_ctrl_log_status,
 	.vidioc_subscribe_event = tw5864_subscribe_event,
 	.vidioc_unsubscribe_event = v4l2_event_unsubscribe,
@@ -782,13 +921,6 @@ static struct video_device tw5864_video_template = {
 	.tvnorms = TW5864_NORMS,
 };
 
-/* The TW5864 uses 192 (16x12) detection cells in full screen for motion
- * detection. Each detection cell is composed of 44 pixels and 20 lines for
- * NTSC and 24 lines for PAL.
- */
-#define MD_CELLS_HOR 16
-#define MD_CELLS_VERT 12
-
 /* Motion Detection Threshold matrix */
 static const struct v4l2_ctrl_config tw5864_md_thresholds = {
 	.ops = &tw5864_ctrl_ops,
@@ -802,7 +934,7 @@ static const struct v4l2_ctrl_config tw5864_md_thresholds = {
 
 static int tw5864_video_input_init(struct tw5864_input *dev, int video_nr);
 static void tw5864_video_input_fini(struct tw5864_input *dev);
-static void tw5864_tables_upload(struct tw5864_dev *dev);
+static void tw5864_encoder_tables_upload(struct tw5864_dev *dev);
 
 int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 {
@@ -836,25 +968,24 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 		last_dma_allocated = i;
 	}
 
-	tw5864_tables_upload(dev);
+	tw5864_encoder_tables_upload(dev);
 	tw5864_init_ad(dev);
 
 	/* Picture is distorted without this block */
 	/* use falling edge to sample 54M to 108M */
-	tw_indir_writeb(dev, TW5864_INDIR_VD_108_POL,
-			TW5864_INDIR_VD_108_POL_BOTH);
-	tw_indir_writeb(dev, TW5864_INDIR_CLK0_SEL, 0x00);
+	tw_indir_writeb(TW5864_INDIR_VD_108_POL, TW5864_INDIR_VD_108_POL_BOTH);
+	tw_indir_writeb(TW5864_INDIR_CLK0_SEL, 0x00);
 
-	tw_indir_writeb(dev, TW5864_INDIR_DDRA_DLL_DQS_SEL0, 0x02);
-	tw_indir_writeb(dev, TW5864_INDIR_DDRA_DLL_DQS_SEL1, 0x02);
-	tw_indir_writeb(dev, TW5864_INDIR_DDRA_DLL_CLK90_SEL, 0x02);
-	tw_indir_writeb(dev, TW5864_INDIR_DDRB_DLL_DQS_SEL0, 0x02);
-	tw_indir_writeb(dev, TW5864_INDIR_DDRB_DLL_DQS_SEL1, 0x02);
-	tw_indir_writeb(dev, TW5864_INDIR_DDRB_DLL_CLK90_SEL, 0x02);
+	tw_indir_writeb(TW5864_INDIR_DDRA_DLL_DQS_SEL0, 0x02);
+	tw_indir_writeb(TW5864_INDIR_DDRA_DLL_DQS_SEL1, 0x02);
+	tw_indir_writeb(TW5864_INDIR_DDRA_DLL_CLK90_SEL, 0x02);
+	tw_indir_writeb(TW5864_INDIR_DDRB_DLL_DQS_SEL0, 0x02);
+	tw_indir_writeb(TW5864_INDIR_DDRB_DLL_DQS_SEL1, 0x02);
+	tw_indir_writeb(TW5864_INDIR_DDRB_DLL_CLK90_SEL, 0x02);
 
 	/* video input reset */
-	tw_indir_writeb(dev, TW5864_INDIR_RESET, 0);
-	tw_indir_writeb(dev, TW5864_INDIR_RESET, TW5864_INDIR_RESET_VD |
+	tw_indir_writeb(TW5864_INDIR_RESET, 0);
+	tw_indir_writeb(TW5864_INDIR_RESET, TW5864_INDIR_RESET_VD |
 			TW5864_INDIR_RESET_DLL | TW5864_INDIR_RESET_MUX_CORE);
 	mdelay(10);
 
@@ -867,7 +998,7 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 	 */
 	tw_writel(TW5864_FULL_HALF_MODE_SEL, 0);
 
-	tw_indir_writeb(dev, TW5864_INDIR_PV_VD_CK_POL,
+	tw_indir_writeb(TW5864_INDIR_PV_VD_CK_POL,
 			TW5864_INDIR_PV_VD_CK_POL_VD(0) |
 			TW5864_INDIR_PV_VD_CK_POL_VD(1) |
 			TW5864_INDIR_PV_VD_CK_POL_VD(2) |
@@ -881,9 +1012,9 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 		  dev->h264_buf[dev->h264_buf_w_index].mv.dma_addr);
 
 	for (i = 0; i < TW5864_INPUTS; i++) {
-		tw_indir_writeb(dev, TW5864_INDIR_VIN_E(i), 0x07);
+		tw_indir_writeb(TW5864_INDIR_VIN_E(i), 0x07);
 		/* to initiate auto format recognition */
-		tw_indir_writeb(dev, TW5864_INDIR_VIN_F(i), 0xff);
+		tw_indir_writeb(TW5864_INDIR_VIN_F(i), 0xff);
 	}
 
 	tw_writel(TW5864_SEN_EN_CH, 0x000f);
@@ -932,7 +1063,7 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 
 	for (i = 0; i < TW5864_INPUTS; i++) {
 		dev->inputs[i].root = dev;
-		dev->inputs[i].input_number = i;
+		dev->inputs[i].nr = i;
 		ret = tw5864_video_input_init(&dev->inputs[i], video_nr[i]);
 		if (ret)
 			goto fini_video_inputs;
@@ -942,13 +1073,13 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 	return 0;
 
 fini_video_inputs:
-	for (i = last_input_nr_registered; i >= 0; i--) {
+	for (i = last_input_nr_registered; i >= 0; i--)
 		tw5864_video_input_fini(&dev->inputs[i]);
 
 	tasklet_kill(&dev->tasklet);
 
 free_dma:
-	for (i = 0; i < last_dma_allocated; i++)
+	for (i = last_dma_allocated; i >= 0; i--) {
 		dma_free_coherent(&dev->pci->dev, H264_VLC_BUF_SIZE,
 				  dev->h264_buf[i].vlc.addr,
 				  dev->h264_buf[i].vlc.dma_addr);
@@ -1004,10 +1135,9 @@ static int tw5864_video_input_init(struct tw5864_input *input, int video_nr)
 			  V4L2_CID_CONTRAST, 0, 255, 1, 100);
 	v4l2_ctrl_new_std(hdl, &tw5864_ctrl_ops,
 			  V4L2_CID_SATURATION, 0, 255, 1, 128);
-	/* NTSC only */
 	v4l2_ctrl_new_std(hdl, &tw5864_ctrl_ops, V4L2_CID_HUE, -128, 127, 1, 0);
-	v4l2_ctrl_new_std(hdl, &tw5864_ctrl_ops,
-			  V4L2_CID_MPEG_VIDEO_GOP_SIZE, 1, 255, 1, GOP_SIZE);
+	v4l2_ctrl_new_std(hdl, &tw5864_ctrl_ops, V4L2_CID_MPEG_VIDEO_GOP_SIZE,
+			  1, MAX_GOP_SIZE, 1, GOP_SIZE);
 	v4l2_ctrl_new_std(hdl, &tw5864_ctrl_ops,
 			  V4L2_CID_MPEG_VIDEO_H264_MIN_QP, 28, 51, 1, QP_VALUE);
 	v4l2_ctrl_new_std_menu(hdl, &tw5864_ctrl_ops,
@@ -1037,6 +1167,13 @@ static int tw5864_video_input_init(struct tw5864_input *input, int video_nr)
 
 	dev_info(&input->root->pci->dev, "Registered video device %s\n",
 		 video_device_node_name(&input->vdev));
+
+	/*
+	 * Set default video standard. Doesn't matter which, the detected value
+	 * will be found out by VIDIOC_QUERYSTD handler.
+	 */
+	input->v4l2_std = V4L2_STD_NTSC_M;
+	input->std = STD_NTSC;
 
 	return 0;
 
@@ -1171,9 +1308,8 @@ static int tw5864_is_motion_triggered(struct tw5864_h264_frame *frame)
 	u32 *mv = (u32 *)frame->mv.addr;
 	int i;
 	int detected = 0;
-	unsigned int md_cells = MD_CELLS_HOR * MD_CELLS_VERT;
 
-	for (i = 0; i < md_cells; i++) {
+	for (i = 0; i < MD_CELLS; i++) {
 		const u16 thresh = input->md_threshold_grid_values[i];
 		const unsigned int metric = tw5864_md_metric_from_mvd(mv[i]);
 
@@ -1205,7 +1341,7 @@ static void tw5864_handle_frame_task(unsigned long data)
 }
 
 #ifdef DEBUG
-static u32 checksum(u32 *data, int len)
+static u32 tw5864_vlc_checksum(u32 *data, int len)
 {
 	u32 val, count_len = len;
 
@@ -1239,7 +1375,8 @@ static void tw5864_handle_frame(struct tw5864_h264_frame *frame)
 	u8 *src_end;
 
 #ifdef DEBUG
-	if (frame->checksum != checksum((u32 *)frame->vlc.addr, frame_len))
+	if (frame->checksum !=
+	    tw5864_vlc_checksum((u32 *)frame->vlc.addr, frame_len))
 		dev_err(&dev->pci->dev,
 			"Checksum of encoded frame doesn't match!\n");
 #endif
@@ -1325,52 +1462,53 @@ static void tw5864_handle_frame(struct tw5864_h264_frame *frame)
 	vb2_buffer_done(&vb->vb.vb2_buf, VB2_BUF_STATE_DONE);
 }
 
-v4l2_std_id tw5864_get_v4l2_std(enum tw5864_vid_std std)
+static v4l2_std_id tw5864_get_v4l2_std(enum tw5864_vid_std std)
 {
 	switch (std) {
-	case STD_NTSC:
-		return V4L2_STD_NTSC_M;
-	case STD_PAL:
-		return V4L2_STD_PAL_B;
-	case STD_SECAM:
-		return V4L2_STD_SECAM_B;
-	case STD_INVALID:
-		WARN_ON_ONCE(1);
-		return 0;
+	case STD_NTSC:    return V4L2_STD_NTSC_M;
+	case STD_PAL:     return V4L2_STD_PAL_B;
+	case STD_SECAM:   return V4L2_STD_SECAM_B;
+	case STD_NTSC443: return V4L2_STD_NTSC_443;
+	case STD_PAL_M:   return V4L2_STD_PAL_M;
+	case STD_PAL_CN:  return V4L2_STD_PAL_Nc;
+	case STD_PAL_60:  return V4L2_STD_PAL_60;
+	case STD_INVALID: return V4L2_STD_UNKNOWN;
 	}
 	return 0;
 }
 
-enum tw5864_vid_std tw5864_from_v4l2_std(v4l2_std_id v4l2_std)
+static enum tw5864_vid_std tw5864_from_v4l2_std(v4l2_std_id v4l2_std)
 {
-	if (v4l2_std & V4L2_STD_NTSC)
-		return STD_NTSC;
-	if (v4l2_std & V4L2_STD_PAL)
-		return STD_PAL;
-	if (v4l2_std & V4L2_STD_SECAM)
-		return STD_SECAM;
+	if (v4l2_std & V4L2_STD_NTSC_M)   return STD_NTSC;
+	if (v4l2_std & V4L2_STD_PAL_B)    return STD_PAL;
+	if (v4l2_std & V4L2_STD_SECAM_B)  return STD_SECAM;
+	if (v4l2_std & V4L2_STD_NTSC_443) return STD_NTSC443;
+	if (v4l2_std & V4L2_STD_PAL_M)    return STD_PAL_M;
+	if (v4l2_std & V4L2_STD_PAL_Nc)   return STD_PAL_CN;
+	if (v4l2_std & V4L2_STD_PAL_60)   return STD_PAL_60;
+
 	WARN_ON_ONCE(1);
-	return STD_AUTO;
+	return STD_INVALID;
 }
 
-static void tw5864_tables_upload(struct tw5864_dev *dev)
+static void tw5864_encoder_tables_upload(struct tw5864_dev *dev)
 {
 	int i;
 
 	tw_writel(TW5864_VLC_RD, 0x1);
 	for (i = 0; i < VLC_LOOKUP_TABLE_LEN; i++) {
-		tw_writel((TW5864_VLC_STREAM_MEM_START + (i << 2)),
+		tw_writel((TW5864_VLC_STREAM_MEM_START + i * 4),
 			  encoder_vlc_lookup_table[i]);
 	}
 	tw_writel(TW5864_VLC_RD, 0x0);
 
 	for (i = 0; i < QUANTIZATION_TABLE_LEN; i++) {
-		tw_writel((TW5864_QUAN_TAB + (i << 2)),
+		tw_writel((TW5864_QUAN_TAB + i * 4),
 			  forward_quantization_table[i]);
 	}
 
 	for (i = 0; i < QUANTIZATION_TABLE_LEN; i++) {
-		tw_writel((TW5864_QUAN_TAB + (i << 2)),
+		tw_writel((TW5864_QUAN_TAB + i * 4),
 			  inverse_quantization_table[i]);
 	}
 }
