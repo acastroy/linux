@@ -124,6 +124,7 @@ int tw5864_i2c_scatter_write(struct tw5864_dev *dev, u8 i2c_index,
 
 int tw5864_i2c_read(struct tw5864_dev *dev, u8 i2c_index, u8 offset, u8 *data)
 {
+#if 0
 	struct i2c_client *client = &dev->i2c[i2c_index].client;
 	s32 ret;
 
@@ -132,10 +133,13 @@ int tw5864_i2c_read(struct tw5864_dev *dev, u8 i2c_index, u8 offset, u8 *data)
 	ret = i2c_smbus_read_byte_data(client, offset);
 	*data = ret;
 	return ret;
+#endif
+	return tw5864_i2c_read_internal(dev, 0x50 + i2c_index * 2, offset, data);
 }
 
 int tw5864_i2c_write(struct tw5864_dev *dev, u8 i2c_index, u8 offset, u8 data)
 {
+#if 0
 	struct i2c_client *client = &dev->i2c[i2c_index].client;
 
 	WARN_ON(i2c_index > 3);
@@ -151,6 +155,8 @@ int tw5864_i2c_write(struct tw5864_dev *dev, u8 i2c_index, u8 offset, u8 data)
 	//	 i2c_index, offset, data);
 
 	return i2c_smbus_write_byte_data(client, offset, data);
+#endif
+	return tw5864_i2c_write_internal(dev, 0x50 + i2c_index * 2, offset, data);
 }
 
 static u32 tw5864_i2c_functionality(struct i2c_adapter *adap)
@@ -187,6 +193,7 @@ int tw5864_i2c_init(struct tw5864_dev *dev)
 
 	mutex_init(&dev->i2c_lock);
 
+#if 0
 	dev->i2c[0].devid = 0x50; /* tw2865 */
 	dev->i2c[1].devid = 0x52; /* tw2864 */
 	dev->i2c[2].devid = 0x54; /* tw2864 */
@@ -235,4 +242,6 @@ int tw5864_i2c_init(struct tw5864_dev *dev)
 		tw5864_i2c_fini(dev);
 
 	return ret;
+#endif
+	return 0;
 }
