@@ -21,6 +21,7 @@
 #include <linux/mutex.h>
 #include <linux/io.h>
 #include <linux/interrupt.h>
+#include <linux/i2c.h>
 
 #include <media/v4l2-common.h>
 #include <media/v4l2-ioctl.h>
@@ -148,6 +149,13 @@ struct tw5864_h264_frame {
 	u64 timestamp;
 };
 
+struct tw5864_i2c_adap {
+	struct tw5864_dev *dev;
+	int devid;
+	struct i2c_adapter adap;
+	struct i2c_client client;
+};
+
 /* global device status */
 struct tw5864_dev {
 	spinlock_t slock; /* used for sync between ISR, tasklet & V4L2 API */
@@ -159,6 +167,9 @@ struct tw5864_dev {
 	int h264_buf_w_index;
 
 	struct tasklet_struct tasklet;
+
+	struct tw5864_i2c_adap i2c[4];
+	struct mutex i2c_lock;
 
 	int encoder_busy;
 	/* Input number to check next (in RR fashion) */
@@ -194,8 +205,25 @@ u8 tw5864_indir_readb(struct tw5864_dev *dev, u16 addr);
 void tw5864_indir_writeb(struct tw5864_dev *dev, u16 addr, u8 data);
 #define tw_indir_writeb(addr, data) tw5864_indir_writeb(dev, addr, data)
 
+int tw5864_i2c_init(struct tw5864_dev *dev);
+void tw5864_i2c_fini(struct tw5864_dev *dev);
+int tw5864_i2c_read(struct tw5864_dev *dev, u8 i2c_index, u8 offset, u8 *data);
+#define tw_i2c_read(i2c_index, offset, data) \
+	tw5864_i2c_read(dev, i2c_index, offset, data)
+int tw5864_i2c_write(struct tw5864_dev *dev, u8 i2c_index, u8 offset, u8 data);
+#define tw_i2c_write(i2c_index, offset, data) \
+	tw5864_i2c_write(dev, i2c_index, offset, data)
+int tw5864_i2c_multi_write(struct tw5864_dev *dev, u8 i2c_index, u8 addr,
+			   const u8 *buf, u32 count);
+#define tw_i2c_multi_write(i2c_index, addr, buf, count) \
+	tw5864_i2c_multi_write(dev, i2c_index, addr, buf, count)
+int tw5864_i2c_scatter_write(struct tw5864_dev *dev, u8 i2c_index,
+			     const u8 *buf, u32 count);
+#define tw_i2c_scatter_write(i2c_index, buf, count) \
+	tw5864_i2c_scatter_write(dev, i2c_index, buf, count)
+
 void tw5864_irqmask_apply(struct tw5864_dev *dev);
-int tw5864_init_ad(struct tw5864_dev *dev);
+int tw5864_tw28xx_init(struct tw5864_dev *dev);
 int tw5864_video_init(struct tw5864_dev *dev, int *video_nr);
 void tw5864_video_fini(struct tw5864_dev *dev);
 void tw5864_prepare_frame_headers(struct tw5864_input *input);

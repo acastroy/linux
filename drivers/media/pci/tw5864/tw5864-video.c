@@ -969,7 +969,14 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 	}
 
 	tw5864_encoder_tables_upload(dev);
-	tw5864_init_ad(dev);
+
+	ret = tw5864_i2c_init(dev);
+	if (ret)
+		goto free_dma;
+
+	ret = tw5864_tw28xx_init(dev);
+	if (ret)
+		goto fini_i2c;
 
 	/* Picture is distorted without this block */
 	/* use falling edge to sample 54M to 108M */
@@ -1077,6 +1084,9 @@ fini_video_inputs:
 		tw5864_video_input_fini(&dev->inputs[i]);
 
 	tasklet_kill(&dev->tasklet);
+
+fini_i2c:
+	tw5864_i2c_fini(dev);
 
 free_dma:
 	for (i = last_dma_allocated; i >= 0; i--) {
@@ -1213,6 +1223,8 @@ void tw5864_video_fini(struct tw5864_dev *dev)
 				  dev->h264_buf[i].mv.addr,
 				  dev->h264_buf[i].mv.dma_addr);
 	}
+
+	tw5864_i2c_fini(dev);
 }
 
 void tw5864_prepare_frame_headers(struct tw5864_input *input)
