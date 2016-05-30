@@ -54,7 +54,7 @@ static const struct pci_device_id tw5864_pci_tbl[] = {
 	{0,}
 };
 
-void tw_indir_writeb(struct tw5864_dev *dev, u16 addr, u8 data)
+void tw5864_indir_writeb(struct tw5864_dev *dev, u16 addr, u8 data)
 {
 	int retries = 30000;
 
@@ -68,7 +68,7 @@ void tw_indir_writeb(struct tw5864_dev *dev, u16 addr, u8 data)
 	tw_writel(TW5864_IND_CTL, addr << 2 | TW5864_RW | TW5864_ENABLE);
 }
 
-u8 tw_indir_readb(struct tw5864_dev *dev, u16 addr)
+u8 tw5864_indir_readb(struct tw5864_dev *dev, u16 addr)
 {
 	int retries = 30000;
 
@@ -217,6 +217,7 @@ static void tw5864_timer_isr(struct tw5864_dev *dev)
 	 * last processed one
 	 */
 	for (i = 0; i < TW5864_INPUTS; i++) {
+		/* TODO FIXME update next_i */
 		int next_input = (i + dev->next_i) % TW5864_INPUTS;
 		struct tw5864_input *input = &dev->inputs[next_input];
 		int raw_buf_id; /* id of internal buf with last raw frame */
@@ -226,13 +227,13 @@ static void tw5864_timer_isr(struct tw5864_dev *dev)
 			goto next;
 
 		raw_buf_id = tw_mask_shift_readl(TW5864_SENIF_ORG_FRM_PTR1, 0x3,
-						 2 * input->input_number);
+						 2 * input->nr);
 
 		/* Check if new raw frame is available */
 		if (input->buf_id == raw_buf_id) {
 			if (time_is_after_jiffies(input->new_frame_deadline)) {
 				tw_mask_shift_writel(TW5864_ENC_BUF_PTR_REC1,
-						0x3, 2 * input->input_number,
+						0x3, 2 * input->nr,
 						input->buf_id + 3);
 				tw5864_input_deadline_update(input);
 			}
@@ -303,6 +304,12 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	}
 
 	spin_lock_init(&dev->slock);
+
+	dev_info(&pci_dev->dev, "TW5864 hardware version: %04x\n",
+		 tw_readl(TW5864_HW_VERSION));
+	dev_info(&pci_dev->dev, "TW5864 H.264 core version: %04x:%04x\n",
+		 tw_readl(TW5864_H264REV),
+		 tw_readl(TW5864_UNDECLARED_H264REV_PART2));
 
 	err = tw5864_video_init(dev, video_nr);
 	if (err)
