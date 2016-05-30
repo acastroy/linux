@@ -1171,6 +1171,13 @@ static int tw5864_video_input_init(struct tw5864_input *input, int video_nr)
 	dev_info(&input->root->pci->dev, "Registered video device %s\n",
 		 video_device_node_name(&input->vdev));
 
+	/*
+	 * Set default video standard. Doesn't matter which, the detected value
+	 * will be found out by VIDIOC_QUERYSTD handler.
+	 */
+	input->v4l2_std = V4L2_STD_NTSC_M;
+	input->std = STD_NTSC;
+
 	tw_indir_writeb(TW5864_INDIR_VIN_E(video_nr), 0x07);
 	/* to initiate auto format recognition */
 	tw_indir_writeb(TW5864_INDIR_VIN_F(video_nr), 0xff);
