@@ -263,8 +263,14 @@ static int tw5864_enable_input(struct tw5864_input *input)
 	int reg_frame_bus = 0x1c;
 	int fmt_reg_value = 0;
 	int downscale_enabled = 0;
+	int ret;
 
 	dev_dbg(&dev->pci->dev, "Enabling channel %d\n", nr);
+
+	ret = tw5864_input_std_get(input, &input->std);
+	if (ret)
+		return ret;
+	input->v4l2_std = tw5864_get_v4l2_std(input->std);
 
 	input->frame_seqno = 0;
 	input->h264_idr_pic_id = 0;
