@@ -933,6 +933,7 @@ static void tw5864_encoder_tables_upload(struct tw5864_dev *dev);
 int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 {
 	int i;
+	unsigned long flags;
 	int ret;
 	int last_dma_allocated = -1;
 	int last_input_nr_registered = -1;
@@ -1005,17 +1006,14 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 			TW5864_INDIR_PV_VD_CK_POL_VD(2) |
 			TW5864_INDIR_PV_VD_CK_POL_VD(3));
 
-	dev->h264_buf_r_index = 0;
-	dev->h264_buf_w_index = 0;
-	tw_writel(TW5864_VLC_STREAM_BASE_ADDR,
-		  dev->h264_buf[dev->h264_buf_w_index].vlc.dma_addr);
-	tw_writel(TW5864_MV_STREAM_BASE_ADDR,
-		  dev->h264_buf[dev->h264_buf_w_index].mv.dma_addr);
-
 	for (i = 0; i < TW5864_INPUTS; i++) {
-		tw_indir_writeb(TW5864_INDIR_VIN_E(i), 0x07);
-		/* to initiate auto format recognition */
-		tw_indir_writeb(TW5864_INDIR_VIN_F(i), 0xff);
+		dev->inputs[i].root = dev;
+		dev->inputs[i].nr = i;
+
+		ret = tw5864_video_input_init(&dev->inputs[i], video_nr[i]);
+		if (ret)
+			goto fini_video_inputs;
+		last_input_nr_registered = i;
 	}
 
 	tw_writel(TW5864_SEN_EN_CH, 0x000f);
@@ -1054,22 +1052,22 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 		  TW5864_TIMER_INTR_ENB | TW5864_PCI_MAST_ENB |
 		  TW5864_MVD_VLC_MAST_ENB);
 
-	dev->encoder_busy = 0;
-
-	dev->irqmask |= TW5864_INTR_VLC_DONE | TW5864_INTR_TIMER;
-	tw5864_irqmask_apply(dev);
-
 	tasklet_init(&dev->tasklet, tw5864_handle_frame_task,
 		     (unsigned long)dev);
 
-	for (i = 0; i < TW5864_INPUTS; i++) {
-		dev->inputs[i].root = dev;
-		dev->inputs[i].nr = i;
-		ret = tw5864_video_input_init(&dev->inputs[i], video_nr[i]);
-		if (ret)
-			goto fini_video_inputs;
-		last_input_nr_registered = i;
-	}
+	spin_lock_irqsave(&dev->slock, flags);
+	dev->encoder_busy = 0;
+	dev->h264_buf_r_index = 0;
+	dev->h264_buf_w_index = 0;
+
+	tw_writel(TW5864_VLC_STREAM_BASE_ADDR,
+		  dev->h264_buf[dev->h264_buf_w_index].vlc.dma_addr);
+	tw_writel(TW5864_MV_STREAM_BASE_ADDR,
+		  dev->h264_buf[dev->h264_buf_w_index].mv.dma_addr);
+	spin_unlock_irqrestore(&dev->slock, flags);
+
+	dev->irqmask |= TW5864_INTR_VLC_DONE | TW5864_INTR_TIMER;
+	tw5864_irqmask_apply(dev);
 
 	return 0;
 
@@ -1097,6 +1095,7 @@ free_dma:
 
 static int tw5864_video_input_init(struct tw5864_input *input, int video_nr)
 {
+	struct tw5864_dev *dev = input->root;
 	int ret;
 	struct v4l2_ctrl_handler *hdl = &input->hdl;
 
@@ -1171,6 +1170,10 @@ static int tw5864_video_input_init(struct tw5864_input *input, int video_nr)
 
 	dev_info(&input->root->pci->dev, "Registered video device %s\n",
 		 video_device_node_name(&input->vdev));
+
+	tw_indir_writeb(TW5864_INDIR_VIN_E(video_nr), 0x07);
+	/* to initiate auto format recognition */
+	tw_indir_writeb(TW5864_INDIR_VIN_F(video_nr), 0xff);
 
 	return 0;
 
