@@ -1052,9 +1052,6 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 		  TW5864_TIMER_INTR_ENB | TW5864_PCI_MAST_ENB |
 		  TW5864_MVD_VLC_MAST_ENB);
 
-	tasklet_init(&dev->tasklet, tw5864_handle_frame_task,
-		     (unsigned long)dev);
-
 	spin_lock_irqsave(&dev->slock, flags);
 	dev->encoder_busy = 0;
 	dev->h264_buf_r_index = 0;
@@ -1065,6 +1062,9 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 	tw_writel(TW5864_MV_STREAM_BASE_ADDR,
 		  dev->h264_buf[dev->h264_buf_w_index].mv.dma_addr);
 	spin_unlock_irqrestore(&dev->slock, flags);
+
+	tasklet_init(&dev->tasklet, tw5864_handle_frame_task,
+		     (unsigned long)dev);
 
 	dev->irqmask |= TW5864_INTR_VLC_DONE | TW5864_INTR_TIMER;
 	tw5864_irqmask_apply(dev);
