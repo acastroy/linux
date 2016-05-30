@@ -14,14 +14,98 @@
  *  GNU General Public License for more details.
  */
 
+#include <linux/log2.h>
+
 #include "tw5864.h"
-#include "tw5864-bs.h"
 
 static u8 marker[] = { 0x00, 0x00, 0x00, 0x01 };
 
-/* log2 of max GOP size, taken 8 as V4L2-advertised max GOP size is 255 */
-#define LOG2_MAX_FRAME_NUM 8
-#define LOG2_MAX_POC_LSB LOG2_MAX_FRAME_NUM
+/*
+ * Exponential-Golomb coding functions
+ *
+ * These functions are used for generation of H.264 bitstream headers.
+ *
+ * This code is derived from tw5864 reference driver by manufacturers, which
+ * itself apparently was derived from x264 project.
+ */
+
+/* Bitstream writing context */
+struct bs {
+	u8 *buf; /* pointer to buffer beginning */
+	u8 *buf_end; /* pointer to buffer end */
+	u8 *ptr; /* pointer to current byte in buffer */
+	unsigned int bits_left; /* number of available bits in current byte */
+};
+
+static void bs_init(struct bs *s, void *buf, int size)
+{
+	s->buf = buf;
+	s->ptr = buf;
+	s->buf_end = s->ptr + size;
+	s->bits_left = 8;
+}
+
+static int bs_len(struct bs *s)
+{
+	return s->ptr - s->buf;
+}
+
+static void bs_write(struct bs *s, int count, u32 bits)
+{
+	if (s->ptr >= s->buf_end - 4)
+		return;
+	while (count > 0) {
+		if (count < 32)
+			bits &= (1 << count) - 1;
+		if (count < s->bits_left) {
+			*s->ptr = (*s->ptr << count) | bits;
+			s->bits_left -= count;
+			break;
+		}
+		*s->ptr = (*s->ptr << s->bits_left) |
+			(bits >> (count - s->bits_left));
+		count -= s->bits_left;
+		s->ptr++;
+		s->bits_left = 8;
+	}
+}
+
+static void bs_write1(struct bs *s, u32 bit)
+{
+	if (s->ptr < s->buf_end) {
+		*s->ptr <<= 1;
+		*s->ptr |= bit;
+		s->bits_left--;
+		if (s->bits_left == 0) {
+			s->ptr++;
+			s->bits_left = 8;
+		}
+	}
+}
+
+static void bs_write_ue(struct bs *s, u32 val)
+{
+	if (val == 0) {
+		bs_write1(s, 1);
+	} else {
+		val++;
+		bs_write(s, 2 * fls(val) - 1, val);
+	}
+}
+
+static void bs_write_se(struct bs *s, int val)
+{
+	bs_write_ue(s, val <= 0 ? -val * 2 : val * 2 - 1);
+}
+
+static void bs_rbsp_trailing(struct bs *s)
+{
+	bs_write1(s, 1);
+	if (s->bits_left != 8)
+		bs_write(s, s->bits_left, 0x00);
+}
+
+/* H.264 headers generation functions */
 
 static int tw5864_h264_gen_sps_rbsp(u8 *buf, size_t size, int width, int height)
 {
@@ -34,12 +118,12 @@ static int tw5864_h264_gen_sps_rbsp(u8 *buf, size_t size, int width, int height)
 	bs_write(s, 1, 1); /* constraint_set1_flag */
 	bs_write(s, 1, 0); /* constraint_set2_flag */
 	bs_write(s, 5, 0); /* reserved_zero_5bits */
-	bs_write(s, 8, 0x1E); /* level_idc */
+	bs_write(s, 8, 0x1e); /* level_idc */
 	bs_write_ue(s, 0); /* seq_parameter_set_id */
-	bs_write_ue(s, LOG2_MAX_FRAME_NUM - 4); /* log2_max_frame_num_minus4 */
+	bs_write_ue(s, ilog2(MAX_GOP_SIZE) - 4); /* log2_max_frame_num_minus4 */
 	bs_write_ue(s, 0); /* pic_order_cnt_type */
 	/* log2_max_pic_order_cnt_lsb_minus4 */
-	bs_write_ue(s, LOG2_MAX_POC_LSB - 4);
+	bs_write_ue(s, ilog2(MAX_GOP_SIZE) - 4);
 	bs_write_ue(s, 1); /* num_ref_frames */
 	bs_write(s, 1, 0); /* gaps_in_frame_num_value_allowed_flag */
 	bs_write_ue(s, width / 16 - 1); /* pic_width_in_mbs_minus1 */
@@ -90,12 +174,12 @@ static int tw5864_h264_gen_slice_head(u8 *buf, size_t size,
 	bs_write_ue(s, 0); /* first_mb_in_slice */
 	bs_write_ue(s, is_i_frame ? 2 : 5); /* slice_type - I or P */
 	bs_write_ue(s, 0); /* pic_parameter_set_id */
-	bs_write(s, LOG2_MAX_FRAME_NUM, frame_seqno_in_gop); /* frame_num */
+	bs_write(s, ilog2(MAX_GOP_SIZE), frame_seqno_in_gop); /* frame_num */
 	if (is_i_frame)
 		bs_write_ue(s, idr_pic_id);
 
 	/* pic_order_cnt_lsb */
-	bs_write(s, LOG2_MAX_POC_LSB, frame_seqno_in_gop);
+	bs_write(s, ilog2(MAX_GOP_SIZE), frame_seqno_in_gop);
 
 	if (is_i_frame) {
 		bs_write1(s, 0); /* no_output_of_prior_pics_flag */
