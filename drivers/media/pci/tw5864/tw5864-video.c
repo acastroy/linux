@@ -742,8 +742,6 @@ static int tw5864_frameinterval_get(struct tw5864_input *input,
 
 	switch (std) {
 	case STD_NTSC:
-		/* TODO FIXME Hans: This should be: numerator = 1001,
-		 * denominator = 30000 (29.97 Hz) */
 		frameinterval->denominator = 30;
 		break;
 	case STD_PAL:
