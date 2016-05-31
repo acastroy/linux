@@ -181,8 +181,7 @@ static void tw5864_timer_isr(struct tw5864_dev *dev)
 	 * last processed one
 	 */
 	for (i = 0; i < TW5864_INPUTS; i++) {
-		/* TODO FIXME update next_i */
-		int next_input = (i + dev->next_i) % TW5864_INPUTS;
+		int next_input = (i + dev->next_input) % TW5864_INPUTS;
 		struct tw5864_input *input = &dev->inputs[next_input];
 		int raw_buf_id; /* id of internal buf with last raw frame */
 
@@ -210,6 +209,7 @@ static void tw5864_timer_isr(struct tw5864_dev *dev)
 
 		spin_lock_irqsave(&dev->slock, flags);
 		dev->encoder_busy = 1;
+		dev->next_input = (next_input + 1) % TW5864_INPUTS;
 		spin_unlock_irqrestore(&dev->slock, flags);
 		tw5864_request_encoded_frame(input);
 		tw5864_input_deadline_update(input);

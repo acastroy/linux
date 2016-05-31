@@ -172,8 +172,8 @@ struct tw5864_dev {
 	struct mutex i2c_lock;
 
 	int encoder_busy;
-	/* Input number to check next (in RR fashion) */
-	int next_i;
+	/* Input number to check next for ready raw picture (in RR fashion) */
+	int next_input;
 
 	/* pci i/o */
 	char name[64];
