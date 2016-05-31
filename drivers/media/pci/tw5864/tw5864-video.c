@@ -234,6 +234,7 @@ static int tw5864_input_std_get(struct tw5864_input *input,
 	struct tw5864_dev *dev = input->root;
 	enum tw5864_vid_std std;
 	u8 std_reg = tw_indir_readb(TW5864_INDIR_VIN_E(input->nr));
+
 	std = (std_reg & 0x70) >> 4;
 
 	if (std_reg & 0x80) {
@@ -848,6 +849,7 @@ static int tw5864_g_reg(struct file *file, void *fh,
 		reg->val = tw_readl(reg->reg);
 	} else {
 		__u64 indir_addr = reg->reg - INDIR_SPACE_MAP_SHIFT;
+
 		if (indir_addr > 0xefe)
 			return -EINVAL;
 		reg->size = 1;
@@ -868,6 +870,7 @@ static int tw5864_s_reg(struct file *file, void *fh,
 		tw_writel(reg->reg, reg->val);
 	} else {
 		__u64 indir_addr = reg->reg - INDIR_SPACE_MAP_SHIFT;
+
 		if (indir_addr > 0xefe)
 			return -EINVAL;
 		tw_indir_writeb(reg->reg, reg->val);
@@ -1447,7 +1450,7 @@ static void tw5864_handle_frame(struct tw5864_h264_frame *frame)
 	/* dst_space is not actual at this point */
 
 	vb2_set_plane_payload(&vb->vb.vb2_buf, 0,
-			      dst - (u8*)vb2_plane_vaddr(&vb->vb.vb2_buf, 0));
+			      dst - (u8 *)vb2_plane_vaddr(&vb->vb.vb2_buf, 0));
 
 	vb->vb.vb2_buf.timestamp = frame->timestamp;
 	v4l2_buf->field = V4L2_FIELD_NONE;
@@ -1487,13 +1490,20 @@ static v4l2_std_id tw5864_get_v4l2_std(enum tw5864_vid_std std)
 
 static enum tw5864_vid_std tw5864_from_v4l2_std(v4l2_std_id v4l2_std)
 {
-	if (v4l2_std & V4L2_STD_NTSC_M)   return STD_NTSC;
-	if (v4l2_std & V4L2_STD_PAL_B)    return STD_PAL;
-	if (v4l2_std & V4L2_STD_SECAM_B)  return STD_SECAM;
-	if (v4l2_std & V4L2_STD_NTSC_443) return STD_NTSC443;
-	if (v4l2_std & V4L2_STD_PAL_M)    return STD_PAL_M;
-	if (v4l2_std & V4L2_STD_PAL_Nc)   return STD_PAL_CN;
-	if (v4l2_std & V4L2_STD_PAL_60)   return STD_PAL_60;
+	if (v4l2_std & V4L2_STD_NTSC_M)
+		return STD_NTSC;
+	if (v4l2_std & V4L2_STD_PAL_B)
+		return STD_PAL;
+	if (v4l2_std & V4L2_STD_SECAM_B)
+		return STD_SECAM;
+	if (v4l2_std & V4L2_STD_NTSC_443)
+		return STD_NTSC443;
+	if (v4l2_std & V4L2_STD_PAL_M)
+		return STD_PAL_M;
+	if (v4l2_std & V4L2_STD_PAL_Nc)
+		return STD_PAL_CN;
+	if (v4l2_std & V4L2_STD_PAL_60)
+		return STD_PAL_60;
 
 	WARN_ON_ONCE(1);
 	return STD_INVALID;

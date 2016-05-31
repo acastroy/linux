@@ -202,8 +202,6 @@ static int init_tw2864(struct tw5864_dev *dev, u8 i2c_index)
 	u32 ch;
 	int ret = 0;
 
-	BUG_ON(i2c_index > 3);
-
 	for (ch = 0; ch < 4; ch++)
 		ret |= tw_i2c_multi_write(i2c_index, ch * 0x10,
 					  tbl_pal_tw2864_common,

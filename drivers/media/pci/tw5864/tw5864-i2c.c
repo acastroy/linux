@@ -18,8 +18,6 @@ int tw5864_i2c_multi_write(struct tw5864_dev *dev, u8 i2c_index, u8 addr,
 	int i;
 	int ret;
 
-	BUG_ON(i2c_index > 3);
-
 	for (i = 0; i < count; i++) {
 		ret = tw5864_i2c_write(dev, i2c_index, addr + i, buf[i]);
 		if (ret)
@@ -33,8 +31,6 @@ int tw5864_i2c_scatter_write(struct tw5864_dev *dev, u8 i2c_index,
 {
 	int i;
 	u32 ret;
-
-	BUG_ON(i2c_index > 3);
 
 	for (i = 0; i < count; i++) {
 		ret = tw5864_i2c_write(dev, i2c_index,
@@ -88,6 +84,7 @@ int tw5864_i2c_read(struct tw5864_dev *dev, u8 i2c_index, u8 offset, u8 *data)
 	struct i2c_client *client = &dev->i2c[i2c_index].client;
 	s32 ret;
 
+	WARN_ON(i2c_index > 3);
 	ret = i2c_smbus_read_byte_data(client, offset);
 	*data = ret;
 	return ret;
@@ -97,6 +94,7 @@ int tw5864_i2c_write(struct tw5864_dev *dev, u8 i2c_index, u8 offset, u8 data)
 {
 	struct i2c_client *client = &dev->i2c[i2c_index].client;
 
+	WARN_ON(i2c_index > 3);
 	return i2c_smbus_write_byte_data(client, offset, data);
 }
 
