@@ -12,46 +12,6 @@ static const struct i2c_algorithm tw5864_i2c_algo = {
 	.functionality = tw5864_i2c_functionality,
 };
 
-static int tw5864_i2c_read_internal(struct tw5864_dev *dev, u8 devid, u8 addr,
-				    u8 *buf)
-{
-	u32 val;
-	int retries = TW5864_IIC_RETRIES;
-
-	tw_writel(TW5864_IIC, BIT(24) | (devid | 0x01) << 16 | addr << 8);
-	do {
-		val = tw_readl(TW5864_IIC);
-	} while (!(val & BIT(24)) && --retries);
-
-	if (!retries) {
-		dev_err(&dev->pci->dev,
-			"tw5864_i2c_read() out of attempts on dev 0x%x, fn 0x%x\n",
-			devid, addr);
-		return -ETIMEDOUT;
-	}
-
-	*buf = (u8) val;
-	return 0;
-}
-
-static int tw5864_i2c_write_internal(struct tw5864_dev *dev, u8 devid, u8 addr,
-				     u8 buf)
-{
-	int retries = TW5864_IIC_RETRIES;
-
-	tw_writel(TW5864_IIC, BIT(24) | (devid & 0xfe) << 16 | addr << 8 | buf);
-	while (!(tw_readl(TW5864_IIC) & BIT(24)) && --retries)
-		;
-
-	if (!retries) {
-		dev_err(&dev->pci->dev,
-			"tw5864_i2c_write() out of attempts on dev 0x%x, fn 0x%x\n",
-			devid, addr);
-		return -ETIMEDOUT;
-	}
-	return 0;
-}
-
 int tw5864_i2c_multi_write(struct tw5864_dev *dev, u8 i2c_index, u8 addr,
 			   const u8 *buf, u32 count)
 {
@@ -91,25 +51,36 @@ static int tw5864_smbus_xfer(struct i2c_adapter *adap, u16 addr,
 {
 	struct tw5864_i2c_adap *ctx = adap->algo_data;
 	struct tw5864_dev *dev = ctx->dev;
-	int ret;
+	int devid = ctx->devid;
+	int retries = adap->retries;
+	u32 first_write = BIT(24) | devid << 16 | addr << 8;
+	u32 val;
+
+	if (read_write == I2C_SMBUS_READ)
+		first_write |= BIT(16);
+	else
+		first_write |= data->byte;
 
 	if (size != I2C_SMBUS_BYTE_DATA)
 		return -EIO;
 
-	BUG_ON(!adap);
-	BUG_ON(adap->algo != &tw5864_i2c_algo);
-
 	mutex_lock(&dev->i2c_lock);
-	/* TODO Merge tw5864_i2c_*_internal() into here */
-	if (read_write == I2C_SMBUS_READ)
-		ret = tw5864_i2c_read_internal(dev, ctx->devid, command,
-					       &data->byte);
-	else
-		ret = tw5864_i2c_write_internal(dev, ctx->devid, command,
-						data->byte);
+	tw_writel(TW5864_IIC, first_write);
+	do {
+		val = tw_readl(TW5864_IIC);
+	} while (!(val & BIT(24)) && --retries);
 	mutex_unlock(&dev->i2c_lock);
+	data->byte = val;
 
-	return ret;
+	if (!retries) {
+		dev_err(&dev->pci->dev,
+			"tw5864 i2c: out of %s attempts on devid 0x%x, addr 0x%x\n",
+			read_write == I2C_SMBUS_READ ? "read" : "write",
+			devid, addr);
+		return -ETIMEDOUT;
+	}
+
+	return 0;
 }
 
 int tw5864_i2c_read(struct tw5864_dev *dev, u8 i2c_index, u8 offset, u8 *data)
@@ -179,7 +150,7 @@ int tw5864_i2c_init(struct tw5864_dev *dev)
 		adap->algo = &tw5864_i2c_algo;
 		adap->algo_data = ctx;
 		adap->timeout = msecs_to_jiffies(1000);
-		adap->retries = 3;
+		adap->retries = TW5864_IIC_RETRIES;
 		adap->dev.parent = &dev->pci->dev;
 
 		ret = i2c_add_adapter(adap);
