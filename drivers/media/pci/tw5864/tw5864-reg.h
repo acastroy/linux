@@ -59,11 +59,8 @@
 #define TW5864_START_NSLICE     BIT(15)
 
 /*
- * [15:0] Two bit for each channel
- * (channel 0 ~ 7). Each two bits are
- * the buffer pointer for the last
- * encoded frame of the corresponding
- * channel.
+ * [15:0] Two bit for each channel (channel 0 ~ 7). Each two bits are the buffer
+ * pointer for the last encoded frame of the corresponding channel.
  */
 #define TW5864_ENC_BUF_PTR_REC1    0x0010
 
@@ -144,8 +141,7 @@
 #define TW5864_DSP                 0x002c
 /* Define controls in register TW5864_DSP */
 /*
- * The ID for channel selected for
- * encoding operation
+ * The ID for channel selected for encoding operation
  */
 #define TW5864_DSP_ENC_CHN         0x000f
 /* See DSP_MB_DELAY below */
@@ -159,10 +155,8 @@
 /* VLC Flow Control: 1 for enable */
 #define TW5864_DSP_FLW_CNTL        0x0040
 /*
- * If DSP_MB_WAIT == 0, MB delay is
- * DSP_MB_DELAY * 16
- * If DSP_MB_DELAY == 1, MB delay is
- * DSP_MB_DELAY * 128
+ * If DSP_MB_WAIT == 0, MB delay is DSP_MB_DELAY * 16
+ * If DSP_MB_DELAY == 1, MB delay is DSP_MB_DELAY * 128
  */
 #define TW5864_DSP_MB_DELAY        0x0f00
 
@@ -198,38 +192,30 @@
 #define TW5864_DSP_SEN_MODE_CH1    0x00f0
 
 /*
- * [15:0]: ENC_BUF_PTR_REC[31:16]
- * Two bit for each channel (channel
- * 8 ~ 15). Each two bits are the
- * buffer pointer for the last
- * encoded frame of a channel
+ * [15:0]: ENC_BUF_PTR_REC[31:16] Two bit for each channel (channel 8 ~ 15).
+ * Each two bits are the buffer pointer for the last encoded frame of a channel
  */
 #define TW5864_ENC_BUF_PTR_REC2    0x004c
 
 /* Current MV Flag Status Pointer for Channel n. (Read only) */
 /*
- * [1:0] CH0_MV_PTR,
- * ..., [15:14] CH7_MV_PTR
+ * [1:0] CH0_MV_PTR, ..., [15:14] CH7_MV_PTR
  */
 #define TW5864_CH_MV_PTR1          0x0060
 /*
- * [1:0] CH8_MV_PTR,
- * ..., [15:14] CH15_MV_PTR
+ * [1:0] CH8_MV_PTR, ..., [15:14] CH15_MV_PTR
  */
 #define TW5864_CH_MV_PTR2          0x0064
 
 /*
- * [15:0] Reset Current MV Flag
- * Status Pointer for Channel n
- * (one bit each)
+ * [15:0] Reset Current MV Flag Status Pointer for Channel n (one bit each)
  */
 #define TW5864_RST_MV_PTR          0x0068
 #define TW5864_INTERLACING         0x0200
 /* Define controls in register TW5864_INTERLACING */
 /*
- * Inter_Mode Start. 2-nd bit? A
- * guess. Missing in datasheet.
- * Without this bit set, the output video is interlaced (stripy).
+ * Inter_Mode Start. 2-nd bit? A guess. Missing in datasheet. Without this bit
+ * set, the output video is interlaced (stripy).
  */
 #define TW5864_DSP_INTER_ST      BIT(1)
 /* Deinterlacer Enable */
@@ -355,15 +341,12 @@
 #define TW5864_DSP_INTRA_MODE_16x16 0x6
 #define TW5864_DSP_INTRA_MODE_4x4_AND_16x16 0x7
 /*
- * [5:0]
- * WEIGHT Factor for I4x4 cost
- * calculation (QP dependent)
+ * [5:0] WEIGHT Factor for I4x4 cost calculation (QP dependent)
  */
 #define TW5864_DSP_I4x4_WEIGHT     0x0414
 
 /*
- * [7:0]
- * Offset used to affect Intra/ME model decision
+ * [7:0] Offset used to affect Intra/ME model decision
  * If (me_cost < intra_cost + dsp_resid_mode_offset)
  * Pred_Mode = me_mode
  * Else
@@ -445,10 +428,8 @@
 #define TW5864_FULL_HALF_FLAG      0x0d50
 
 /*
- * 0 The bus mapped Channel select
- * partA Mode
- * 1 The bus mapped Channel select
- * partB Mode
+ * 0 The bus mapped Channel select partA Mode
+ * 1 The bus mapped Channel select partB Mode
  */
 #define TW5864_FULL_HALF_MODE_SEL  0x0d54
 
@@ -559,10 +540,7 @@
 
 #define TW5864_AUD                 0x4008
 /* Define controls in register TW5864_AUD */
-/*
- * Record path PCM Audio enable bit
- * for each channel
- */
+/* Record path PCM Audio enable bit for each channel */
 #define TW5864_AUD_ORG_CH_EN       0x00ff
 /* Speaker path PCM Audio Enable */
 #define TW5864_SPK_ORG_EN       BIT(16)
@@ -596,10 +574,7 @@
 
 #define TW5864_AUD_ADPCM           0x400c
 /* Define controls in register TW5864_AUD_ADPCM */
-/*
- * Record path ADPCM audio channel
- * enable, one bit for each
- */
+/* Record path ADPCM audio channel enable, one bit for each */
 #define TW5864_AUD_ADPCM_CH_EN     0x00ff
 /* Speaker path ADPCM audio channel enable */
 #define TW5864_SPK_ADPCM_EN     BIT(16)
@@ -639,10 +614,7 @@
 /* ADPCM_ENC_RD_PTR[50:30] */
 #define TW5864_ADPCM_ENC_RD_PTR2   0x4028
 
-/*
- * [3:0] rd ch0, [7:4] rd ch1,
- * [11:8] wr ch0, [15:12] wr ch1
- */
+/* [3:0] rd ch0, [7:4] rd ch1, [11:8] wr ch0, [15:12] wr ch1 */
 #define TW5864_ADPCM_DEC_RD_WR_PTR 0x402c
 
 /*
@@ -685,26 +657,20 @@
 #define TW5864_PCI_AUD             0x404c
 /* Define controls in register TW5864_PCI_AUD */
 /*
- * The register is applicable to PCI
- * initiator mode only. Used to
- * select PCM(0) or ADPCM(1) audio
- * data sent to PC. One bit for each
- * channel
+ * The register is applicable to PCI initiator mode only. Used to select PCM(0)
+ * or ADPCM(1) audio data sent to PC. One bit for each channel
  */
 #define TW5864_PCI_DATA_SEL        0xffff
 /*
  * Audio flow control mode selection bit.
- * 0 Flow control disabled. TW5864
- * continuously sends audio frame to
- * PC (initiator mode)
+ * 0 Flow control disabled. TW5864 continuously sends audio frame to PC
+ * (initiator mode)
  * 1 Flow control enabled
  */
 #define TW5864_PCI_FLOW_EN      BIT(16)
 /*
- * When PCI_FLOW_EN is set, PCI need
- * to toggle this bit to send an
- * audio frame to PC. One toggle to
- * send one frame.
+ * When PCI_FLOW_EN is set, PCI need to toggle this bit to send an audio frame
+ * to PC. One toggle to send one frame.
  */
 #define TW5864_PCI_AUD_FRM_EN   BIT(17)
 
@@ -770,8 +736,7 @@
 #define TW5864_SYSPLL_N_LOW (0x1f << 3)
 
 /*
- * [1:0]: SYSPLL_N[6:5], [3:2]: SYSPLL_P, [4]: SYSPLL_IREF,
- * [7:5]: SYSPLL_CP_SEL
+ * [1:0]: SYSPLL_N[6:5], [3:2]: SYSPLL_P, [4]: SYSPLL_IREF, [7:5]: SYSPLL_CP_SEL
  */
 #define TW5864_SYSPLL3             0x8020
 /* Define controls in register TW5864_SYSPLL3 */
@@ -799,8 +764,8 @@
 #define TW5864_SYSPLL_CP_SEL (0x07 << 5)
 
 /*
- * [1:0]: SYSPLL_VCO, [3:2]: SYSPLL_LP_X8, [5:4]: SYSPLL_ICP_SEL, [6]:
- * SYSPLL_LPF_5PF, [7]: SYSPLL_ED_SEL
+ * [1:0]: SYSPLL_VCO, [3:2]: SYSPLL_LP_X8, [5:4]: SYSPLL_ICP_SEL,
+ * [6]: SYSPLL_LPF_5PF, [7]: SYSPLL_ED_SEL
  */
 #define TW5864_SYSPLL4             0x8021
 /* Define controls in register TW5864_SYSPLL4 */
@@ -965,39 +930,33 @@
 
 /* 0x9000 ~ 0x920c -- Video Capture (VIF) Register Map */
 /*
- * H264EN_CH_STATUS[n] Status of
- * Vsync synchronized H264EN_CH_EN
- * (Read Only)
+ * H264EN_CH_STATUS[n] Status of Vsync synchronized H264EN_CH_EN (Read Only)
  * 1 Channel Enabled
  * 0 Channel Disabled
  */
 #define TW5864_H264EN_CH_STATUS    0x9000
 /*
- * [15:0] H264EN_CH_EN[n] H264
- * Encoding Path Enable for channel
+ * [15:0] H264EN_CH_EN[n] H264 Encoding Path Enable for channel
  * 1 Channel Enabled
  * 0 Channel Disabled
  */
 #define TW5864_H264EN_CH_EN        0x9004
 /*
- * H264EN_CH_DNS[n] H264 Encoding
- * Path Downscale Video Decoder
- * Input for channel n
+ * H264EN_CH_DNS[n] H264 Encoding Path Downscale Video Decoder Input for
+ * channel n
  * 1 Downscale Y to 1/2
  * 0 Does not downscale
  */
 #define TW5864_H264EN_CH_DNS       0x9008
 /*
- * H264EN_CH_PROG[n] H264 Encoding
- * Path channel n is progressive
+ * H264EN_CH_PROG[n] H264 Encoding Path channel n is progressive
  * 1 Progressive (Not valid for TW5864)
  * 0 Interlaced (TW5864 default)
  */
 #define TW5864_H264EN_CH_PROG      0x900c
 /*
  * [3:0] H264EN_BUS_MAX_CH[n]
- * H264 Encoding Path maximum number
- * of channel on BUS n
+ * H264 Encoding Path maximum number of channel on BUS n
  * 0 Max 4 channels
  * 1 Max 2 channels
  */
@@ -1072,11 +1031,8 @@
 /* 0xa000 ~ 0xa8ff – DDR Controller Register Map */
 /* DDR Controller A */
 /*
- * [2:0] Data valid counter after
- * read command to DDR. This is the
- * delay value to show how many
- * cycles the data will be back from
- * DDR after we issue a read
+ * [2:0] Data valid counter after read command to DDR. This is the delay value
+ * to show how many cycles the data will be back from DDR after we issue a read
  * command.
  */
 #define TW5864_RD_ACK_VLD_MUX      0xa000
@@ -1084,17 +1040,18 @@
 #define TW5864_DDR_PERIODS         0xa004
 /* Define controls in register TW5864_DDR_PERIODS */
 /*
- * Tras value, the minimum cycle of
- * active to precharge command
- * period, default is 7
+ * Tras value, the minimum cycle of active to precharge command period,
+ * default is 7
  */
 #define TW5864_TRAS_CNT_MAX        0x000f
-/* Trfc value, the minimum cycle of refresh to active or refresh command
- * period, default is 4"hf
+/*
+ * Trfc value, the minimum cycle of refresh to active or refresh command period,
+ * default is 4"hf
  */
 #define TW5864_RFC_CNT_MAX_SHIFT        8
 #define TW5864_RFC_CNT_MAX (0x0f << 8)
-/* Trcd value, the minimum cycle of active to internal read/write command
+/*
+ * Trcd value, the minimum cycle of active to internal read/write command
  * period, default is 4"h2
  */
 #define TW5864_TCD_CNT_MAX_SHIFT        4
@@ -1104,26 +1061,23 @@
 #define TW5864_TWR_CNT_MAX (0x0f << 12)
 
 /*
- * [2:0] CAS latency, the delay
- * cycle between internal read
- * command and the availability of
- * the first bit of output data,
- * default is 3
+ * [2:0] CAS latency, the delay cycle between internal read command and the
+ * availability of the first bit of output data, default is 3
  */
 #define TW5864_CAS_LATENCY         0xa008
 /*
- * [15:0] Maximum average periodic
- * refresh, the value is based on
- * the current frequency to match
- * 7.8mcs
+ * [15:0] Maximum average periodic refresh, the value is based on the current
+ * frequency to match 7.8mcs
  */
 #define TW5864_DDR_REF_CNTR_MAX    0xa00c
 /*
- * DDR_ON_CHIP_MAP [1:0] 0x0 256M DDR on board
- * 0x1 512M DDR on board
- * 0x2 1G DDR on board
- * DDR_ON_CHIP_MAP [2] 0x0 Only one DDR chip
- * 0x1 Two DDR chips
+ * DDR_ON_CHIP_MAP [1:0]
+ * 0 256M DDR on board
+ * 1 512M DDR on board
+ * 2 1G DDR on board
+ * DDR_ON_CHIP_MAP [2]
+ * 0 Only one DDR chip
+ * 1 Two DDR chips
  */
 #define TW5864_DDR_ON_CHIP_MAP     0xa01c
 #define TW5864_DDR_SELFTEST_MODE   0xa020
@@ -1145,10 +1099,10 @@
 #define TW5864_WRITE_FLAG        BIT(2)
 #define TW5864_DATA_MODE_SHIFT          4
 /*
- * 0x0 write 32'haaaa5555 to DDR
- * 0x1 write 32'hffffffff to DDR
- * 0x2 write 32'hha5a55a5a to DDR
- * 0x3 write increasing data to DDR
+ * 0 write 32'haaaa5555 to DDR
+ * 1 write 32'hffffffff to DDR
+ * 2 write 32'hha5a55a5a to DDR
+ * 3 write increasing data to DDR
  */
 #define TW5864_DATA_MODE (0x3 << 4)
 
@@ -1171,8 +1125,8 @@
 #define TW5864_END_FLAG            0x8000
 
 /*
- * DDR Controller B: same as 0xa000 ~ 0xa038,
- * but add TW5864_DDR_B_OFFSET to all addresses
+ * DDR Controller B: same as 0xa000 ~ 0xa038, but add TW5864_DDR_B_OFFSET to all
+ * addresses
  */
 #define TW5864_DDR_B_OFFSET        0x0800
 
@@ -1212,8 +1166,11 @@
 
 /* 0xb800 ~ 0xb80c -- Indirect Access Register Map */
 /*
- * In order to access the indirect register space,
- * the following procedure is followed.
+ * Spec says:
+ * In order to access the indirect register space, the following procedure is
+ * followed.
+ * But reference driver implementation, and current driver, too, does it
+ * differently.
  *
  * Write Registers:
  * (1) Write IND_DATA at 0xb804 ~ 0xb807
@@ -1413,8 +1370,8 @@
 /* vlc stream crc value, it is calculated in pci module */
 #define TW5864_VLC_CRC_REG        0x1801c
 /*
- * vlc max length, it is defined by software based on software assign
- * memory space for vlc
+ * vlc max length, it is defined by software based on software assign memory
+ * space for vlc
  */
 #define TW5864_VLC_MAX_LENGTH     0x18020
 /* vlc length of one frame */
@@ -1434,8 +1391,8 @@
 
 /*
  * Configuration register for 9[or 10] CIFs or 1D1+15QCIF Preview mode.
- * PREV_PCI_ENB_CHN[0] Enable 9th preview channel (9CIF prev)
- * or 1D1 channel in (1D1+15QCIF prev)
+ * PREV_PCI_ENB_CHN[0] Enable 9th preview channel (9CIF prev) or 1D1 channel in
+ * (1D1+15QCIF prev)
  * PREV_PCI_ENB_CHN[1] Enable 10th preview channel
  */
 #define TW5864_PREV_PCI_ENB_CHN   0x18040
@@ -1517,14 +1474,13 @@
 #define TW5864_INDIR_VIN_0(channel) (0x000 + channel * 0x010)
 /* Define controls in register TW5864_INDIR_VIN_0 */
 /*
- * 1 Video not present. (sync is not detected in number of
- * consecutive line periods specified by MISSCNT register)
+ * 1 Video not present. (sync is not detected in number of consecutive line
+ * periods specified by MISSCNT register)
  * 0 Video detected.
  */
 #define TW5864_INDIR_VIN_0_VDLOSS BIT(7)
 /*
- * 1 Horizontal sync PLL is locked to the incoming video
- * source.
+ * 1 Horizontal sync PLL is locked to the incoming video source.
  * 0 Horizontal sync PLL is not locked.
  */
 #define TW5864_INDIR_VIN_0_HLOCK  BIT(6)
@@ -1551,8 +1507,8 @@
 /*
  * 0 60Hz source detected
  * 1 50Hz source detected
- * The actual vertical scanning frequency depends on the current
- * standard invoked.
+ * The actual vertical scanning frequency depends on the current standard
+ * invoked.
  */
 #define TW5864_INDIR_VIN_0_DET50 BIT(0)
 
@@ -1694,8 +1650,8 @@
 /* Macrovision color stripe protection burst detected */
 #define TW5864_INDIR_VIN_D_CSTRIPE BIT(1)
 /*
- * This bit is valid only when color stripe protection is detected, i.e.
- * if CSTRIPE=1,
+ * This bit is valid only when color stripe protection is detected, i.e. if
+ * CSTRIPE=1,
  * 1 Type 2 color stripe protection
  * 0 Type 3 color stripe protection
  */
@@ -1726,8 +1682,8 @@
 
 /*
  * 1 Disable the shadow registers
- * 0 Enable VACTIVE and HDELAY shadow registers value
- * depending on STANDARD. (Default)
+ * 0 Enable VACTIVE and HDELAY shadow registers value depending on STANDARD.
+ * (Default)
  */
 #define TW5864_INDIR_VIN_E_ATREG BIT(3)
 /*
@@ -1746,10 +1702,9 @@
 #define TW5864_INDIR_VIN_F(channel) (0x00f + channel * 0x010)
 /* Define controls in register TW5864_INDIR_VIN_F */
 /*
- * 1 Writing 1 to this bit will manually initiate the auto format
- * detection process. This bit is a self-clearing bit
- * 0 Manual initiation of auto format detection is done.
- * (Default)
+ * 1 Writing 1 to this bit will manually initiate the auto format detection
+ * process. This bit is a self-clearing bit
+ * 0 Manual initiation of auto format detection is done. (Default)
  */
 #define TW5864_INDIR_VIN_F_ATSTART BIT(7)
 /* Enable recognition of PAL60 (Default) */
@@ -1817,12 +1772,12 @@
 #define TW5864_INDIR_AIN_LAWMD (0x03 << 6)
 /*
  * Disable the mixing ratio value for all audio.
- * 0 Apply individual mixing ratio value for each audio
- * (default)
+ * 0 Apply individual mixing ratio value for each audio (default)
  * 1 Apply nominal value for all audio commonly
  */
 #define TW5864_INDIR_AIN_MIX_DERATIO BIT(5)
-/* Enable the mute function for audio channel AINn when n is 0 to 3. It effects
+/*
+ * Enable the mute function for audio channel AINn when n is 0 to 3. It effects
  * only for mixing. When n = 4, it enable the mute function of the playback
  * audio input. It effects only for single chip or the last stage chip
  * 0 Normal
@@ -1835,8 +1790,8 @@
 #define TW5864_INDIR_AIN_0x0E3 0x0e3
 /* Define controls in register TW5864_INDIR_AIN_0x0E3 */
 /*
- * ADATP signal is coming from external ADPCM decoder, instead
- * of on-chip ADPCM decoder
+ * ADATP signal is coming from external ADPCM decoder, instead of on-chip ADPCM
+ * decoder
  */
 #define TW5864_INDIR_AIN_0x0E3_EXT_ADATP BIT(7)
 /* ACLKP output signal polarity inverse */
@@ -1875,17 +1830,15 @@
 /*
  * 8bit I2S Record output mode.
  * 0 L/R half length separated output (Default).
- * 1 One continuous packed output equal to DSP output
- * format.
+ * 1 One continuous packed output equal to DSP output format.
  */
 #define TW5864_INDIR_AIN_0x0E4_I2S8MODE BIT(7)
 /*
  * Audio Clock Master ACLKR output wave format.
  * 0 High periods is one 27MHz clock period (default).
- * 1 Almost duty 50-50% clock output on ACLKR pin. If this
- * mode is selected, two times bigger number value need
- * to be set up on the ACKI register. If AFAUTO=1, ACKI
- * control is automatically set up even if MASCKMD=1.
+ * 1 Almost duty 50-50% clock output on ACLKR pin. If this mode is selected, two
+ * times bigger number value need to be set up on the ACKI register. If
+ * AFAUTO=1, ACKI control is automatically set up even if MASCKMD=1.
  */
 #define TW5864_INDIR_AIN_0x0E4_MASCKMD BIT(6)
 /* Playback ACLKP/ASYNP/ADATP input data MSB-LSB swapping */
@@ -1904,10 +1857,9 @@
 #define TW5864_INDIR_AIN_0x0E4_ASYNPDLY BIT(3)
 /*
  * ADATP input data delay by one ACLKP clock.
- * 0 No delay (Default).This is for I2S type 1T delay input
- * interface.
- * 1 Add 1 ACLKP clock delay in ADATP input data. This is
- * for left-justified type 0T delay input interface.
+ * 0 No delay (Default). This is for I2S type 1T delay input interface.
+ * 1 Add 1 ACLKP clock delay in ADATP input data. This is for left-justified
+ * type 0T delay input interface.
  */
 #define TW5864_INDIR_AIN_0x0E4_ADATPDLY BIT(2)
 /*
@@ -2116,14 +2068,14 @@
 #define TW5864_INDIR_DETECTION_CTL5_ND_LVSENS 0x0f
 
 /*
- * [11:0] The base address of the motion detection buffer. This address is
- * in unit of 64K bytes. The generated DDR address will be
- * {MD_BASE_ADDR, 16"h0000}. The default value should be
- * 12"h000
+ * [11:0] The base address of the motion detection buffer. This address is in
+ * unit of 64K bytes. The generated DDR address will be {MD_BASE_ADDR,
+ * 16"h0000}. The default value should be 12"h000
  */
 #define TW5864_INDIR_MD_BASE_ADDR 0x380
 
-/* This controls the channel of the motion detection result shown in register
+/*
+ * This controls the channel of the motion detection result shown in register
  * 0x3a0 ~ 0x3b7. Before reading back motion result, always set this first.
  */
 #define TW5864_INDIR_RGR_MOTION_SEL 0x382
@@ -2139,16 +2091,13 @@
 /* Night Detected from channel n (read only) */
 #define TW5864_INDIR_ND_DET 0x38e
 
-/* 192 bit motion flag of the channel specified by
- * RGR_MOTION_SEL in 0x382
- */
+/* 192 bit motion flag of the channel specified by RGR_MOTION_SEL in 0x382 */
 #define TW5864_INDIR_MOTION_FLAG 0x3a0
 #define TW5864_INDIR_MOTION_FLAG_BYTE_COUNT 24
 
 /*
- * [9:0] The motion cell count of a
- * specific channel selected by 0x382.
- * This is for DI purpose
+ * [9:0] The motion cell count of a specific channel selected by 0x382. This is
+ * for DI purpose
  */
 #define TW5864_INDIR_MD_DI_CNT 0x3b8
 /* The motion detection cell sensitivity for DI purpose */
