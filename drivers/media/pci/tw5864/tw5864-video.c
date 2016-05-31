@@ -1015,12 +1015,6 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 	tw_writel(TW5864_MV_STREAM_BASE_ADDR,
 		  dev->h264_buf[dev->h264_buf_w_index].mv.dma_addr);
 
-	for (i = 0; i < TW5864_INPUTS; i++) {
-		tw_indir_writeb(TW5864_INDIR_VIN_E(i), 0x07);
-		/* to initiate auto format recognition */
-		tw_indir_writeb(TW5864_INDIR_VIN_F(i), 0xff);
-	}
-
 	tw_writel(TW5864_SEN_EN_CH, 0x000f);
 	tw_writel(TW5864_H264EN_CH_EN, 0x000f);
 
@@ -1100,6 +1094,7 @@ free_dma:
 
 static int tw5864_video_input_init(struct tw5864_input *input, int video_nr)
 {
+	struct tw5864_dev *dev = input->root;
 	int ret;
 	struct v4l2_ctrl_handler *hdl = &input->hdl;
 
@@ -1181,6 +1176,10 @@ static int tw5864_video_input_init(struct tw5864_input *input, int video_nr)
 	 */
 	input->v4l2_std = V4L2_STD_NTSC_M;
 	input->std = STD_NTSC;
+
+	tw_indir_writeb(TW5864_INDIR_VIN_E(video_nr), 0x07);
+	/* to initiate auto format recognition */
+	tw_indir_writeb(TW5864_INDIR_VIN_F(video_nr), 0xff);
 
 	return 0;
 
