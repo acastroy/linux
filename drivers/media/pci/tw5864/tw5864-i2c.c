@@ -53,7 +53,7 @@ static int tw5864_smbus_xfer(struct i2c_adapter *adap, u16 addr,
 	struct tw5864_dev *dev = ctx->dev;
 	int devid = ctx->devid;
 	int retries = adap->retries;
-	u32 first_write = BIT(24) | devid << 16 | addr << 8;
+	u32 first_write = BIT(24) | devid << 17 | addr << 8;
 	u32 val;
 
 	if (read_write == I2C_SMBUS_READ)
@@ -134,10 +134,10 @@ int tw5864_i2c_init(struct tw5864_dev *dev)
 
 	mutex_init(&dev->i2c_lock);
 
-	dev->i2c[0].devid = 0x50; /* tw2865 */
-	dev->i2c[1].devid = 0x52; /* tw2864 */
-	dev->i2c[2].devid = 0x54; /* tw2864 */
-	dev->i2c[3].devid = 0x56; /* tw2864 */
+	dev->i2c[0].devid = 0x28; /* tw2865 */
+	dev->i2c[1].devid = 0x29; /* tw2864 */
+	dev->i2c[2].devid = 0x2a; /* tw2864 */
+	dev->i2c[3].devid = 0x2b; /* tw2864 */
 
 	for (i = 0; i < 4; i++) {
 		ctx = &dev->i2c[i];
