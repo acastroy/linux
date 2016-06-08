@@ -126,18 +126,12 @@
 /* Maximum Number of Buffers (default 4) */
 #define TW5864_DSP_REF_PIC_MAX 0x0700
 
-/*
- * [15:0] SEN_EN_CH[n] SENIF
- * original frame capture enable for
- * each channel
- */
+/* [15:0] SEN_EN_CH[n] SENIF original frame capture enable for each channel */
 #define TW5864_SEN_EN_CH 0x0028
 
 #define TW5864_DSP 0x002c
 /* Define controls in register TW5864_DSP */
-/*
- * The ID for channel selected for encoding operation
- */
+/* The ID for channel selected for encoding operation */
 #define TW5864_DSP_ENC_CHN 0x000f
 /* See DSP_MB_DELAY below */
 #define TW5864_DSP_MB_WAIT 0x0010
