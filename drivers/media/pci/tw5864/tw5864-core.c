@@ -125,11 +125,20 @@ static void tw5864_h264_isr(struct tw5864_dev *dev)
 		cur_frame->checksum = tw_readl(TW5864_VLC_CRC_REG);
 		cur_frame->input = input;
 		cur_frame->timestamp = ktime_get_ns();
+		cur_frame->seqno = input->frame_seqno;
+		cur_frame->gop_seqno = input->frame_gop_seqno;
 
 		dev->h264_buf_w_index = next_frame_index;
 		tasklet_schedule(&dev->tasklet);
 
 		cur_frame = next_frame;
+
+		spin_lock_irqsave(&input->slock, flags);
+		input->frame_seqno++;
+		input->frame_gop_seqno++;
+		if (input->frame_gop_seqno >= input->gop)
+			input->frame_gop_seqno = 0;
+		spin_unlock_irqrestore(&input->slock, flags);
 	} else {
 		dev_err(&dev->pci->dev,
 			"Skipped frame on input %d because all buffers busy\n",
@@ -139,10 +148,6 @@ static void tw5864_h264_isr(struct tw5864_dev *dev)
 	dev->encoder_busy = 0;
 
 	spin_unlock_irqrestore(&dev->slock, flags);
-
-	spin_lock_irqsave(&input->slock, flags);
-	input->frame_seqno++;
-	spin_unlock_irqrestore(&input->slock, flags);
 
 	dma_sync_single_for_device(&dev->pci->dev,
 				   cur_frame->vlc.dma_addr,

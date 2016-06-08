@@ -104,8 +104,8 @@ struct tw5864_input {
 	enum resolution resolution;
 	unsigned int width, height;
 	unsigned int frame_seqno;
+	unsigned int frame_gop_seqno;
 	unsigned int h264_idr_pic_id;
-	unsigned int h264_frame_seqno_in_gop;
 	int enabled;
 	enum tw5864_vid_std std;
 	v4l2_std_id v4l2_std;
@@ -147,6 +147,8 @@ struct tw5864_h264_frame {
 	u32 checksum;
 	struct tw5864_input *input;
 	u64 timestamp;
+	unsigned int seqno;
+	unsigned int gop_seqno;
 };
 
 struct tw5864_i2c_adap {
@@ -180,7 +182,6 @@ struct tw5864_dev {
 	struct pci_dev *pci;
 	void __iomem *mmio;
 	u32 irqmask;
-	u32 frame_seqno;
 
 	u32 stored_len;
 };
@@ -231,7 +232,7 @@ void tw5864_h264_put_stream_header(u8 **buf, size_t *space_left, int qp,
 				   int width, int height);
 void tw5864_h264_put_slice_header(u8 **buf, size_t *space_left,
 				  unsigned int idr_pic_id,
-				  unsigned int frame_seqno_in_gop,
+				  unsigned int frame_gop_seqno,
 				  int *tail_nb_bits, u8 *tail);
 void tw5864_request_encoded_frame(struct tw5864_input *input);
 void tw5864_push_to_make_it_roll(struct tw5864_input *input);

@@ -163,23 +163,23 @@ static int tw5864_h264_gen_pps_rbsp(u8 *buf, size_t size, int qp)
 
 static int tw5864_h264_gen_slice_head(u8 *buf, size_t size,
 				      unsigned int idr_pic_id,
-				      unsigned int frame_seqno_in_gop,
+				      unsigned int frame_gop_seqno,
 				      int *tail_nb_bits, u8 *tail)
 {
 	struct bs bs, *s;
-	int is_i_frame = frame_seqno_in_gop == 0;
+	int is_i_frame = frame_gop_seqno == 0;
 
 	s = &bs;
 	bs_init(s, buf, size);
 	bs_write_ue(s, 0); /* first_mb_in_slice */
 	bs_write_ue(s, is_i_frame ? 2 : 5); /* slice_type - I or P */
 	bs_write_ue(s, 0); /* pic_parameter_set_id */
-	bs_write(s, ilog2(MAX_GOP_SIZE), frame_seqno_in_gop); /* frame_num */
+	bs_write(s, ilog2(MAX_GOP_SIZE), frame_gop_seqno); /* frame_num */
 	if (is_i_frame)
 		bs_write_ue(s, idr_pic_id);
 
 	/* pic_order_cnt_lsb */
-	bs_write(s, ilog2(MAX_GOP_SIZE), frame_seqno_in_gop);
+	bs_write(s, ilog2(MAX_GOP_SIZE), frame_gop_seqno);
 
 	if (is_i_frame) {
 		bs_write1(s, 0); /* no_output_of_prior_pics_flag */
@@ -237,7 +237,7 @@ void tw5864_h264_put_stream_header(u8 **buf, size_t *space_left, int qp,
 
 void tw5864_h264_put_slice_header(u8 **buf, size_t *space_left,
 				  unsigned int idr_pic_id,
-				  unsigned int frame_seqno_in_gop,
+				  unsigned int frame_gop_seqno,
 				  int *tail_nb_bits, u8 *tail)
 {
 	int nal_len;
@@ -247,12 +247,12 @@ void tw5864_h264_put_slice_header(u8 **buf, size_t *space_left,
 	*space_left -= 4;
 
 	/* Frame NAL header */
-	**buf = (frame_seqno_in_gop == 0) ? 0x25 : 0x21;
+	**buf = (frame_gop_seqno == 0) ? 0x25 : 0x21;
 	*buf += 1;
 	*space_left -= 1;
 
 	nal_len = tw5864_h264_gen_slice_head(*buf, *space_left, idr_pic_id,
-					     frame_seqno_in_gop, tail_nb_bits,
+					     frame_gop_seqno, tail_nb_bits,
 					     tail);
 	*buf += nal_len;
 	*space_left -= nal_len;

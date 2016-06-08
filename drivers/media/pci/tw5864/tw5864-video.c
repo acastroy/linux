@@ -274,8 +274,8 @@ static int tw5864_enable_input(struct tw5864_input *input)
 	input->v4l2_std = tw5864_get_v4l2_std(input->std);
 
 	input->frame_seqno = 0;
+	input->frame_gop_seqno = 0;
 	input->h264_idr_pic_id = 0;
-	input->h264_frame_seqno_in_gop = 0;
 
 	input->reg_dsp_qp = input->qp;
 	input->reg_dsp_ref_mvp_lambda = lambda_lookup_table[input->qp];
@@ -412,10 +412,9 @@ void tw5864_request_encoded_frame(struct tw5864_input *input)
 			     TW5864_DSP_INTRA_MODE_SHIFT,
 			     TW5864_DSP_INTRA_MODE_16x16);
 
-	if (input->frame_seqno % input->gop == 0) {
+	if (input->frame_gop_seqno == 0) {
 		/* Produce I-frame */
 		tw_writel(TW5864_MOTION_SEARCH_ETC, TW5864_INTRA_EN);
-		input->h264_frame_seqno_in_gop = 0;
 		input->h264_idr_pic_id++;
 		input->h264_idr_pic_id &= TW5864_DSP_REF_FRM;
 	} else {
@@ -425,7 +424,6 @@ void tw5864_request_encoded_frame(struct tw5864_input *input)
 			  | TW5864_ME_EN
 			  | BIT(5) /* SRCH_OPT default */
 			 );
-		input->h264_frame_seqno_in_gop++;
 	}
 	tw5864_prepare_frame_headers(input);
 	tw_writel(TW5864_VLC,
@@ -1266,7 +1264,7 @@ void tw5864_prepare_frame_headers(struct tw5864_input *input)
 	 * Generate H264 headers:
 	 * If this is first frame, put SPS and PPS
 	 */
-	if (input->h264_frame_seqno_in_gop == 0)
+	if (input->frame_gop_seqno == 0)
 		tw5864_h264_put_stream_header(&dst, &dst_space, input->qp,
 					      input->width, input->height);
 
@@ -1274,7 +1272,7 @@ void tw5864_prepare_frame_headers(struct tw5864_input *input)
 	sl_hdr = dst;
 	space_before_sl_hdr = dst_space;
 	tw5864_h264_put_slice_header(&dst, &dst_space, input->h264_idr_pic_id,
-				     input->h264_frame_seqno_in_gop,
+				     input->frame_gop_seqno,
 				     &input->tail_nb_bits, &input->tail);
 	input->vb = vb;
 	input->buf_cur_ptr = dst;
@@ -1454,10 +1452,10 @@ static void tw5864_handle_frame(struct tw5864_h264_frame *frame)
 
 	vb->vb.vb2_buf.timestamp = frame->timestamp;
 	v4l2_buf->field = V4L2_FIELD_NONE;
-	v4l2_buf->sequence = input->frame_seqno - 1;
+	v4l2_buf->sequence = frame->seqno;
 
 	/* Check for motion flags */
-	if (input->h264_frame_seqno_in_gop /* P-frame */ &&
+	if (frame->gop_seqno /* P-frame */ &&
 	    tw5864_is_motion_triggered(frame)) {
 		struct v4l2_event ev = {
 			.type = V4L2_EVENT_MOTION_DET,
