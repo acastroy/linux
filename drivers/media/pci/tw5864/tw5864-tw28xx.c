@@ -179,9 +179,9 @@ static int tw28xx_clkp_delay(struct tw5864_dev *dev, u8 i2c_index)
 		tw_i2c_write(i2c_index, 0x9f, delay);
 		tw_writel(TW5864_H264EN_BUS0_MAP, base_chan);
 		/* clear error flags */
-		tw_writel(TW5864_UNDEFINED_ERROR_FLAGS_0x9218, 0x1);
+		tw_writel(TW5864_UNDECLARED_ERROR_FLAGS_0x9218, 0x1);
 		mdelay(100);
-		if (tw_readl(TW5864_UNDEFINED_ERROR_FLAGS_0x9218) == 0)
+		if (tw_readl(TW5864_UNDECLARED_ERROR_FLAGS_0x9218) == 0)
 			break;
 	}
 	tw_i2c_write(i2c_index, 0x9f, flags);

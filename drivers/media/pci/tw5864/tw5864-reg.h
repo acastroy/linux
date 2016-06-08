@@ -1013,7 +1013,7 @@
 #define TW5864_H264EN_BUS3_MAP 0x920c
 
 /* This register is not defined in datasheet, but used in reference driver */
-#define TW5864_UNDEFINED_ERROR_FLAGS_0x9218 0x9218
+#define TW5864_UNDECLARED_ERROR_FLAGS_0x9218 0x9218
 
 #define TW5864_GPIO1 0x9800
 #define TW5864_GPIO2 0x9804
