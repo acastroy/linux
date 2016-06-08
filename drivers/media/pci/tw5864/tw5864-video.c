@@ -1222,7 +1222,6 @@ void tw5864_prepare_frame_headers(struct tw5864_input *input)
 {
 	struct tw5864_buf *vb = input->vb;
 	u8 *dst;
-	unsigned long dst_size;
 	size_t dst_space;
 	unsigned long flags;
 	u8 *sl_hdr;
@@ -1241,8 +1240,7 @@ void tw5864_prepare_frame_headers(struct tw5864_input *input)
 	}
 
 	dst = vb2_plane_vaddr(&vb->vb.vb2_buf, 0);
-	dst_size = vb2_plane_size(&vb->vb.vb2_buf, 0);
-	dst_space = dst_size;
+	dst_space = vb2_plane_size(&vb->vb.vb2_buf, 0);
 
 	/*
 	 * Low-level bitstream writing functions don't have a fine way to say
@@ -1360,18 +1358,16 @@ static u32 tw5864_vlc_checksum(u32 *data, int len)
 
 static void tw5864_handle_frame(struct tw5864_h264_frame *frame)
 {
+#define SKIP_VLCBUF_BYTES 3
 	struct tw5864_input *input = frame->input;
 	struct tw5864_dev *dev = input->root;
 	struct tw5864_buf *vb;
 	struct vb2_v4l2_buffer *v4l2_buf;
-	int frame_len = frame->vlc_len;
-	unsigned long dst_size;
-	unsigned long dst_space;
-	int skip_bytes = 3;
+	int frame_len = frame->vlc_len - SKIP_VLCBUF_BYTES;
 	u8 *dst = input->buf_cur_ptr;
 	u8 tail_mask, vlc_mask = 0;
 	int i;
-	u8 vlc_first_byte = ((u8 *)(frame->vlc.addr + skip_bytes))[0];
+	u8 vlc_first_byte = ((u8 *)(frame->vlc.addr + SKIP_VLCBUF_BYTES))[0];
 	unsigned long flags;
 	int zero_run;
 	u8 *src;
@@ -1396,15 +1392,15 @@ static void tw5864_handle_frame(struct tw5864_h264_frame *frame)
 		return;
 	}
 
-	dst_size = vb2_plane_size(&vb->vb.vb2_buf, 0);
-
-	dst_space = input->buf_cur_space_left;
-	frame_len -= skip_bytes;
-	if (WARN_ON_ONCE(dst_space < frame_len)) {
+	/*
+	 * Check for space.
+	 * Mind the overhead of startcode emulation prevention.
+	 */
+	if (input->buf_cur_space_left < frame_len * 5 / 4) {
 		dev_err_once(&dev->pci->dev,
-			     "Left space in vb2 buffer %lu is insufficient for frame length %d, writing truncated frame\n",
-			     dst_space, frame_len);
-		frame_len = dst_space;
+			     "Left space in vb2 buffer, %lu bytes, is less than considered safely enough to put frame of length %d. Dropping this frame.\n",
+			     input->buf_cur_space_left, frame_len);
+		return;
 	}
 
 	for (i = 0; i < 8 - input->tail_nb_bits; i++)
@@ -1412,18 +1408,11 @@ static void tw5864_handle_frame(struct tw5864_h264_frame *frame)
 	tail_mask = (~vlc_mask) & 0xff;
 
 	dst[0] = (input->tail & tail_mask) | (vlc_first_byte & vlc_mask);
-	skip_bytes++;
 	frame_len--;
 	dst++;
-	dst_space--;
 
 	/* H.264 startcode emulation prevention */
-	if (dst_space < frame_len * 5 / 4) {
-		dev_err(&dev->pci->dev,
-			"Buffer is insufficient for H.264 startcode emulation prevention, dropping frame\n");
-		return;
-	}
-	src = frame->vlc.addr + skip_bytes;
+	src = frame->vlc.addr + SKIP_VLCBUF_BYTES + 1;
 	src_end = src + frame_len;
 	zero_run = 0;
 	for (; src < src_end; src++) {
@@ -1439,7 +1428,6 @@ static void tw5864_handle_frame(struct tw5864_h264_frame *frame)
 		}
 		*dst++ = *src;
 	}
-	/* dst_space is not actual at this point */
 
 	vb2_set_plane_payload(&vb->vb.vb2_buf, 0,
 			      dst - (u8 *)vb2_plane_vaddr(&vb->vb.vb2_buf, 0));
