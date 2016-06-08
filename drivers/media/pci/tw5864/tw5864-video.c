@@ -401,7 +401,6 @@ void tw5864_request_encoded_frame(struct tw5864_input *input)
 	tw_writel(TW5864_DSP_QP, input->reg_dsp_qp);
 	tw_writel(TW5864_DSP_REF_MVP_LAMBDA, input->reg_dsp_ref_mvp_lambda);
 	tw_writel(TW5864_DSP_I4x4_WEIGHT, input->reg_dsp_i4x4_weight);
-	/* 16x16 */
 	tw_mask_shift_writel(TW5864_DSP_INTRA_MODE, TW5864_DSP_INTRA_MODE_MASK,
 			     TW5864_DSP_INTRA_MODE_SHIFT,
 			     TW5864_DSP_INTRA_MODE_16x16);
