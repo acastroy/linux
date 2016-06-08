@@ -187,33 +187,35 @@ static void tw5864_timer_isr(struct tw5864_dev *dev)
 		if (!input->enabled)
 			goto next;
 
+		/* Check if new raw frame is available */
 		raw_buf_id = tw_mask_shift_readl(TW5864_SENIF_ORG_FRM_PTR1, 0x3,
 						 2 * input->nr);
 
-		/* Check if new raw frame is available */
-		if (input->buf_id == raw_buf_id) {
+		if (input->buf_id != raw_buf_id) {
+			input->new_frame_deadline =
+				jiffies + msecs_to_jiffies(1000);
+			input->buf_id = raw_buf_id;
+			spin_unlock_irqrestore(&input->slock, flags);
+
+			spin_lock_irqsave(&dev->slock, flags);
+			dev->encoder_busy = 1;
+			dev->next_input = (next_input + 1) % TW5864_INPUTS;
+			spin_unlock_irqrestore(&dev->slock, flags);
+
+			tw5864_request_encoded_frame(input);
+			tw5864_input_deadline_update(input);
+			break;
+		} else {
+			/* No new raw frame; check if channel is stuck */
 			if (time_is_after_jiffies(input->new_frame_deadline)) {
+				/* If stuck, request new raw frames again */
 				tw_mask_shift_writel(TW5864_ENC_BUF_PTR_REC1,
-						0x3, 2 * input->nr,
-						input->buf_id + 3);
+						     0x3, 2 * input->nr,
+						     input->buf_id + 3);
 				tw5864_input_deadline_update(input);
 			}
-			goto next;
+			spin_unlock_irqrestore(&input->slock, flags);
 		}
-
-		input->new_frame_deadline = jiffies + msecs_to_jiffies(1000);
-		input->buf_id = raw_buf_id;
-		spin_unlock_irqrestore(&input->slock, flags);
-
-		spin_lock_irqsave(&dev->slock, flags);
-		dev->encoder_busy = 1;
-		dev->next_input = (next_input + 1) % TW5864_INPUTS;
-		spin_unlock_irqrestore(&dev->slock, flags);
-		tw5864_request_encoded_frame(input);
-		tw5864_input_deadline_update(input);
-		break;
-next:
-		spin_unlock_irqrestore(&input->slock, flags);
 	}
 out:
 	tw_writel(TW5864_PCI_INTR_STATUS, TW5864_TIMER_INTR);
