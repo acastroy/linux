@@ -140,7 +140,9 @@ static void tw5864_h264_isr(struct tw5864_dev *dev)
 
 	spin_unlock_irqrestore(&dev->slock, flags);
 
+	spin_lock_irqsave(&input->slock, flags);
 	input->frame_seqno++;
+	spin_unlock_irqrestore(&input->slock, flags);
 
 	dma_sync_single_for_device(&dev->pci->dev,
 				   cur_frame->vlc.dma_addr,
