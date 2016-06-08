@@ -152,6 +152,7 @@ static void tw5864_h264_isr(struct tw5864_dev *dev)
 	tw_writel(TW5864_VLC_STREAM_BASE_ADDR, cur_frame->vlc.dma_addr);
 	tw_writel(TW5864_MV_STREAM_BASE_ADDR, cur_frame->mv.dma_addr);
 
+	/* Additional ack for this interrupt */
 	tw_writel(TW5864_VLC_DSP_INTR, 0x00000001);
 	tw_writel(TW5864_PCI_INTR_STATUS, TW5864_VLC_DONE_INTR);
 }
@@ -167,12 +168,15 @@ static void tw5864_timer_isr(struct tw5864_dev *dev)
 	int i;
 	int encoder_busy;
 
+	/* Additional ack for this interrupt */
+	tw_writel(TW5864_PCI_INTR_STATUS, TW5864_TIMER_INTR);
+
 	spin_lock_irqsave(&dev->slock, flags);
 	encoder_busy = dev->encoder_busy;
 	spin_unlock_irqrestore(&dev->slock, flags);
 
 	if (encoder_busy)
-		goto out;
+		return;
 
 	/*
 	 * Traversing inputs in round-robin fashion, starting from next to the
@@ -203,20 +207,18 @@ static void tw5864_timer_isr(struct tw5864_dev *dev)
 
 			tw5864_request_encoded_frame(input);
 			break;
-		} else {
-			/* No new raw frame; check if channel is stuck */
-			if (time_is_after_jiffies(input->new_frame_deadline)) {
-				/* If stuck, request new raw frames again */
-				tw_mask_shift_writel(TW5864_ENC_BUF_PTR_REC1,
-						     0x3, 2 * input->nr,
-						     input->buf_id + 3);
-				tw5864_input_deadline_update(input);
-			}
-			spin_unlock_irqrestore(&input->slock, flags);
 		}
+
+		/* No new raw frame; check if channel is stuck */
+		if (time_is_after_jiffies(input->new_frame_deadline)) {
+			/* If stuck, request new raw frames again */
+			tw_mask_shift_writel(TW5864_ENC_BUF_PTR_REC1, 0x3,
+					     2 * input->nr, input->buf_id + 3);
+			tw5864_input_deadline_update(input);
+		}
+next:
+		spin_unlock_irqrestore(&input->slock, flags);
 	}
-out:
-	tw_writel(TW5864_PCI_INTR_STATUS, TW5864_TIMER_INTR);
 }
 
 static int tw5864_initdev(struct pci_dev *pci_dev,
