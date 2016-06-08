@@ -86,16 +86,11 @@ static irqreturn_t tw5864_isr(int irq, void *dev_id)
 	tw_writel(TW5864_INTR_CLR_L, 0xffff);
 	tw_writel(TW5864_INTR_CLR_H, 0xffff);
 
-	if (status & TW5864_INTR_VLC_DONE) {
+	if (status & TW5864_INTR_VLC_DONE)
 		tw5864_h264_isr(dev);
-		tw_writel(TW5864_VLC_DSP_INTR, 0x00000001);
-		tw_writel(TW5864_PCI_INTR_STATUS, TW5864_VLC_DONE_INTR);
-	}
 
-	if (status & TW5864_INTR_TIMER) {
+	if (status & TW5864_INTR_TIMER)
 		tw5864_timer_isr(dev);
-		tw_writel(TW5864_PCI_INTR_STATUS, TW5864_TIMER_INTR);
-	}
 
 	if (!(status & (TW5864_INTR_TIMER | TW5864_INTR_VLC_DONE))) {
 		dev_dbg(&dev->pci->dev, "Unknown interrupt, status 0x%08X\n",
@@ -156,6 +151,9 @@ static void tw5864_h264_isr(struct tw5864_dev *dev)
 
 	tw_writel(TW5864_VLC_STREAM_BASE_ADDR, cur_frame->vlc.dma_addr);
 	tw_writel(TW5864_MV_STREAM_BASE_ADDR, cur_frame->mv.dma_addr);
+
+	tw_writel(TW5864_VLC_DSP_INTR, 0x00000001);
+	tw_writel(TW5864_PCI_INTR_STATUS, TW5864_VLC_DONE_INTR);
 }
 
 static void tw5864_input_deadline_update(struct tw5864_input *input)
@@ -174,7 +172,7 @@ static void tw5864_timer_isr(struct tw5864_dev *dev)
 	spin_unlock_irqrestore(&dev->slock, flags);
 
 	if (encoder_busy)
-		return;
+		goto out;
 
 	/*
 	 * Traversing inputs in round-robin fashion, starting from next to the
@@ -217,6 +215,8 @@ static void tw5864_timer_isr(struct tw5864_dev *dev)
 next:
 		spin_unlock_irqrestore(&input->slock, flags);
 	}
+out:
+	tw_writel(TW5864_PCI_INTR_STATUS, TW5864_TIMER_INTR);
 }
 
 static int tw5864_initdev(struct pci_dev *pci_dev,
