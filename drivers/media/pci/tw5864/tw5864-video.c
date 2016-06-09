@@ -413,9 +413,12 @@ void tw5864_request_encoded_frame(struct tw5864_input *input)
 	} else {
 		/* Produce P-frame */
 		tw_writel(TW5864_MOTION_SEARCH_ETC,
-			  TW5864_INTRA_EN
-			  | TW5864_ME_EN
-			  | BIT(5) /* SRCH_OPT default */
+			  TW5864_INTRA_EN |
+			  TW5864_QPEL_EN |
+			  TW5864_HPEL_EN |
+			  TW5864_SKIP_EN |
+			  TW5864_ME_EN |
+			  BIT(5) /* SRCH_OPT default */
 			 );
 	}
 	tw5864_prepare_frame_headers(input);
