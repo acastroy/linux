@@ -412,11 +412,8 @@ void tw5864_request_encoded_frame(struct tw5864_input *input)
 		input->h264_idr_pic_id &= TW5864_DSP_REF_FRM;
 	} else {
 		/* Produce P-frame */
-		tw_writel(TW5864_MOTION_SEARCH_ETC,
-			  TW5864_INTRA_EN
-			  | TW5864_ME_EN
-			  | BIT(5) /* SRCH_OPT default */
-			 );
+		tw_writel(TW5864_MOTION_SEARCH_ETC, TW5864_INTRA_EN |
+			  TW5864_ME_EN | BIT(5) /* SRCH_OPT default */);
 	}
 	tw5864_prepare_frame_headers(input);
 	tw_writel(TW5864_VLC,
@@ -429,7 +426,7 @@ void tw5864_request_encoded_frame(struct tw5864_input *input)
 	tw_writel(TW5864_DSP_ENC_ORG_PTR_REG,
 		  enc_buf_id_new << TW5864_DSP_ENC_ORG_PTR_SHIFT);
 	tw_writel(TW5864_DSP_ENC_REC,
-		  enc_buf_id_new << 12 | (enc_buf_id_new + 3) & 3);
+		  enc_buf_id_new << 12 | ((enc_buf_id_new + 3) & 3));
 
 	tw_writel(TW5864_SLICE, TW5864_START_NSLICE);
 	tw_writel(TW5864_SLICE, 0);
@@ -1066,7 +1063,6 @@ fini_video_inputs:
 
 	tasklet_kill(&dev->tasklet);
 
-fini_i2c:
 	tw5864_i2c_fini(dev);
 
 free_dma:
@@ -1393,7 +1389,7 @@ static void tw5864_handle_frame(struct tw5864_h264_frame *frame)
 	 */
 	if (input->buf_cur_space_left < frame_len * 5 / 4) {
 		dev_err_once(&dev->pci->dev,
-			     "Left space in vb2 buffer, %lu bytes, is less than considered safely enough to put frame of length %d. Dropping this frame.\n",
+			     "Left space in vb2 buffer, %d bytes, is less than considered safely enough to put frame of length %d. Dropping this frame.\n",
 			     input->buf_cur_space_left, frame_len);
 		return;
 	}
