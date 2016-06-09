@@ -226,4 +226,3 @@ void tw5864_h264_put_slice_header(u8 **buf, size_t *space_left,
 				  unsigned int frame_gop_seqno,
 				  int *tail_nb_bits, u8 *tail);
 void tw5864_request_encoded_frame(struct tw5864_input *input);
-void tw5864_push_to_make_it_roll(struct tw5864_input *input);
