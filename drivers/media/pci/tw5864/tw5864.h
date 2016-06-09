@@ -214,14 +214,6 @@ int tw5864_i2c_read(struct tw5864_dev *dev, u8 i2c_index, u8 offset, u8 *data);
 int tw5864_i2c_write(struct tw5864_dev *dev, u8 i2c_index, u8 offset, u8 data);
 #define tw_i2c_write(i2c_index, offset, data) \
 	tw5864_i2c_write(dev, i2c_index, offset, data)
-int tw5864_i2c_multi_write(struct tw5864_dev *dev, u8 i2c_index, u8 addr,
-			   const u8 *buf, u32 count);
-#define tw_i2c_multi_write(i2c_index, addr, buf, count) \
-	tw5864_i2c_multi_write(dev, i2c_index, addr, buf, count)
-int tw5864_i2c_scatter_write(struct tw5864_dev *dev, u8 i2c_index,
-			     const u8 *buf, u32 count);
-#define tw_i2c_scatter_write(i2c_index, buf, count) \
-	tw5864_i2c_scatter_write(dev, i2c_index, buf, count)
 
 void tw5864_irqmask_apply(struct tw5864_dev *dev);
 int tw5864_video_init(struct tw5864_dev *dev, int *video_nr);

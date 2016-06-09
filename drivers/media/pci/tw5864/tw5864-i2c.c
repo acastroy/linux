@@ -12,35 +12,6 @@ static const struct i2c_algorithm tw5864_i2c_algo = {
 	.functionality = tw5864_i2c_functionality,
 };
 
-int tw5864_i2c_multi_write(struct tw5864_dev *dev, u8 i2c_index, u8 addr,
-			   const u8 *buf, u32 count)
-{
-	int i;
-	int ret;
-
-	for (i = 0; i < count; i++) {
-		ret = tw5864_i2c_write(dev, i2c_index, addr + i, buf[i]);
-		if (ret)
-			return ret;
-	}
-	return 0;
-}
-
-int tw5864_i2c_scatter_write(struct tw5864_dev *dev, u8 i2c_index,
-			     const u8 *buf, u32 count)
-{
-	int i;
-	u32 ret;
-
-	for (i = 0; i < count; i++) {
-		ret = tw5864_i2c_write(dev, i2c_index,
-				       buf[2 * i], buf[2 * i + 1]);
-		if (ret)
-			return ret;
-	}
-	return 0;
-}
-
 static int tw5864_smbus_xfer(struct i2c_adapter *adap, u16 addr,
 			     unsigned short flags, char read_write, u8 command,
 			     int size, union i2c_smbus_data *data)
