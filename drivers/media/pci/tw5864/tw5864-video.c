@@ -977,7 +977,7 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 	tw_indir_writeb(TW5864_INDIR_RESET, 0);
 	tw_indir_writeb(TW5864_INDIR_RESET, TW5864_INDIR_RESET_VD |
 			TW5864_INDIR_RESET_DLL | TW5864_INDIR_RESET_MUX_CORE);
-	mdelay(10);
+	msleep(20);
 
 	/*
 	 * Select Part A mode for all channels.
