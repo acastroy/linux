@@ -224,7 +224,6 @@ int tw5864_i2c_scatter_write(struct tw5864_dev *dev, u8 i2c_index,
 	tw5864_i2c_scatter_write(dev, i2c_index, buf, count)
 
 void tw5864_irqmask_apply(struct tw5864_dev *dev);
-int tw5864_tw28xx_init(struct tw5864_dev *dev);
 int tw5864_video_init(struct tw5864_dev *dev, int *video_nr);
 void tw5864_video_fini(struct tw5864_dev *dev);
 void tw5864_prepare_frame_headers(struct tw5864_input *input);
