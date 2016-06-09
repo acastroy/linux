@@ -964,10 +964,6 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 	if (ret)
 		goto free_dma;
 
-	ret = tw5864_tw28xx_init(dev);
-	if (ret)
-		goto fini_i2c;
-
 	/* Picture is distorted without this block */
 	/* use falling edge to sample 54M to 108M */
 	tw_indir_writeb(TW5864_INDIR_VD_108_POL, TW5864_INDIR_VD_108_POL_BOTH);
