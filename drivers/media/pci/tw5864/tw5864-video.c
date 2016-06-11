@@ -1091,14 +1091,14 @@ static int tw5864_video_input_init(struct tw5864_input *input, int video_nr)
 	INIT_LIST_HEAD(&input->active);
 	input->vidq.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	input->vidq.timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
-	input->vidq.io_modes = VB2_MMAP | VB2_READ | VB2_DMABUF;
+	input->vidq.io_modes = VB2_MMAP | VB2_READ;
 	input->vidq.ops = &tw5864_video_qops;
 	input->vidq.mem_ops = &vb2_dma_contig_memops;
 	input->vidq.drv_priv = input;
-	input->vidq.gfp_flags = __GFP_DMA32;
+	input->vidq.gfp_flags = 0;
 	input->vidq.buf_struct_size = sizeof(struct tw5864_buf);
 	input->vidq.lock = &input->lock;
-	input->vidq.min_buffers_needed = 12;
+	input->vidq.min_buffers_needed = 2;
 	ret = vb2_queue_init(&input->vidq);
 	if (ret)
 		goto free_mutex;
