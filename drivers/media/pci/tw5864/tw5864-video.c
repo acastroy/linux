@@ -728,14 +728,14 @@ static int tw5864_frameinterval_get(struct tw5864_input *input,
 	if (ret)
 		return ret;
 
-	frameinterval->numerator = 1;
-
 	switch (std) {
 	case STD_NTSC:
-		frameinterval->denominator = 30;
+		frameinterval->numerator = 1001;
+		frameinterval->denominator = 30000;
 		break;
 	case STD_PAL:
 	case STD_SECAM:
+		frameinterval->numerator = 1;
 		frameinterval->denominator = 25;
 		break;
 	default:
@@ -759,7 +759,7 @@ static int tw5864_enum_frameintervals(struct file *file, void *priv,
 	if (fintv->width != input->width || fintv->height != input->height)
 		return -EINVAL;
 
-	fintv->type = V4L2_FRMIVAL_TYPE_DISCRETE;
+	fintv->type = V4L2_FRMIVAL_TYPE_STEPWISE;
 
 	return tw5864_frameinterval_get(input, &fintv->discrete);
 }
@@ -794,7 +794,7 @@ static int tw5864_s_parm(struct file *file, void *priv,
 		return ret;
 
 	if (!t->numerator || !t->denominator) {
-		t->numerator = input->frame_interval;
+		t->numerator = time_base.numerator * input->frame_interval;
 		t->denominator = time_base.denominator;
 	} else if (t->denominator != time_base.denominator) {
 		t->numerator = t->numerator * time_base.denominator /
@@ -802,7 +802,7 @@ static int tw5864_s_parm(struct file *file, void *priv,
 		t->denominator = time_base.denominator;
 	}
 
-	input->frame_interval = t->numerator;
+	input->frame_interval = t->numerator / time_base.numerator;
 	tw5864_frame_interval_set(input);
 	return tw5864_g_parm(file, priv, sp);
 }
