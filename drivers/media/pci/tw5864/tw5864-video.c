@@ -747,6 +747,22 @@ static int tw5864_frameinterval_get(struct tw5864_input *input,
 	return 0;
 }
 
+static int tw5864_enum_framesizes(struct file *file, void *priv,
+				  struct v4l2_frmsizeenum *fsize)
+{
+	struct tw5864_input *input = video_drvdata(file);
+
+	if (fsize->index > 0)
+		return -EINVAL;
+	if (fsize->pixel_format != V4L2_PIX_FMT_H264)
+		return -EINVAL;
+
+	fsize->type = V4L2_FRMSIZE_TYPE_DISCRETE;
+	fsize->discrete.width = input->width;
+	fsize->discrete.height = input->height;
+	return 0;
+}
+
 static int tw5864_enum_frameintervals(struct file *file, void *priv,
 				      struct v4l2_frmivalenum *fintv)
 {
@@ -891,6 +907,7 @@ static const struct v4l2_ioctl_ops video_ioctl_ops = {
 	.vidioc_log_status = v4l2_ctrl_log_status,
 	.vidioc_subscribe_event = tw5864_subscribe_event,
 	.vidioc_unsubscribe_event = v4l2_event_unsubscribe,
+	.vidioc_enum_framesizes = tw5864_enum_framesizes,
 	.vidioc_enum_frameintervals = tw5864_enum_frameintervals,
 	.vidioc_s_parm = tw5864_s_parm,
 	.vidioc_g_parm = tw5864_g_parm,
