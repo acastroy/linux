@@ -21,7 +21,6 @@
 #include <linux/mutex.h>
 #include <linux/io.h>
 #include <linux/interrupt.h>
-#include <linux/i2c.h>
 
 #include <media/v4l2-common.h>
 #include <media/v4l2-ioctl.h>
@@ -151,13 +150,6 @@ struct tw5864_h264_frame {
 	unsigned int gop_seqno;
 };
 
-struct tw5864_i2c_adap {
-	struct tw5864_dev *dev;
-	int devid;
-	struct i2c_adapter adap;
-	struct i2c_client client;
-};
-
 /* global device status */
 struct tw5864_dev {
 	spinlock_t slock; /* used for sync between ISR, tasklet & V4L2 API */
@@ -169,9 +161,6 @@ struct tw5864_dev {
 	int h264_buf_w_index;
 
 	struct tasklet_struct tasklet;
-
-	struct tw5864_i2c_adap i2c[4];
-	struct mutex i2c_lock;
 
 	int encoder_busy;
 	/* Input number to check next for ready raw picture (in RR fashion) */
@@ -205,15 +194,6 @@ u8 tw5864_indir_readb(struct tw5864_dev *dev, u16 addr);
 #define tw_indir_readb(addr) tw5864_indir_readb(dev, addr)
 void tw5864_indir_writeb(struct tw5864_dev *dev, u16 addr, u8 data);
 #define tw_indir_writeb(addr, data) tw5864_indir_writeb(dev, addr, data)
-
-int tw5864_i2c_init(struct tw5864_dev *dev);
-void tw5864_i2c_fini(struct tw5864_dev *dev);
-int tw5864_i2c_read(struct tw5864_dev *dev, u8 i2c_index, u8 offset, u8 *data);
-#define tw_i2c_read(i2c_index, offset, data) \
-	tw5864_i2c_read(dev, i2c_index, offset, data)
-int tw5864_i2c_write(struct tw5864_dev *dev, u8 i2c_index, u8 offset, u8 data);
-#define tw_i2c_write(i2c_index, offset, data) \
-	tw5864_i2c_write(dev, i2c_index, offset, data)
 
 void tw5864_irqmask_apply(struct tw5864_dev *dev);
 int tw5864_video_init(struct tw5864_dev *dev, int *video_nr);
