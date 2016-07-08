@@ -556,7 +556,7 @@ static int tw5864_fmt_vid_cap(struct file *file, void *priv,
 		f->fmt.pix.height = 576;
 		break;
 	}
-	f->fmt.pix.field = V4L2_FIELD_NONE;
+	f->fmt.pix.field = V4L2_FIELD_INTERLACED;
 	f->fmt.pix.pixelformat = V4L2_PIX_FMT_H264;
 	f->fmt.pix.sizeimage = H264_VLC_BUF_SIZE;
 	f->fmt.pix.colorspace = V4L2_COLORSPACE_SMPTE170M;
@@ -618,8 +618,6 @@ static int tw5864_querycap(struct file *file, void *priv,
 	sprintf(cap->bus_info, "PCI:%s", pci_name(input->root->pci));
 	cap->device_caps = V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_READWRITE |
 		V4L2_CAP_STREAMING;
-
-	cap->capabilities = cap->device_caps | V4L2_CAP_DEVICE_CAPS;
 	return 0;
 }
 
