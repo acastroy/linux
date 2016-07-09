@@ -828,6 +828,8 @@ static int tw5864_s_parm(struct file *file, void *priv,
 	}
 
 	input->frame_interval = t->numerator / time_base.numerator;
+	if (input->frame_interval < 1)
+		input->frame_interval = 1;
 	tw5864_frame_interval_set(input);
 	return tw5864_g_parm(file, priv, sp);
 }
