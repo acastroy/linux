@@ -759,8 +759,9 @@ static int tw5864_enum_framesizes(struct file *file, void *priv,
 		return -EINVAL;
 
 	fsize->type = V4L2_FRMSIZE_TYPE_DISCRETE;
-	fsize->discrete.width = input->width;
-	fsize->discrete.height = input->height;
+	fsize->discrete.width = 720;
+	fsize->discrete.height = input->std == STD_NTSC ? 480 : 576;
+
 	return 0;
 }
 
