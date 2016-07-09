@@ -97,7 +97,6 @@ struct tw5864_input {
 	spinlock_t slock; /* used for sync between ISR, tasklet & V4L2 API */
 	struct video_device vdev;
 	struct v4l2_ctrl_handler hdl;
-	void *alloc_ctx;
 	struct vb2_queue vidq;
 	struct list_head active;
 	enum resolution resolution;
