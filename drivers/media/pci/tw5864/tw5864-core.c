@@ -292,15 +292,12 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 	}
 
 	/* get mmio */
-	if (!request_mem_region(pci_resource_start(pci_dev, 0),
-				pci_resource_len(pci_dev, 0), dev->name)) {
-		err = -EBUSY;
-		dev_err(&dev->pci->dev, "Cannot get MMIO memory @ 0x%llx\n",
-			(unsigned long long)pci_resource_start(pci_dev, 0));
+	err = pci_request_regions(pci_dev, dev->name);
+	if (err) {
+		dev_err(&dev->pci->dev, "Cannot request regions for MMIO\n");
 		goto disable_pci;
 	}
-	dev->mmio = ioremap_nocache(pci_resource_start(pci_dev, 0),
-				    pci_resource_len(pci_dev, 0));
+	dev->mmio = pci_ioremap_bar(pci_dev, 0);
 	if (!dev->mmio) {
 		err = -EIO;
 		dev_err(&dev->pci->dev, "can't ioremap() MMIO memory\n");
@@ -337,8 +334,7 @@ fini_video:
 unmap_mmio:
 	iounmap(dev->mmio);
 release_mmio:
-	release_mem_region(pci_resource_start(pci_dev, 0),
-			   pci_resource_len(pci_dev, 0));
+	pci_release_regions(pci_dev);
 disable_pci:
 	pci_disable_device(pci_dev);
 unreg_v4l2:
