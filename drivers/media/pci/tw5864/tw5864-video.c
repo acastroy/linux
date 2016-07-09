@@ -1433,7 +1433,7 @@ static void tw5864_handle_frame(struct tw5864_h264_frame *frame)
 			      dst - (u8 *)vb2_plane_vaddr(&vb->vb.vb2_buf, 0));
 
 	vb->vb.vb2_buf.timestamp = frame->timestamp;
-	v4l2_buf->field = V4L2_FIELD_NONE;
+	v4l2_buf->field = V4L2_FIELD_INTERLACED;
 	v4l2_buf->sequence = frame->seqno;
 
 	/* Check for motion flags */
