@@ -171,8 +171,6 @@ struct tw5864_dev {
 	struct pci_dev *pci;
 	void __iomem *mmio;
 	u32 irqmask;
-
-	u32 stored_len;
 };
 
 #define tw_readl(reg) readl(dev->mmio + reg)
