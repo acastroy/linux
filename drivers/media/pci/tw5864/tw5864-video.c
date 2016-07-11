@@ -612,9 +612,6 @@ static int tw5864_querycap(struct file *file, void *priv,
 	snprintf(cap->card, sizeof(cap->card), "TW5864 Encoder %d",
 		 input->nr);
 	sprintf(cap->bus_info, "PCI:%s", pci_name(input->root->pci));
-	cap->device_caps = V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_READWRITE |
-		V4L2_CAP_STREAMING;
-	cap->capabilities = cap->device_caps | V4L2_CAP_DEVICE_CAPS;
 	return 0;
 }
 
@@ -929,6 +926,8 @@ static struct video_device tw5864_video_template = {
 	.ioctl_ops = &video_ioctl_ops,
 	.release = video_device_release_empty,
 	.tvnorms = TW5864_NORMS,
+	.device_caps = V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_READWRITE |
+		V4L2_CAP_STREAMING,
 };
 
 /* Motion Detection Threshold matrix */
