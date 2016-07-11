@@ -1371,6 +1371,11 @@ static void tw5864_handle_frame(struct tw5864_h264_frame *frame)
 	u8 *src;
 	u8 *src_end;
 
+	dma_sync_single_for_cpu(&dev->pci->dev, frame->vlc.dma_addr,
+				H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
+	dma_sync_single_for_cpu(&dev->pci->dev, frame->mv.dma_addr,
+				H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
+
 #ifdef DEBUG
 	if (frame->checksum !=
 	    tw5864_vlc_checksum((u32 *)frame->vlc.addr, frame_len))

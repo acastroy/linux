@@ -146,11 +146,6 @@ static void tw5864_h264_isr(struct tw5864_dev *dev)
 	cur_frame = &dev->h264_buf[cur_frame_index];
 	next_frame = &dev->h264_buf[next_frame_index];
 
-	dma_sync_single_for_cpu(&dev->pci->dev, cur_frame->vlc.dma_addr,
-				H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
-	dma_sync_single_for_cpu(&dev->pci->dev, cur_frame->mv.dma_addr,
-				H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
-
 	if (next_frame_index != dev->h264_buf_r_index) {
 		cur_frame->vlc_len = tw_readl(TW5864_VLC_LENGTH) << 2;
 		cur_frame->checksum = tw_readl(TW5864_VLC_CRC_REG);
