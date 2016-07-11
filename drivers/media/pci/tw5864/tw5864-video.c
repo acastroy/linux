@@ -955,25 +955,26 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 	int last_input_nr_registered = -1;
 
 	for (i = 0; i < H264_BUF_CNT; i++) {
-		dev->h264_buf[i].vlc.addr =
-			dma_alloc_coherent(&dev->pci->dev, H264_VLC_BUF_SIZE,
-					   &dev->h264_buf[i].vlc.dma_addr,
-					   GFP_KERNEL | GFP_DMA32);
-		if (!dev->h264_buf[i].vlc.addr) {
+		struct tw5864_h264_frame *frame = &dev->h264_buf[i];
+
+		frame->vlc.addr = dma_alloc_coherent(&dev->pci->dev,
+						     H264_VLC_BUF_SIZE,
+						     &frame->vlc.dma_addr,
+						     GFP_KERNEL | GFP_DMA32);
+		if (!frame->vlc.addr) {
 			dev_err(&dev->pci->dev, "dma alloc fail\n");
 			ret = -ENOMEM;
 			goto free_dma;
 		}
-		dev->h264_buf[i].mv.addr =
-			dma_alloc_coherent(&dev->pci->dev, H264_MV_BUF_SIZE,
-					   &dev->h264_buf[i].mv.dma_addr,
-					   GFP_KERNEL | GFP_DMA32);
-		if (!dev->h264_buf[i].mv.addr) {
+		frame->mv.addr = dma_alloc_coherent(&dev->pci->dev,
+						    H264_MV_BUF_SIZE,
+						    &frame->mv.dma_addr,
+						    GFP_KERNEL | GFP_DMA32);
+		if (!frame->mv.addr) {
 			dev_err(&dev->pci->dev, "dma alloc fail\n");
 			ret = -ENOMEM;
 			dma_free_coherent(&dev->pci->dev, H264_VLC_BUF_SIZE,
-					  dev->h264_buf[i].vlc.addr,
-					  dev->h264_buf[i].vlc.dma_addr);
+					  frame->vlc.addr, frame->vlc.dma_addr);
 			goto free_dma;
 		}
 		last_dma_allocated = i;
@@ -1330,8 +1331,19 @@ static void tw5864_handle_frame_task(unsigned long data)
 
 	spin_lock_irqsave(&dev->slock, flags);
 	while (dev->h264_buf_r_index != dev->h264_buf_w_index && batch_size--) {
+		struct tw5864_h264_frame *frame =
+			&dev->h264_buf[dev->h264_buf_r_index];
+
 		spin_unlock_irqrestore(&dev->slock, flags);
-		tw5864_handle_frame(&dev->h264_buf[dev->h264_buf_r_index]);
+		dma_sync_single_for_cpu(&dev->pci->dev, frame->vlc.dma_addr,
+					H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
+		dma_sync_single_for_cpu(&dev->pci->dev, frame->mv.dma_addr,
+					H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
+		tw5864_handle_frame(frame);
+		dma_sync_single_for_device(&dev->pci->dev, frame->vlc.dma_addr,
+					   H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
+		dma_sync_single_for_device(&dev->pci->dev, frame->mv.dma_addr,
+					   H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
 		spin_lock_irqsave(&dev->slock, flags);
 
 		dev->h264_buf_r_index++;
@@ -1371,11 +1383,6 @@ static void tw5864_handle_frame(struct tw5864_h264_frame *frame)
 	int zero_run;
 	u8 *src;
 	u8 *src_end;
-
-	dma_sync_single_for_cpu(&dev->pci->dev, frame->vlc.dma_addr,
-				H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
-	dma_sync_single_for_cpu(&dev->pci->dev, frame->mv.dma_addr,
-				H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
 
 #ifdef DEBUG
 	if (frame->checksum !=

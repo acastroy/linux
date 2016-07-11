@@ -175,13 +175,6 @@ static void tw5864_h264_isr(struct tw5864_dev *dev)
 
 	spin_unlock_irqrestore(&dev->slock, flags);
 
-	dma_sync_single_for_device(&dev->pci->dev,
-				   cur_frame->vlc.dma_addr,
-				   H264_VLC_BUF_SIZE, DMA_FROM_DEVICE);
-	dma_sync_single_for_device(&dev->pci->dev,
-				   cur_frame->mv.dma_addr,
-				   H264_MV_BUF_SIZE, DMA_FROM_DEVICE);
-
 	tw_writel(TW5864_VLC_STREAM_BASE_ADDR, cur_frame->vlc.dma_addr);
 	tw_writel(TW5864_MV_STREAM_BASE_ADDR, cur_frame->mv.dma_addr);
 
