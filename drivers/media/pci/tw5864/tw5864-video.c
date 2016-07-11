@@ -1109,7 +1109,7 @@ static int tw5864_video_input_init(struct tw5864_input *input, int video_nr)
 	INIT_LIST_HEAD(&input->active);
 	input->vidq.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	input->vidq.timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
-	input->vidq.io_modes = VB2_MMAP | VB2_READ;
+	input->vidq.io_modes = VB2_MMAP | VB2_READ | VB2_DMABUF;
 	input->vidq.ops = &tw5864_video_qops;
 	input->vidq.mem_ops = &vb2_dma_contig_memops;
 	input->vidq.drv_priv = input;
