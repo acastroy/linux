@@ -33,5 +33,5 @@ u8 tw5864_indir_readb(struct tw5864_dev *dev, u16 addr)
 		dev_err(&dev->pci->dev,
 			"tw_indir_readl() retries exhausted at reading\n");
 
-	return (u8) tw_readl(TW5864_IND_DATA);
+	return tw_readl(TW5864_IND_DATA);
 }
