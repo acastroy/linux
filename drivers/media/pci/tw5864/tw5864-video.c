@@ -944,6 +944,37 @@ static int tw5864_video_input_init(struct tw5864_input *dev, int video_nr);
 static void tw5864_video_input_fini(struct tw5864_input *dev);
 static void tw5864_encoder_tables_upload(struct tw5864_dev *dev);
 
+#define MV_FILL_PATTERN 0x10101010
+
+static size_t tw5864_mv_buf_size_find(struct tw5864_h264_frame *frame)
+{
+	struct tw5864_input *input = frame->input;
+	u32 *mv_start = (u32 *)frame->mv.addr;
+	u32 *mv_end = mv_start + H264_MV_BUF_SIZE / sizeof(u32);
+	u32 *p;
+	size_t mv_size;
+
+	for (p = mv_end - 1; p >= mv_start; p--) {
+		if (*p != MV_FILL_PATTERN)
+			break;
+	}
+	mv_size = (p - mv_start) * sizeof(u32);
+	dev_info(&input->root->pci->dev, "MV buf size %zu\n", mv_size);
+
+	return mv_size;
+}
+
+static void tw5864_mv_buf_fill(struct tw5864_h264_frame *frame)
+{
+	u32 *mv_start = (u32 *)frame->mv.addr;
+	u32 *mv_end = mv_start + H264_MV_BUF_SIZE / sizeof(u32);
+	u32 *p;
+
+	for (p = mv_end - 1; p >= mv_start; p--) {
+		*p = MV_FILL_PATTERN;
+	}
+}
+
 int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 {
 	int i;
@@ -975,6 +1006,7 @@ int tw5864_video_init(struct tw5864_dev *dev, int *video_nr)
 					  frame->vlc.addr, frame->vlc.dma_addr);
 			goto free_dma;
 		}
+		tw5864_mv_buf_fill(frame);
 		last_dma_allocated = i;
 	}
 
@@ -1458,6 +1490,9 @@ static void tw5864_handle_frame(struct tw5864_h264_frame *frame)
 
 		v4l2_event_queue(&input->vdev, &ev);
 	}
+
+	tw5864_mv_buf_size_find(frame);
+	tw5864_mv_buf_fill(frame);
 
 	vb2_buffer_done(&vb->vb.vb2_buf, VB2_BUF_STATE_DONE);
 }
