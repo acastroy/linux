@@ -48,7 +48,7 @@
 #define MD_CELLS (MD_CELLS_HOR * MD_CELLS_VERT)
 
 #define H264_VLC_BUF_SIZE 0x80000
-#define H264_MV_BUF_SIZE 0x40000
+#define H264_MV_BUF_SIZE 0x2000 /* device writes 5396 bytes */
 #define QP_VALUE 28
 #define MAX_GOP_SIZE 255
 #define GOP_SIZE MAX_GOP_SIZE
