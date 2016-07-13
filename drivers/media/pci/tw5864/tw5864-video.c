@@ -181,7 +181,6 @@ static const unsigned int intra4x4_lambda3[] = {
 	64, 72, 81, 91
 };
 
-
 static v4l2_std_id tw5864_get_v4l2_std(enum tw5864_vid_std std);
 static enum tw5864_vid_std tw5864_from_v4l2_std(v4l2_std_id v4l2_std);
 
