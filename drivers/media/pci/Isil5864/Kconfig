@@ -1,0 +1,13 @@
+config VIDEO_ISIL5864
+	tristate "ISIL5864 video/audio grabber and encoder"
+	depends on VIDEO_DEV && PCI && VIDEO_V4L2
+	select VIDEOBUF_GEN
+	select VIDEOBUF_DMA_SG
+        select VIDEOBUF_VMALLOC
+        select VIDEOBUF_DMA_CONTIG
+	---help---
+	  Support for boards based on Techwell TW5864 chip which provides
+	  multichannel video & audio grabbing and encoding (H.264).
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called LXV4L2D.
