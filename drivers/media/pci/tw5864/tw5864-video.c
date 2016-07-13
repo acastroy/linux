@@ -535,7 +535,7 @@ static int tw5864_s_ctrl(struct v4l2_ctrl *ctrl)
 }
 
 static int tw5864_fmt_vid_cap(struct file *file, void *priv,
-				struct v4l2_format *f)
+			      struct v4l2_format *f)
 {
 	struct tw5864_input *input = video_drvdata(file);
 
