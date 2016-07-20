@@ -38,36 +38,35 @@ MODULE_AUTHOR("Bluecherry Maintainers <maintainers@bluecherrydvr.com>");
 MODULE_AUTHOR("Andrey Utkin <andrey.utkin@corp.bluecherry.net>");
 MODULE_LICENSE("GPL");
 
-static const char * const artifacts_warning =
-"BEWARE OF KNOWN ISSUES WITH VIDEO QUALITY\n"
-"\n"
-"This driver was developed by Bluecherry LLC by deducing behaviour of\n"
-"original manufacturer's driver, from both source code and execution traces.\n"
-"It is known that there are some artifacts on output video with this driver:\n"
-" - on all known hardware samples: random pixels of wrong color (mostly\n"
-"   white, red or blue) appearing and disappearing on sequences of P-frames;\n"
-" - on some hardware samples (known with H.264 core version e006:2800):\n"
-"   total madness on P-frames: blocks of wrong luminance; blocks of wrong\n"
-"   colors \"creeping\" across the picture.\n"
-"There is a workaround for both issues: avoid P-frames by setting GOP size\n"
-"to 1. To do that, run this command on device files created by this driver:\n"
-"\n"
-"v4l2-ctl --device /dev/videoX --set-ctrl=video_gop_size=1\n"
-"\n";
 
-static char *artifacts_warning_continued =
-"These issues are not decoding errors; all produced H.264 streams are decoded\n"
-"properly. Streams without P-frames don't have these artifacts so it's not\n"
-"analog-to-digital conversion issues nor internal memory errors; we conclude\n"
-"it's internal H.264 encoder issues.\n"
-"We cannot even check the original driver's behaviour because it has never\n"
-"worked properly at all in our development environment. So these issues may\n"
-"be actually related to firmware or hardware. However it may be that there's\n"
-"just some more register settings missing in the driver which would please\n"
-"the hardware.\n"
-"Manufacturer didn't help much on our inquiries, but feel free to disturb\n"
-"again the support of Intersil (owner of former Techwell).\n"
-"\n";
+/*
+ * BEWARE OF KNOWN ISSUES WITH VIDEO QUALITY
+ *
+ * This driver was developed by Bluecherry LLC by deducing behaviour of
+ * original manufacturer's driver, from both source code and execution traces.
+ * It is known that there are some artifacts on output video with this driver:
+ *  - on all known hardware samples: random pixels of wrong color (mostly
+ *    white, red or blue) appearing and disappearing on sequences of P-frames;
+ *  - on some hardware samples (known with H.264 core version e006:2800):
+ *    total madness on P-frames: blocks of wrong luminance; blocks of wrong
+ *    colors "creeping" across the picture.
+ * There is a workaround for both issues: avoid P-frames by setting GOP size
+ * to 1. To do that, run this command on device files created by this driver:
+ *
+ * v4l2-ctl --device /dev/videoX --set-ctrl=video_gop_size=1
+ *
+ * These issues are not decoding errors; all produced H.264 streams are decoded
+ * properly. Streams without P-frames don't have these artifacts so it's not
+ * analog-to-digital conversion issues nor internal memory errors; we conclude
+ * it's internal H.264 encoder issues.
+ * We cannot even check the original driver's behaviour because it has never
+ * worked properly at all in our development environment. So these issues may
+ * be actually related to firmware or hardware. However it may be that there's
+ * just some more register settings missing in the driver which would please
+ * the hardware.
+ * Manufacturer didn't help much on our inquiries, but feel free to disturb
+ * again the support of Intersil (owner of former Techwell).
+ */
 
 /* take first free /dev/videoX indexes by default */
 static unsigned int video_nr[] = {[0 ... (TW5864_INPUTS - 1)] = -1 };
@@ -312,8 +311,8 @@ static int tw5864_initdev(struct pci_dev *pci_dev,
 		goto fini_video;
 	}
 
-	dev_warn(&pci_dev->dev, "%s", artifacts_warning);
-	dev_warn(&pci_dev->dev, "%s", artifacts_warning_continued);
+	dev_info(&pci_dev->dev, "Note: there are known video quality issues. For details\n");
+	dev_info(&pci_dev->dev, "see the comment in drivers/media/pci/tw5864/tw5864-core.c.\n");
 
 	return 0;
 
