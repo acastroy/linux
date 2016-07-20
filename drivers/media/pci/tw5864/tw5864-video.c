@@ -1241,7 +1241,8 @@ void tw5864_prepare_frame_headers(struct tw5864_input *input)
 	 * The buffer is supposed to have plenty of free space at this point,
 	 * anyway.
 	 */
-	WARN_ON_ONCE(dst_space < 128);
+	if (WARN_ON_ONCE(dst_space < 128))
+		return;
 
 	/*
 	 * Generate H264 headers:
