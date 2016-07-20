@@ -1488,7 +1488,6 @@ static enum tw5864_vid_std tw5864_from_v4l2_std(v4l2_std_id v4l2_std)
 	if (v4l2_std & V4L2_STD_PAL_60)
 		return STD_PAL_60;
 
-	WARN_ON_ONCE(1);
 	return STD_INVALID;
 }
 
