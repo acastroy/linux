@@ -721,7 +721,7 @@ static int tw5864_frameinterval_get(struct tw5864_input *input,
 	default:
 		WARN(1, "tw5864_frameinterval_get requested for unknown std %d\n",
 		     input->std);
-		return 1;
+		return -EINVAL;
 	}
 
 	return 0;
