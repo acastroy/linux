@@ -10,7 +10,7 @@
 #include <linux/delay.h>
 #include <linux/kthread.h>
 #include <linux/firmware.h>
-#include <asm-generic/rtc.h>
+#include <linux/mc146818rtc.h>
 
 
 //#include "ippcore.h"
