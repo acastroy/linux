@@ -70,6 +70,7 @@ int solo_p2m_dma_desc(struct solo_dev *solo_dev,
 	unsigned int config = 0;
 	int ret = 0;
 	int p2m_id = 0;
+	u16 val;
 
 	/* Get next ID. According to Softlogic, 6110 has problems on !=0 P2M */
 	if (solo_dev->type != SOLO_DEV_6110 && multi_p2m) {
@@ -110,6 +111,7 @@ int solo_p2m_dma_desc(struct solo_dev *solo_dev,
 		solo_reg_write(solo_dev, SOLO_P2M_CONTROL(p2m_id),
 			       desc[1].ctrl);
 	}
+	pci_read_config_word(solo_dev->pdev, PCI_STATUS, &val);
 
 	timeout = wait_for_completion_timeout(&p2m_dev->completion,
 					      solo_dev->p2m_jiffies);
