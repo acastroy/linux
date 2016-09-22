@@ -215,10 +215,32 @@ static void tw5864_timer_isr(struct tw5864_dev *dev)
 		if (!input->enabled)
 			goto next;
 
+#if 0
 		/* Check if new raw frame is available */
 		raw_buf_id = tw_mask_shift_readl(TW5864_SENIF_ORG_FRM_PTR1, 0x3,
 						 2 * input->nr);
+#endif
+        int R0010 = tw_mask_shift_readl(0x0010, 0x3, 2 * input->nr);
+        int R0038 = tw_mask_shift_readl(0x0038, 0x3, 2 * input->nr);
+        int input_buffer = ((R0010 + 1) % 4 != R0038) ? R0010 : -1;
+        int ref_buffer = input->frame_seqno % 2;
+        int rec_buffer = (ref_buffer + 1) % 2;
 
+        if (input_buffer != -1) {
+			spin_unlock_irqrestore(&input->slock, flags);
+
+			spin_lock_irqsave(&dev->slock, flags);
+			dev->encoder_busy = 1;
+			dev->next_input = (next_input + 1) % TW5864_INPUTS;
+			spin_unlock_irqrestore(&dev->slock, flags);
+
+            tw_writel(0x0210, (rec_buffer << 12) | ref_buffer);
+            tw_writel(0x021c, (input_buffer + 1) % 4);
+			tw5864_request_encoded_frame(input);
+			break;
+        }
+
+#if 0
 		if (input->buf_id != raw_buf_id) {
 			input->buf_id = raw_buf_id;
 			tw5864_input_deadline_update(input);
@@ -232,6 +254,7 @@ static void tw5864_timer_isr(struct tw5864_dev *dev)
 			tw5864_request_encoded_frame(input);
 			break;
 		}
+#endif
 
 #if 0
 		/* No new raw frame; check if channel is stuck */

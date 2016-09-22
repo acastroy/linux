@@ -669,12 +669,16 @@ void tw5864_request_encoded_frame(struct tw5864_input *input)
 		  ((input->tail_nb_bits + 24) << TW5864_VLC_BIT_ALIGN_SHIFT) |
 		  input->reg_dsp_qp);
 
+#if 0
 	enc_buf_id_new = tw_mask_shift_readl(TW5864_ENC_BUF_PTR_REC1, 0x3,
 					     2 * input->nr);
+
 	tw_writel(TW5864_DSP_ENC_ORG_PTR_REG,
 		  enc_buf_id_new << TW5864_DSP_ENC_ORG_PTR_SHIFT);
+
 	tw_writel(TW5864_DSP_ENC_REC,
 		  enc_buf_id_new << 12 | ((enc_buf_id_new + 3) & 3));
+#endif
 
 	tw_writel(TW5864_SLICE, TW5864_START_NSLICE);
 	tw_writel(TW5864_SLICE, 0);
