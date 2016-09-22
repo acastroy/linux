@@ -179,7 +179,8 @@ struct tw5864_dev {
 	(tw_mask_readl((reg), ((mask) << (shift))) >> (shift))
 
 #define tw_writel(reg, value) do {\
-    printk(KERN_INFO "0x%08x: 0x%08x => 0x%08x %s\n", (u32)reg, (u32)tw_readl(reg), (u32)value, in_interrupt() ? "(IRQ)" : "");\
+    if (reg == 0x0210 || reg == 0x021c || reg == 0x0010 || reg == 0x0038 || reg == 0x000c) \
+        printk(KERN_INFO "0x%08x: 0x%08x => 0x%08x %s\n", (u32)reg, (u32)tw_readl(reg), (u32)value, in_interrupt() ? "(IRQ)" : "");\
     writel((value), dev->mmio + reg);\
 } while (0)
 
