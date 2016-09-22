@@ -343,6 +343,7 @@ ULONG TW5864_GetRegister( CDevice * pDevice, ULONG dwIndex )
 
 BOOLEAN TW5864_SetRegister( CDevice * pDevice, ULONG dwIndex, ULONG dwValue )
 {
+    LINUXV4L2_DEBUG( KERN_INFO, "0x%08x: 0x%08x => 0x%08x %s\n", (u32)dwIndex, (u32)TW5864_GetRegister(pDevice, dwIndex), (u32)dwValue, in_interrupt() ? "(IRQ)" : "");
 //	if( nBytes == 4 ) 
 		{ writel( (dwValue & 0xFFFFFFFF), (pDevice->m_pRegBaseCommonBuffer[ 0 ] + dwIndex) ); }
 
