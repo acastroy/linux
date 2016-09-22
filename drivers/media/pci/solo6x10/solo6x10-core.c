@@ -100,6 +100,7 @@ static irqreturn_t solo_isr(int irq, void *data)
 	struct solo_dev *solo_dev = data;
 	u32 status;
 	int i;
+	u16 tmp;
 
 	status = solo_reg_read(solo_dev, SOLO_IRQ_STAT);
 	if (!status)
@@ -129,6 +130,7 @@ static irqreturn_t solo_isr(int irq, void *data)
 	if (status & SOLO_IRQ_G723)
 		solo_g723_isr(solo_dev);
 
+	pci_read_config_word(solo_dev->pdev, PCI_STATUS, &tmp) // flush write to SOLO_IRQ_STAT
 	return IRQ_HANDLED;
 }
 
