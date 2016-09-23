@@ -233,6 +233,7 @@ static void tw5864_timer_isr(struct tw5864_dev *dev)
 			break;
 		}
 
+#if 0
 		/* No new raw frame; check if channel is stuck */
 		if (time_is_after_jiffies(input->new_frame_deadline)) {
 			/* If stuck, request new raw frames again */
@@ -240,6 +241,7 @@ static void tw5864_timer_isr(struct tw5864_dev *dev)
 					     2 * input->nr, input->buf_id + 3);
 			tw5864_input_deadline_update(input);
 		}
+#endif
 next:
 		spin_unlock_irqrestore(&input->slock, flags);
 	}
