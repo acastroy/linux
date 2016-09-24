@@ -255,6 +255,51 @@ static const struct file_operations LINUXV4L2_FILE_OPERATIONS =
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)
 
+#ifdef CONFIG_VIDEO_ADV_DEBUG
+
+#define INDIR_SPACE_MAP_SHIFT 0x100000
+
+static int tw5864_g_reg(struct file *file, void *fh,
+			struct v4l2_dbg_register *reg)
+{
+	CVideo * pVideo = (CVideo *)(file->private_data);
+
+	if (reg->reg < INDIR_SPACE_MAP_SHIFT) {
+		if (reg->reg > 0x87fff)
+			return -EINVAL;
+		reg->size = 4;
+		reg->val = TW5864_GetRegister(pVideo->m_pDevice, reg->reg);
+	} else {
+		__u64 indir_addr = reg->reg - INDIR_SPACE_MAP_SHIFT;
+
+		if (indir_addr > 0xefe)
+			return -EINVAL;
+		reg->size = 1;
+		reg->val = TW5864_GetAnalogVideoDecoderRegister(pVideo->m_pDevice, reg->reg);
+	}
+	return 0;
+}
+
+static int tw5864_s_reg(struct file *file, void *fh,
+			const struct v4l2_dbg_register *reg)
+{
+	CVideo * pVideo = (CVideo *)(file->private_data);
+
+	if (reg->reg < INDIR_SPACE_MAP_SHIFT) {
+		if (reg->reg > 0x87fff)
+			return -EINVAL;
+		TW5864_SetRegister(pVideo->m_pDevice, reg->reg, reg->val);
+	} else {
+		__u64 indir_addr = reg->reg - INDIR_SPACE_MAP_SHIFT;
+
+		if (indir_addr > 0xefe)
+			return -EINVAL;
+		TW5864_SetAnalogVideoDecoderRegister(pVideo->m_pDevice, reg->reg, reg->val);
+	}
+	return 0;
+}
+#endif
+
 static const struct v4l2_ioctl_ops LINUXV4L2_V4L2_IOCTL_OPS =
 {
 	.vidioc_querycap         = common_video_device_vidioc_querycap,
@@ -291,6 +336,11 @@ static const struct v4l2_ioctl_ops LINUXV4L2_V4L2_IOCTL_OPS =
 	.vidioc_enum_frameintervals = common_video_device_vidioc_enum_frameintervals,
 	.vidioc_enum_framesizes	= common_video_device_vidioc_enum_framesizes,
 	.vidioc_cropcap			= common_video_device_vidioc_cropcap,
+#ifdef CONFIG_VIDEO_ADV_DEBUG
+	.vidioc_g_register = tw5864_g_reg,
+	.vidioc_s_register = tw5864_s_reg,
+#endif
+
 
 };
 #endif
